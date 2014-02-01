@@ -1,0 +1,106 @@
+class BoogieLanguage
+  
+  prechigh
+    left 'forall' 'exists'
+    left 'old'
+    nonassoc '[' ']'
+    nonassoc '!'
+    left '*' '/' '%'
+    left '+' '-'
+    left '++'
+    left '==' '!=' '<' '>' '<=' '>=' '<:'
+    left '&&'
+    left '||'
+    left '==>'
+    left '<==>'
+    left 'if' 'then' 'else'
+    left ':'
+    nonassoc '(' ')'
+  preclow
+  
+  options no_result_var
+
+  token IDENTIFIER NUMBER BITVECTOR STRING BVTYPE
+  
+rule 
+  target: expr
+      
+  ident: IDENTIFIER { Identifier.new val[0] }
+  idents: ident { [val[0]] } | ident ',' idents { [val[0]] + val[2] }
+      
+  literal: 
+    bool_lit    { BooleanLiteral.new val[0] }
+    | BITVECTOR  { BitvectorLiteral.new val[0] }
+    | NUMBER     { IntegerLiteral.new val[0] }      
+  bool_lit: 'true' { true } | 'false' { false }
+
+  string: STRING
+  
+  type:
+    'bool' { Type::Boolean }
+    | 'int' { Type::Integer }
+    | BVTYPE { BitvectorType.new val[0] }
+    | ident { CustomType.new val[0] }
+    ### TODO COMPLETE ME
+    
+  type_vars: { [] } | '<' idents '>' { val[1] }
+
+  typed_id: ident ':' type { [val[0],val[2]] }
+  typed_ids: typed_id { [val[0]] } | typed_id ',' typed_ids  { [val[0]] + val[2] }
+  
+  expr: expr '<==>' expr  { BinaryExpression.new val }
+      | expr '==>' expr   { BinaryExpression.new val }
+      | expr '||' expr    { BinaryExpression.new val }
+      | expr '&&' expr    { BinaryExpression.new val }
+      | expr '==' expr    { BinaryExpression.new val }
+      | expr '!=' expr    { BinaryExpression.new val }
+      | expr '<' expr     { BinaryExpression.new val }
+      | expr '>' expr     { BinaryExpression.new val }
+      | expr '<=' expr    { BinaryExpression.new val }
+      | expr '>=' expr    { BinaryExpression.new val }
+      | expr '<:' expr    { BinaryExpression.new val }
+      | expr '++' expr    { BinaryExpression.new val }
+      | expr '+' expr     { BinaryExpression.new val }
+      | expr '-' expr     { BinaryExpression.new val }
+      | expr '*' expr     { BinaryExpression.new val }
+      | expr '/' expr     { BinaryExpression.new val }
+      | expr '%' expr     { BinaryExpression.new val }
+      | '!' expr          { LogicalNegation.new val[1] }
+      | '-' expr          { ArithmeticNegation.new val[1] }
+      | expr '[' exprs ']' { MapSelect.new val[0], val[2] }
+      | expr '[' exprs ':=' expr ']' { MapUpdate.new val[0], val[2], val[4] }
+      | expr '[' NUMBER ':' NUMBER ']' { BitvectorExtract.new val[0], val[2], val[4] }
+      | literal       
+      | IDENTIFIER '(' exprs_opt ')' { FunctionApplication.new val[0], val[2] }
+      | IDENTIFIER   { Identifier.new val[0] }
+      | 'old' '(' expr ')' { OldExpression.new val[2] }
+      | '(' quantifier type_vars typed_ids '::' ants expr ')' { QuantifiedExpression.new val[1], val[2], val[3], val[5], val[6] }
+      | '(' expr ')'  { val[1] }
+      
+  exprs: expr { [val[0]] } | expr ',' exprs { [val[0]] + val[2] }
+  exprs_opt: { [] } | exprs
+  
+  quantifier: 'forall' | 'exists'
+  
+  ants: { [] } | ant ants { [val[0]] + val[1] }
+  ant: attr | trigger
+  attr: '{:' ident enss_opt '}' { Attribute.new val[1], val[2] }
+  trigger: '{' exprs '}' { Trigger.new val[1] }
+
+  enss_opt: { [] } | enss
+  enss: ens { [val[0]] } | ens ',' enss { [val[0]] + val[2] }
+  ens: expr | string
+end
+
+---- header
+require_relative 'lexer.rex'
+require_relative 'ast/type'
+require_relative 'ast/expression'
+include Bpl::AST
+
+---- inner
+def parse(input)
+  puts "PARSED: #{scan_str(input)}"
+end
+
+---- footer
