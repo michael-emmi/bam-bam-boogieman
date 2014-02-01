@@ -14,9 +14,18 @@ module Bpl
     end
     
     class CustomType < Type
-      attr_accessor :name
-      def initialize(n); @name = n end
-      def to_s; @name.to_s end
+      attr_accessor :name, :arguments
+      def initialize(n,args); @name = n; @arguments = args end
+      def to_s; ([@name] + @arguments) * " " end
+    end
+    
+    class MapType < Type
+      attr_accessor :arguments, :range, :domain
+      def initialize(args,x,t); @arguments = args; @range = x; @domain = t end
+      def to_s
+        args = (@arguments.empty? ? "" : "<#{@arguments * ","}> ")
+        "#{args}[#{@range * ","}] #{@domain}"
+      end
     end
   end
 end

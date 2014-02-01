@@ -23,10 +23,11 @@ class BoogieLanguage
   token IDENTIFIER NUMBER BITVECTOR STRING BVTYPE
   
 rule 
-  target: expr
+  target: stmt
       
   ident: IDENTIFIER { Identifier.new val[0] }
   idents: ident { [val[0]] } | ident ',' idents { [val[0]] + val[2] }
+  idents_opt: { [] } | idents
       
   literal: 
     bool_lit    { BooleanLiteral.new val[0] }
@@ -37,13 +38,27 @@ rule
   string: STRING
   
   type:
+    type_atom
+    | map_type
+    | ident tc_args { CustomType.new val[0], val[1] }
+  
+  type_atom:
     'bool' { Type::Boolean }
     | 'int' { Type::Integer }
     | BVTYPE { BitvectorType.new val[0] }
-    | ident { CustomType.new val[0] }
-    ### TODO COMPLETE ME
+    | '(' type ')' { val[1] }
     
-  type_vars: { [] } | '<' idents '>' { val[1] }
+  map_type: type_args '[' types ']' type { MapType.new val[0], val[2], val[4] }
+
+  tc_args:
+    { [] }
+    | type_atom tc_args { [val[0]] + val[1] }
+    | ident tc_args { [CustomType.new(val[0],val[1])] }
+    | map_type { [val[0]] }
+    
+  types: type { [val[0]] } | type ',' types { [val[0]] + val[2] }
+    
+  type_args: { [] } | '<' idents '>' { val[1] }
 
   typed_id: ident ':' type { [val[0],val[2]] }
   typed_ids: typed_id { [val[0]] } | typed_id ',' typed_ids  { [val[0]] + val[2] }
@@ -74,33 +89,74 @@ rule
       | IDENTIFIER '(' exprs_opt ')' { FunctionApplication.new val[0], val[2] }
       | IDENTIFIER   { Identifier.new val[0] }
       | 'old' '(' expr ')' { OldExpression.new val[2] }
-      | '(' quantifier type_vars typed_ids '::' ants expr ')' { QuantifiedExpression.new val[1], val[2], val[3], val[5], val[6] }
+      | '(' quantifier type_args typed_ids '::' ants expr ')' { QuantifiedExpression.new val[1], val[2], val[3], val[5], val[6] }
       | '(' expr ')'  { val[1] }
       
   exprs: expr { [val[0]] } | expr ',' exprs { [val[0]] + val[2] }
   exprs_opt: { [] } | exprs
   
   quantifier: 'forall' | 'exists'
-  
-  ants: { [] } | ant ants { [val[0]] + val[1] }
-  ant: attr | trigger
+
   attr: '{:' ident enss_opt '}' { Attribute.new val[1], val[2] }
   trigger: '{' exprs '}' { Trigger.new val[1] }
+  ant: attr | trigger
+  ants: { [] } | ant ants { [val[0]] + val[1] }
 
-  enss_opt: { [] } | enss
-  enss: ens { [val[0]] } | ens ',' enss { [val[0]] + val[2] }
   ens: expr | string
+  enss: ens { [val[0]] } | ens ',' enss { [val[0]] + val[2] }
+  enss_opt: { [] } | enss
+  
+  stmt:
+    'assert' expr ';' { AssertStatement.new val[1] }
+    | 'assume' expr ';' { AssumeStatement.new val[1] }
+    | 'havoc' idents ';' { HavocStatement.new val[1] }
+    | lhss ':=' exprs ';' { AssignStatement.new val[0], val[2] }
+    | 'call' ident '(' exprs_opt ')' ';' { CallStatement.new val[1], val[3] }
+    | 'call' idents ':=' ident '(' exprs_opt ')' ';' { CallStatement.new val[3], val[5], val[1] }
+    | 'call' 'forall' ident '(' wc_exprs_opt ')' ';' { CallStatement.new val[2], val[4], nil }
+    | if_stmt
+    | 'while' '(' wc_expr ')' loop_invs block { WhileStatement.new val[2], val[4], val[5] }
+    | 'break' idents_opt ';' { BreakStatement.new val[1] }
+    | 'return' ';' { Statement::Return }
+    | 'goto' idents ';' { GotoStatement.new val[1] }
+  
+  if_stmt: 'if' '(' wc_expr ')' block else_stmt { IfStatement.new val[2], val[4], val[5] }
+  else_stmt: { nil } | 'else' block { val[1] } | 'else' if_stmt { val[1] }
+
+  lhs: ident selects { val[1].empty? ? val[0] : val[1].reduce(val[0]){|m,x| MapSelect.new m, x} }
+  lhss: lhs { [val[0]] } | lhs ',' lhss { [val[0]] + val[2] }
+
+  select: '[' exprs ']' { val[1] }
+  selects: { [] } | select selects { [val[0]] + val[1] }
+
+  wc_expr: expr | '*' { Expression::Wildcard }
+  wc_exprs: wc_expr { [val[0]] } | wc_expr ',' wc_exprs { [val[0]] + val[2] }
+  wc_exprs_opt: { [] } | wc_exprs
+  
+  loop_inv: free_opt 'invariant' expr ';' { LoopInvariant.new val[0], val[2] }
+  loop_invs: { [] } | loop_inv loop_invs { [val[0]] + val[1] }
+  free_opt: { false } | 'free' { true }
+  
+  lstmt: stmt { [[],val[0]] } | ident ':' lstmt { [[val[0]]+val[2][0],val[2][1]] }
+  lstmts: { [] } | lstmt lstmts { [val[0]] + val[1] }
+  lempty: { [] } | ident ':' lempty { [[val[0]] + val[2],nil] }
+  stmt_list: lstmts lempty { val[0] + val[1] }
+  block: '{' stmt_list '}' { Block.new val[1] }
 end
 
 ---- header
 require_relative 'lexer.rex'
 require_relative 'ast/type'
 require_relative 'ast/expression'
+require_relative 'ast/annotation'
+require_relative 'ast/statement'
 include Bpl::AST
 
 ---- inner
 def parse(input)
-  puts "PARSED: #{scan_str(input)}"
+  parsed = scan_str(input)
+  puts "INSPECT: #{parsed.inspect}"
+  puts "PARSED: #{parsed}"
 end
 
 ---- footer

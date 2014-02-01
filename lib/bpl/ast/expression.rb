@@ -2,9 +2,9 @@ require_relative 'type'
 
 module Bpl
   module AST
-    class Node; end
-
-    class Expression < Node
+    class Expression
+      Wildcard = Expression.new
+      def Wildcard.to_s; "*" end
     end
     
     class Literal < Expression
@@ -83,26 +83,26 @@ module Bpl
     end
     
     class QuantifiedExpression < Expression
-      attr_accessor :quantifier, :type_variables, :variables, :expression
+      attr_accessor :quantifier, :type_arguments, :variables, :expression
       attr_accessor :attributes, :triggers
       def initialize(q,tvs,vs,ants,e)
         @quantifier = q
-        @type_variables = tvs
+        @type_arguments = tvs
         @variables = vs
         @attributes = ants.select{|a| a.is_a? Attribute}
         @triggers = ants.select{|t| t.is_a? Trigger}
         @expression = e
       end
       def to_s
-        tvs = type_variables.empty? ? " " : " <#{type_variables * ", "}> "
-        vs = variables.map{|v,t| "#{v}: #{t}"} * ", "
-        lhs = quantifier + tvs + vs
-        rhs = (attributes + triggers + [expression]) * " "
+        tvs = @type_arguments.empty? ? " " : " <#{@type_arguments * ", "}> "
+        vs = @variables.map{|v,t| "#{v}: #{t}"} * ", "
+        lhs = @quantifier + tvs + vs
+        rhs = (@attributes + @triggers + [@expression]) * " "
         "(#{lhs} :: #{rhs})"
       end
     end
     
-    class Attribute < Node
+    class Attribute
       attr_accessor :name, :values
       def initialize(n,vs); @name = n; @values = vs end
       def to_s
@@ -111,7 +111,7 @@ module Bpl
       end
     end
     
-    class Trigger < Node
+    class Trigger
       attr_accessor :expressions
       def initialize(es); @expressions = es end
       def to_s; "{#{@expressions * ", "}}" end
