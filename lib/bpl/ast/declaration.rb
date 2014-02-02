@@ -20,30 +20,6 @@ module Bpl
       end
     end
     
-    class ConstantDeclaration < Declaration
-      attr_accessor :names, :type
-      attr_accessor :unique, :order_spec
-      def initialize(n,t,attrs,uniq,ord)
-        @names = n
-        @type = t
-        @attributes = attrs
-        @unique = uniq
-        @order_spec = ord
-      end
-      def to_s
-        lhs = @attributes + (@unique ? ['unique'] : []) + [@names * ", "]
-        rhs = [@type]
-        if @order_spec && @order_spec[0]
-          rhs << ['<:'] 
-          unless @order_spec[0].empty?
-            rhs << @order_spec[0].map{|c,p| (c ? 'unique ' : '') + p.to_s } * ", " 
-          end
-        end
-        rhs << ['complete'] if @order_spec && @order_spec[1]
-        "const #{lhs * " "}: #{rhs * " "};"
-      end
-    end
-    
     class FunctionDeclaration < Declaration
       attr_accessor :name, :type_arguments, :arguments, :return, :body
       def initialize(n,targs,args,ret,bd,attrs)
@@ -69,45 +45,88 @@ module Bpl
       def to_s; (['axiom'] + @attributes + [@expression]) * " " + ';' end
     end
     
-    class VariableDeclaration < Declaration
+    class NameDeclaration < Declaration
       attr_accessor :names, :type, :where
-      def initialize(ns,t,w,attrs); @names = ns; @type = t; @where = w; @attributes = attrs end
+      def initialize(names,type,where)
+        @attributes = []
+        @names = names
+        @type = type
+        @where = where
+      end
       def to_s
         lhs = (@attributes + [@names * ", "]) * " "
         rhs = ([@type] + (@where ? ['where',@where] : [])) * " "
-        "var #{lhs}: #{rhs};"
+        "#{lhs}: #{rhs}"
+      end
+    end
+    
+    class VariableDeclaration < NameDeclaration
+      def initialize(attrs,names,type,where)
+        super(names,type,where)
+        @attributes = attrs
+      end
+      def to_s; "var #{super.to_s};" end
+    end
+    
+    class ConstantDeclaration < NameDeclaration
+      attr_accessor :unique, :order_spec
+      def initialize(attrs,names,type,uniq,ord)
+        super(names,type,nil)
+        @attributes = attrs
+        @unique = uniq
+        @order_spec = ord
+      end
+      def to_s
+        lhs = @attributes + (@unique ? ['unique'] : []) + [@names * ", "]
+        rhs = [@type]
+        if @order_spec && @order_spec[0]
+          rhs << ['<:'] 
+          unless @order_spec[0].empty?
+            rhs << @order_spec[0].map{|c,p| (c ? 'unique ' : '') + p.to_s } * ", " 
+          end
+        end
+        rhs << ['complete'] if @order_spec && @order_spec[1]
+        "const #{lhs * " "}: #{rhs * " "};"
       end
     end
     
     class ProcedureDeclaration < Declaration
       attr_accessor :name, :type_arguments, :parameters, :returns
-      attr_accessor :specification
+      attr_accessor :specifications
       attr_accessor :variables, :statements
-      def initialize(ax,n,ts,ps,rs,sp,bd)
-        @attributes = ax
-        @name = n
-        @type_arguments = ts
-        @parameters = ps
-        @returns = rs
-        @specification = sp
-        @variables = bd ? bd[0] : nil
-        @statements = bd ? bd[1] : nil
+      def initialize(attrs,name,targs,params,rets,specs,body)
+        @attributes = attrs
+        @name = name
+        @type_arguments = targs
+        @parameters = params
+        @returns = rets
+        @specifications = specs
+        @body = body
       end
-      def body?; !@statements.nil? end
+      def sig_string
+        str = "#{(@attributes + [@name]) * " "}"
+        str << "(#{@parameters * ", "})"
+        str << " returns (#{@returns * ", "})" unless @returns.empty?
+        str
+      end
       def to_s
-        front = (@attributes + [@name]) * " "
-        params = @parameters.map{|x,t| "#{x}:#{t}"} * ", "
-        ret = (@returns.empty? ? "" : " returns (" + @returns.map{|x,t| "#{x}:#{t}"} * ", " + ")")
-        sig = "(#{params})#{ret}"
-        specs = @specification.empty? ? "" : ("\n" + @specification * "\n")
-        vars = (@variables && !@variables.empty?) ? ("\n  " + @variables * "\n  ") : ""
-        stmts = @statements ? ("\n" + @statements.map{|ls,s| (ls * ":\n") + (ls.empty? ? "" : ":\n") + "  #{s}"} * "\n") : ""
-        body = body? ? "\n{#{vars}#{stmts}\n}" : ""
-        "procedure #{front}#{sig}#{";" unless body?} #{specs}#{body}"
+        str = "procedure #{sig_string}"
+        str << ";" unless @body
+        str << "\n" + @specifications * "\n" unless @specifications.empty?
+        str << "\n" + @body.to_s if @body
+        str
       end
     end
     
-    class ImplementationDeclaration < Declaration
+    class ImplementationDeclaration < ProcedureDeclaration
+      def initialize(attrs,name,targs,params,rets,bodies)
+        super(attrs,name,targs,params,rets,[],bodies)
+      end
+      def to_s
+        str = "implementation #{sig_string}"
+        str << "\n" + (@body * "\n")
+        str
+      end
     end
   end
 end

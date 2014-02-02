@@ -59,10 +59,6 @@ rule
   types: type { [val[0]] } | type ',' types { [val[0]] + val[2] }
     
   type_args: { [] } | '<' idents '>' { val[1] }
-
-  typed_id: ident ':' type { [val[0],val[2]] }
-  typed_ids: typed_id { [val[0]] } | typed_id ',' typed_ids  { [val[0]] + val[2] }
-  typed_ids_opt: { [] } | typed_ids
   
   expr: expr '<==>' expr  { BinaryExpression.new val }
       | expr '==>' expr   { BinaryExpression.new val }
@@ -90,7 +86,7 @@ rule
       | IDENTIFIER '(' exprs_opt ')' { FunctionApplication.new val[0], val[2] }
       | IDENTIFIER   { Identifier.new val[0] }
       | 'old' '(' expr ')' { OldExpression.new val[2] }
-      | '(' quantifier type_args typed_ids '::' ants expr ')' { 
+      | '(' quantifier type_args param_decls '::' ants expr ')' { 
         QuantifiedExpression.new val[1], val[2], val[3], val[5], val[6] 
       }
       | '(' expr ')'  { val[1] }
@@ -141,11 +137,18 @@ rule
   loop_invs: { [] } | loop_inv loop_invs { [val[0]] + val[1] }
   free_opt: { false } | 'free' { true }
   
-  lstmt: stmt { [[],val[0]] } | ident ':' lstmt { [[val[0]]+val[2][0],val[2][1]] }
-  lstmts: { [] } | lstmt lstmts { [val[0]] + val[1] }
-  lempty: { [] } | ident ':' lempty { [[val[0]] + val[2],nil] }
-  stmt_list: lstmts lempty { val[0] + val[1] }
-  block: '{' stmt_list '}' { Block.new val[1] }
+  lstmts: 
+    { [] } 
+    | ident ':' lstmts { 
+      if val[2].empty? then 
+        [{labels: [val[0]], stmt: nil}]
+      else
+        [{labels: [val[0]] + val[2].first[:labels], stmt: val[2].first[:stmt]}] + val[2][1..-1]
+      end
+     }
+    | stmt lstmts { [{labels: [], stmt: val[0]}] + val[1] }
+
+  block: '{' lstmts '}' { Block.new [], val[1] }
   
   decl:
     type_decl
@@ -168,7 +171,7 @@ rule
   type_syn: { nil } | '=' type { val[1] }
 
   const_decl: 'const' attrs unique_opt idents ':' type order_spec ';' {
-    ConstantDeclaration.new val[3], val[5], val[1], val[2], val[6]
+    ConstantDeclaration.new val[1], val[3], val[5], val[2], val[6]
   }
   unique_opt: { false } | 'unique' { true }
   order_spec: parent_info complete_opt { [val[0],val[1]] }
@@ -188,18 +191,27 @@ rule
 
   axiom_decl: 'axiom' attrs expr ';' { AxiomDeclaration.new val[2], val[1] }
 
-  var_decl: 'var' attrs idents ':' type where_clause ';' {
-    VariableDeclaration.new val[2], val[4], val[5], val[1]
+  var_decl: 'var' attrs typed_ids ';' {
+    VariableDeclaration.new val[1], val[2][:ids], val[2][:type], val[2][:where]
   }
+  typed_ids: idents ':' type where_clause { {ids: val[0], type: val[2], where: val[3]} }
   var_decls: { [] } | var_decl var_decls { [val[0]] + val[1] }
   where_clause: { nil } | 'where' expr { val[1] }
 
-  proc_decl: 'procedure' attrs ident type_args '(' typed_ids_opt ')' out_params pspec {
-    ProcedureDeclaration.new val[1], val[2], val[3], val[5], val[7], val[8][0], val[8][1]
+  proc_decl: 
+    'procedure' attrs ident type_args '(' param_decls_opt ')' out_params pspec {
+      ProcedureDeclaration.new val[1], val[2], val[3], val[5], val[7], val[8][:specs], val[8][:body]
+    }
+  out_params: { [] } | 'returns' '(' param_decls_opt ')' { val[2] }
+  pspec: ';' specs { {specs: val[1], body: nil} } | specs pbody { {specs: val[0], body: val[1]} }
+  pbody: '{' var_decls lstmts '}' { Block.new val[1], val[2] }
+  pbodies: pbody { [val[0]] } | pbody pbodies { [val[0]] + val[1] }
+
+  param_decl: typed_ids {
+    NameDeclaration.new val[0][:ids], val[0][:type], val[0][:where] 
   }
-  out_params: { [] } | 'returns' '(' typed_ids ')' { val[2] }
-  pspec: ';' specs { [val[1],nil] } | specs pbody { [val[0],val[1]] }
-  pbody: '{' var_decls stmt_list '}' { [val[1],val[2]] }
+  param_decls: param_decl { [val[0]] } | param_decl ',' param_decls { [val[0]] + val[1] }
+  param_decls_opt: { [] } | param_decls
 
   spec: 
     free_opt 'requires' expr ';' { RequiresClause.new val[0], val[2] }
@@ -207,7 +219,10 @@ rule
     | free_opt 'ensures' expr ';' { EnsuresClause.new val[0], val[2] }
   specs: { [] } | spec specs { [val[0]] + val[1] }
 
-  impl_decl: 'implementation'
+  impl_decl:
+    'implementation' attrs ident type_args '(' param_decls_opt ')' out_params pbodies {
+      ImplementationDeclaration.new val[1], val[2], val[3], val[5], val[7], val[8]
+    }
   
   program: decls { Program.new val[0] }
 end

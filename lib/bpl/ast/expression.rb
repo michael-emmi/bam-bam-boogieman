@@ -94,9 +94,8 @@ module Bpl
         @expression = e
       end
       def to_s
-        tvs = @type_arguments.empty? ? " " : " <#{@type_arguments * ", "}> "
-        vs = @variables.map{|v,t| "#{v}: #{t}"} * ", "
-        lhs = @quantifier + tvs + vs
+        tvs = @type_arguments.empty? ? [] : ["<#{@type_arguments * ", "}>"]
+        lhs = ([@quantifier] + tvs + [@variables * ", "]) * " "
         rhs = (@attributes + @triggers + [@expression]) * " "
         "(#{lhs} :: #{rhs})"
       end

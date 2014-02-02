@@ -84,13 +84,29 @@ module Bpl
     end
     
     class Block
-      attr_accessor :statements
-      def initialize(stmts); @statements = stmts end
+      attr_accessor :declarations, :statements
+      def initialize(decls,stmts)
+        @declarations = decls
+        @statements = stmts
+      end
       def to_s
-        if @statements.empty? then "{}"
-        else
-          "{\n#{@statements.map{|ls,s| (ls * ":\n") + (ls.empty? ? "" : ":\n") + "  #{s}"} * "\n"}\n}"
+        str = ""
+        unless @declarations.empty?
+          str << "\n"
+          @declarations.each do |d|
+            str << "#{d}\n"
+          end
         end
+        unless @statements.empty?
+          str << "\n"
+          @statements.each do |ls|
+            ls[:labels].each do |lab|
+              str << "#{lab}:\n"
+            end
+            str << "#{ls[:stmt]}\n" if ls[:stmt]
+          end
+        end
+        "{#{str.gsub(/^(.*[^:\n])$/,"#{"  "}\\1")}}"
       end
     end
 
