@@ -23,7 +23,7 @@ class BoogieLanguage
   token IDENTIFIER NUMBER BITVECTOR STRING BVTYPE
   
 rule 
-  target: stmt
+  target: program
       
   ident: IDENTIFIER { Identifier.new val[0] }
   idents: ident { [val[0]] } | ident ',' idents { [val[0]] + val[2] }
@@ -62,6 +62,7 @@ rule
 
   typed_id: ident ':' type { [val[0],val[2]] }
   typed_ids: typed_id { [val[0]] } | typed_id ',' typed_ids  { [val[0]] + val[2] }
+  typed_ids_opt: { [] } | typed_ids
   
   expr: expr '<==>' expr  { BinaryExpression.new val }
       | expr '==>' expr   { BinaryExpression.new val }
@@ -89,7 +90,9 @@ rule
       | IDENTIFIER '(' exprs_opt ')' { FunctionApplication.new val[0], val[2] }
       | IDENTIFIER   { Identifier.new val[0] }
       | 'old' '(' expr ')' { OldExpression.new val[2] }
-      | '(' quantifier type_args typed_ids '::' ants expr ')' { QuantifiedExpression.new val[1], val[2], val[3], val[5], val[6] }
+      | '(' quantifier type_args typed_ids '::' ants expr ')' { 
+        QuantifiedExpression.new val[1], val[2], val[3], val[5], val[6] 
+      }
       | '(' expr ')'  { val[1] }
       
   exprs: expr { [val[0]] } | expr ',' exprs { [val[0]] + val[2] }
@@ -98,6 +101,7 @@ rule
   quantifier: 'forall' | 'exists'
 
   attr: '{:' ident enss_opt '}' { Attribute.new val[1], val[2] }
+  attrs: { [] } | attr attrs { [val[0]] + val[1] }
   trigger: '{' exprs '}' { Trigger.new val[1] }
   ant: attr | trigger
   ants: { [] } | ant ants { [val[0]] + val[1] }
@@ -142,21 +146,85 @@ rule
   lempty: { [] } | ident ':' lempty { [[val[0]] + val[2],nil] }
   stmt_list: lstmts lempty { val[0] + val[1] }
   block: '{' stmt_list '}' { Block.new val[1] }
+  
+  decl:
+    type_decl
+    | const_decl
+    | func_decl
+    | axiom_decl
+    | var_decl
+    | proc_decl
+    | impl_decl
+  decls: { [] } | decl decls { [val[0]] + val[1] }
+
+  type_decl: 'type' attrs finite_opt ident tc_params type_syn ';' { 
+    if val[5] && val[2]
+      abort "Illegal declaration of type #{([val[3]] + val[4]) * " "}"
+    end
+    TypeDeclaration.new val[3], val[4], val[1], val[2], val[5] 
+  }
+  finite_opt: { false } | 'finite' { true }
+  tc_params: { [] } | ident tc_params { [val[0]] + val[1] }
+  type_syn: { nil } | '=' type { val[1] }
+
+  const_decl: 'const' attrs unique_opt idents ':' type order_spec ';' {
+    ConstantDeclaration.new val[3], val[5], val[1], val[2], val[6]
+  }
+  unique_opt: { false } | 'unique' { true }
+  order_spec: parent_info complete_opt { [val[0],val[1]] }
+  parent_info: { nil } | '<:' parent_edges_opt { val[1] }
+  parent_edge: unique_opt ident { [val[0],val[1]] }
+  parent_edges: parent_edge { [val[0]] } | parent_edge ',' parent_edges { [val[0]] + val[2] }
+  parent_edges_opt: { [] } | parent_edges
+  complete_opt: { false } | 'complete' { true }
+
+  func_decl: 'function' attrs ident type_args '(' fargs_opt ')' 'returns' '(' farg ')' fbody {
+    FunctionDeclaration.new val[2], val[3], val[5], val[9], val[11], val[1]
+  }
+  farg: ident ':' type { [val[0],val[2]] } | type { [nil,val[0]] }
+  fargs: farg { [val[0]] } | farg ',' fargs { [val[0]] + val[2] }
+  fargs_opt: { [] } | fargs
+  fbody: ';' { nil } | '{' expr '}' { val[1] }
+
+  axiom_decl: 'axiom' attrs expr ';' { AxiomDeclaration.new val[2], val[1] }
+
+  var_decl: 'var' attrs idents ':' type where_clause ';' {
+    VariableDeclaration.new val[2], val[4], val[5], val[1]
+  }
+  var_decls: { [] } | var_decl var_decls { [val[0]] + val[1] }
+  where_clause: { nil } | 'where' expr { val[1] }
+
+  proc_decl: 'procedure' attrs ident type_args '(' typed_ids_opt ')' out_params pspec {
+    ProcedureDeclaration.new val[1], val[2], val[3], val[5], val[7], val[8][0], val[8][1]
+  }
+  out_params: { [] } | 'returns' '(' typed_ids ')' { val[2] }
+  pspec: ';' specs { [val[1],nil] } | specs pbody { [val[0],val[1]] }
+  pbody: '{' var_decls stmt_list '}' { [val[1],val[2]] }
+
+  spec: 
+    free_opt 'requires' expr ';' { RequiresClause.new val[0], val[2] }
+    | free_opt 'modifies' idents ';' { ModifiesClause.new val[0], val[2] }
+    | free_opt 'ensures' expr ';' { EnsuresClause.new val[0], val[2] }
+  specs: { [] } | spec specs { [val[0]] + val[1] }
+
+  impl_decl: 'implementation'
+  
+  program: decls { Program.new val[0] }
 end
 
 ---- header
 require_relative 'lexer.rex'
 require_relative 'ast/type'
 require_relative 'ast/expression'
-require_relative 'ast/annotation'
+require_relative 'ast/specification'
 require_relative 'ast/statement'
+require_relative 'ast/declaration'
+require_relative 'ast/program'
 include Bpl::AST
 
 ---- inner
 def parse(input)
-  parsed = scan_str(input)
-  puts "INSPECT: #{parsed.inspect}"
-  puts "PARSED: #{parsed}"
+  scan_str(input)
 end
 
 ---- footer

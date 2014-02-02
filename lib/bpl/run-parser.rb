@@ -7,4 +7,6 @@ require_relative 'parser.tab'
 
 abort "give me a string" unless ARGV.size > 0
 
-BoogieLanguage.new.parse (ARGV * " ")
+program = BoogieLanguage.new.parse (ARGV * " ")
+puts "INSPECT", program.inspect
+puts "PARSED", program
