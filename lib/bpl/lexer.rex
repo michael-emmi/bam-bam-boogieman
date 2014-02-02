@@ -4,6 +4,7 @@ macro
   REM_IN    \/\*
   REM_OUT   \*\/
   REM       \/\/
+  IDENT     [a-zA-Z_.$\#'`~^\\?][\w.$\#'`~^\\?]*
   OPERATOR  <==>|==>|\|\||&&|==|!=|<:|<=|<|>=|>|\+\+|\+|-|\*|\/|{:|:=|::|:
   KEYWORD   \b(assert|assume|axiom|bool|break|bv(\d+)|call|complete|const|else|ensures|exists|false|finite|forall|free|function|goto|havoc|if|implementation|int|invariant|modifies|old|procedure|requires|return|returns|true|type|unique|var|where|while)\b
   
@@ -28,6 +29,6 @@ rule
 
           {KEYWORD}         { [text, text] }
 
-          \w+               { [:IDENTIFIER, text] }
+          {IDENT}           { [:IDENTIFIER, text] }
           .                 { [text, text] }
 end
