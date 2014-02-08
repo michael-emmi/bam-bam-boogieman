@@ -1,21 +1,16 @@
 class BoogieLanguage
 macro
   BLANK     \s+
-  REM_IN    \/\*
-  REM_OUT   \*\/
-  REM       \/\/
+  ML_COM_IN    \/\*
+  ML_COM_OUT   \*\/
+  SL_COM       \/\/
   IDENT     [a-zA-Z_.$\#'`~^\\?][\w.$\#'`~^\\?]*
   OPERATOR  <==>|==>|\|\||&&|==|!=|<:|<=|<|>=|>|\+\+|\+|-|\*|\/|{:|:=|::|:
   KEYWORD   \b(assert|assume|axiom|bool|break|bv(\d+)|call|complete|const|else|ensures|exists|false|finite|forall|free|function|goto|havoc|if|implementation|int|invariant|modifies|old|procedure|requires|return|returns|true|type|unique|var|where|while)\b
   
 rule
-
-          {REM_IN}          { state = :REMS;  [:rem_in, text] }
-  :REMS   {REM_OUT}         { state = nil;    [:rem_out, text] }
-  :REMS   .*(?={REM_OUT})   {                 [:remark, text] }
-          {REM}             { state = :REM;   [:rem_in, text] }
-  :REM    \n                { state = nil;    [:rem_out, text] }
-  :REM    .*(?=$)           {                 [:remark, text] }
+          {ML_COM_IN}(.|\n)*(?={ML_COM_OUT}){ML_COM_OUT}
+          {SL_COM}.*(?=\n)
 
           \"[^"]*\"         { [:STRING, text[1..-2]]}
 

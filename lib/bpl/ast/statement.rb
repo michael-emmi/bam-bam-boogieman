@@ -1,6 +1,8 @@
 module Bpl
   module AST
     class Statement
+      attr_accessor :attributes
+      
       Return = Statement.new
       def Return.to_s; "return;" end
     end
@@ -13,8 +15,10 @@ module Bpl
     
     class AssumeStatement < Statement
       attr_accessor :expression
-      def initialize(e); @expression = e end
-      def to_s; "assume #{@expression};" end
+      def initialize(attrs,e); @attributes = attrs; @expression = e end
+      def to_s
+        "assume #{@attributes.empty? ? "" : @attributes * " " + " "}#{@expression};" 
+      end
     end
     
     class HavocStatement < Statement
@@ -31,17 +35,20 @@ module Bpl
     
     class CallStatement < Statement
       attr_accessor :procedure, :arguments, :assignments
-      def initialize(p,args,xs=[])
+      def initialize(attrs,rets,p,args)
+        @attributes = attrs
         @procedure = p
         @arguments = args
-        @assignments = xs
+        @assignments = rets
       end
       def forall?; @assignments.nil? end
       def to_s
-        if forall? then
-          lhs = "forall "
+        lhs = ""
+        lhs << (@attributes * " ") + " " unless @attributes.empty?
+        if @assignments then
+          lhs << @assignments * ", " + " := " unless @assignments.empty?
         else
-          lhs = @assignments.empty? ? "" : (@assignments * ", ") + " := "
+          lhs << "forall " if forall?
         end
         "call #{lhs}#{@procedure}(#{@arguments * ", "});"
       end
