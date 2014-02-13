@@ -1,18 +1,36 @@
 module Bpl
   module AST
     class Declaration
+      attr_accessor :program
       attr_accessor :attributes
+      def traverse(&block)
+        return unless block_given?
+        block.call self, :pre
+        @attributes.each{|x| x.traverse &block}
+        block.call self, :post
+      end
     end
     
     class TypeDeclaration < Declaration
       attr_accessor :name, :arguments
       attr_accessor :finite, :type
-      def initialize(n,args,attrs,fin,t)
-        @name = n
-        @arguments = args
+      def initialize(attrs,fin,n,args,t)
         @attributes = attrs
         @finite = fin
+        @name = n
+        @arguments = args
         @type = t
+      end
+      def traverse(&block)
+        return unless block_given?
+        block.call self, :pre
+        @attributes.each{|x| x.traverse &block}
+        @arguments.each{|x| x.traverse &block}
+        @type.traverse &block if @type
+        block.call self, :post
+      end
+      def signature
+        "type #{@name}"
       end
       def to_s
         spec = @attributes + (@finite ? ['finite'] : []) + [@name] + @arguments + (@type ? ["= #{@type}"] : [])
@@ -22,59 +40,105 @@ module Bpl
     
     class FunctionDeclaration < Declaration
       attr_accessor :name, :type_arguments, :arguments, :return, :body
-      def initialize(n,targs,args,ret,bd,attrs)
+      def initialize(attrs,n,targs,args,ret,bd)
+        @attributes = attrs
         @name = n
         @type_argument = targs
         @arguments = args
         @return = ret
         @body = bd
-        @attributes = attrs
+      end
+      def traverse(&block)
+        return unless block_given?
+        block.call self, :pre
+        @attributes.each{|x| x.traverse &block}
+        @type_arguments.each{|x| x.traverse &block} if @type_arguments
+        @arguments.each{|x| x.traverse &block}
+        @return.traverse &block
+        @body.traverse &block if @body
+        block.call self, :post
+      end
+      def resolve(id)
+        id.is_storage? && @arguments.find{|decl| decl.names.include? id.name}
+      end
+      def signature
+        "function #{@name}(#{@arguments.map{|x|x.type} * ","}) returns (#{@return})"
       end
       def to_s
-        front = (@attributes + [@name]) * " "
-        params = @arguments.map{|x,t| x ? "#{x}:#{t}" : "#{t}" } * ", "
-        ret = (@return.first ? "#{@return[0]}:" : "") + "#{@return[1]}"
-        sig = "(#{params}) returns (#{ret})"
-        "function #{front}#{sig}#{@body ? " { #{@body} }" : ";"}"
+        str = "function "
+        str << @attributes * " " + " " unless @attributes.empty?
+        str << "#{@name}(#{@arguments * ", "}) returns (#{@return})"
+        str << (@body ? " { #{@body} }" : ";")
       end
     end
     
     class AxiomDeclaration < Declaration
       attr_accessor :expression
-      def initialize(expr,attrs); @expression = expr; @attributes = attrs end
-      def to_s; (['axiom'] + @attributes + [@expression]) * " " + ';' end
+      def initialize(attrs,expr)
+        @attributes = attrs
+        @expression = expr
+      end
+      def traverse(&block)
+        return unless block_given?
+        block.call self, :pre
+        @attributes.each{|x| x.traverse &block}
+        @expression.traverse &block
+        block.call self, :post
+      end
+      def to_s
+        (['axiom'] + @attributes + [@expression]) * " " + ';'
+      end
     end
     
     class NameDeclaration < Declaration
       attr_accessor :names, :type, :where
-      def initialize(names,type,where)
-        @attributes = []
+      def initialize(attrs,names,type,where)
+        @attributes = attrs
         @names = names
         @type = type
         @where = where
       end
+      def traverse(&block)
+        return unless block_given?
+        block.call self, :pre
+        @attributes.each{|x| x.traverse &block}
+        @type.traverse &block
+        @where.traverse &block if @where
+        block.call self, :post
+      end
+      def signature
+        "#{@names * ", "}: #{@type}"
+      end
       def to_s
-        lhs = (@attributes + [@names * ", "]) * " "
-        rhs = ([@type] + (@where ? ['where',@where] : [])) * " "
-        "#{lhs}: #{rhs}"
+        str = ""
+        str << @attributes * " " + " " unless @attributes.empty?
+        str << @names * ", "
+        str << ": " unless @names.empty?
+        str << @type.to_s
+        str << " where #{@where}" if @where
+        str
       end
     end
     
     class VariableDeclaration < NameDeclaration
       def initialize(attrs,names,type,where)
-        super(names,type,where)
-        @attributes = attrs
+        super(attrs,names,type,where)
+      end
+      def signature
+        "var #{@names * ", "}: #{@type}"
       end
       def to_s; "var #{super.to_s};" end
     end
     
     class ConstantDeclaration < NameDeclaration
       attr_accessor :unique, :order_spec
-      def initialize(attrs,names,type,uniq,ord)
-        super(names,type,nil)
-        @attributes = attrs
+      def initialize(attrs,uniq,names,type,ord)
+        super(attrs,names,type,nil)
         @unique = uniq
         @order_spec = ord
+      end
+      def signature
+        "const #{@names * ", "}: #{@type}"
       end
       def to_s
         lhs = @attributes + (@unique ? ['unique'] : []) + [@names * ", "]
@@ -103,11 +167,39 @@ module Bpl
         @specifications = specs
         @body = body
       end
+      def traverse(&block)
+        return unless block_given?
+        block.call self, :pre
+        @attributes.each{|x| x.traverse &block}
+        @type_arguments.each{|x| x.traverse &block}
+        @parameters.each{|x| x.traverse &block}
+        @returns.each{|x| x.traverse &block}
+        @specifications.each{|x| x.traverse &block}
+        @body.traverse &block if @body
+        block.call self, :post
+      end
+      def resolve(id)
+        if id.is_storage? then
+          @parameters.find{|decl| decl.names.include? id.name} ||
+          @returns.find{|decl| decl.names.include? id.name} ||
+          @body && @body.declarations.find{|decl| decl.names.include? id.name}
+        elsif id.is_label? && @body then
+          ls = @body.statements.find{|ls| ls[:labels].include? id.name}
+          def ls.signature; "label" end if ls
+          ls
+        else
+          nil
+        end
+      end
       def sig_string
         str = "#{(@attributes + [@name]) * " "}"
         str << "(#{@parameters * ", "})"
         str << " returns (#{@returns * ", "})" unless @returns.empty?
         str
+      end
+      def signature
+        "procedure #{@name}(#{@parameters.map{:type} * ","})" +
+        (@returns.empty? ? "" : " returns (#{@returns.map{:type} * ","})")
       end
       def to_s
         str = "procedure #{sig_string}"
