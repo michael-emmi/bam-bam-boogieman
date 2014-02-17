@@ -1,15 +1,12 @@
+require_relative 'traversable'
 require_relative 'type'
 require 'colorize'
 
 module Bpl
   module AST
     class Expression
+      include Traversable
       attr_accessor :scope
-      def traverse
-        return unless block_given?
-        yield self, :pre
-        yield self, :post
-     end
 
       Wildcard = Expression.new
       def Wildcard.to_s; "*" end
@@ -54,25 +51,12 @@ module Bpl
     class FunctionApplication < Expression
       attr_accessor :function, :arguments
       def initialize(f,args); @function = f; @arguments = args end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @function.traverse &block
-        @arguments.each{|x| x.traverse &block}
-        block.call self, :post
-      end
       def to_s; "#{@function}(#{@arguments * ","})" end
     end
     
     class UnaryExpression < Expression
       attr_accessor :expression
       def initialize(e); @expression = e end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @expression.traverse &block
-        block.call self, :post
-      end
     end
     
     class OldExpression < UnaryExpression
@@ -90,52 +74,24 @@ module Bpl
     class BinaryExpression < Expression
       attr_accessor :lhs, :op, :rhs
       def initialize(vs); @lhs, @op, @rhs = vs end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @lhs.traverse &block
-        @rhs.traverse &block
-        block.call self, :post
-      end
       def to_s; "(#{lhs} #{op} #{rhs})" end
     end
     
     class MapSelect < Expression
       attr_accessor :map, :indexes
       def initialize(m,idx); @map = m; @indexes = idx end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @map.traverse &block
-        @indexes.each{|x| x.traverse &block}
-        block.call self, :post
-      end
       def to_s; "#{map}[#{indexes * ","}]" end
     end
     
     class MapUpdate < Expression
       attr_accessor :map, :indexes, :value
       def initialize(m,idx,v); @map = m; @indexes = idx; @value = v end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @map.traverse &block
-        @indexes.each{|x| x.traverse &block}
-        @value.traverse &block
-        block.call self, :pre
-      end
       def to_s; "#{map}[#{indexes * ","} := #{value}]" end
     end
     
     class BitvectorExtract < Expression
       attr_accessor :bitvector, :msb, :lsb
       def initialize(v,m,l); @bitvector = v; @msb = m; @lsb = l end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @bitvector.traverse &block
-        block.call self, :post
-      end
       def to_s; "#{@bitvector}[#{@msb}:#{@lsb}]" end
     end
     
@@ -149,16 +105,6 @@ module Bpl
         @attributes = ants.select{|a| a.is_a? Attribute}
         @triggers = ants.select{|t| t.is_a? Trigger}
         @expression = e
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @type_arguments.each{|x| x.traverse &block}
-        @variables.each{|x| x.traverse &block}
-        @attributes.each{|x| x.traverse &block}
-        @triggers.each{|x| x.traverse &block}
-        @expression.traverse &block
-        block.call self, :post
       end
       def resolve(id)
         id.is_storage? && @variables.find{|decl| decl.names.include? id.name}
@@ -174,12 +120,6 @@ module Bpl
     class Attribute
       attr_accessor :name, :values
       def initialize(n,vs); @name = n; @values = vs end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @values.each{|v| v.traverse &block}
-        block.call self, :post
-      end
       def to_s
         vs = @values.map{|s| (s.is_a? String) ? "\"#{s}\"" : s } * ", "
         "{:#{@name}#{vs.empty? ? "" : " " + vs}}"
@@ -189,12 +129,6 @@ module Bpl
     class Trigger
       attr_accessor :expressions
       def initialize(es); @expressions = es end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @expressions.each{|v| v.traverse &block}
-        block.call self, :post
-      end
       def to_s; "{#{@expressions * ", "}}" end
     end
   end

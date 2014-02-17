@@ -145,14 +145,8 @@ rule
   
   lstmts: 
     { [] } 
-    | name ':' lstmts { 
-      if val[2].empty? then 
-        [{labels: [val[0]], stmt: nil}]
-      else
-        [{labels: [val[0]] + val[2].first[:labels], stmt: val[2].first[:stmt]}] + val[2][1..-1]
-      end
-     }
-    | stmt lstmts { [{labels: [], stmt: val[0]}] + val[1] }
+    | name ':' lstmts { [val[0]] + val[2] }
+    | stmt lstmts { [val[0]] + val[1] }
 
   block: '{' lstmts '}' { Block.new [], val[1] }
   

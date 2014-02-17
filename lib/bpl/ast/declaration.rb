@@ -1,14 +1,11 @@
+require_relative 'traversable'
+
 module Bpl
   module AST
     class Declaration
+      include Traversable
       attr_accessor :program
       attr_accessor :attributes
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        block.call self, :post
-      end
     end
     
     class TypeDeclaration < Declaration
@@ -20,14 +17,6 @@ module Bpl
         @name = n
         @arguments = args
         @type = t
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @arguments.each{|x| x.traverse &block}
-        @type.traverse &block if @type
-        block.call self, :post
       end
       def signature
         "type #{@name}"
@@ -47,16 +36,6 @@ module Bpl
         @arguments = args
         @return = ret
         @body = bd
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @type_arguments.each{|x| x.traverse &block} if @type_arguments
-        @arguments.each{|x| x.traverse &block}
-        @return.traverse &block
-        @body.traverse &block if @body
-        block.call self, :post
       end
       def resolve(id)
         id.is_storage? && @arguments.find{|decl| decl.names.include? id.name}
@@ -78,13 +57,6 @@ module Bpl
         @attributes = attrs
         @expression = expr
       end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @expression.traverse &block
-        block.call self, :post
-      end
       def to_s
         (['axiom'] + @attributes + [@expression]) * " " + ';'
       end
@@ -97,14 +69,6 @@ module Bpl
         @names = names
         @type = type
         @where = where
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @type.traverse &block
-        @where.traverse &block if @where
-        block.call self, :post
       end
       def signature
         "#{@names * ", "}: #{@type}"
@@ -167,24 +131,13 @@ module Bpl
         @specifications = specs
         @body = body
       end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @type_arguments.each{|x| x.traverse &block}
-        @parameters.each{|x| x.traverse &block}
-        @returns.each{|x| x.traverse &block}
-        @specifications.each{|x| x.traverse &block}
-        @body.traverse &block if @body
-        block.call self, :post
-      end
       def resolve(id)
         if id.is_storage? then
           @parameters.find{|decl| decl.names.include? id.name} ||
           @returns.find{|decl| decl.names.include? id.name} ||
           @body && @body.declarations.find{|decl| decl.names.include? id.name}
         elsif id.is_label? && @body then
-          ls = @body.statements.find{|ls| ls[:labels].include? id.name}
+          ls = @body.statements.find{|label| label == id.name}
           def ls.signature; "label" end if ls
           ls
         else
