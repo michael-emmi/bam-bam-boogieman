@@ -16,12 +16,12 @@ module Bpl
     end
     
     class CustomType < Type
-      attr_accessor :name, :arguments
+      children :name, :arguments
       def to_s; ([@name] + @arguments) * " " end
     end
     
     class MapType < Type
-      attr_accessor :arguments, :range, :domain
+      children :arguments, :range, :domain
       def to_s
         args = (@arguments.empty? ? "" : "<#{@arguments * ","}> ")
         "#{args}[#{@range * ","}] #{@domain}"
