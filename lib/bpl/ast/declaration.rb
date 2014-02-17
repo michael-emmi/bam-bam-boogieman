@@ -11,16 +11,7 @@ module Bpl
     class TypeDeclaration < Declaration
       children :name, :arguments
       children :finite, :type
-      def initialize(attrs,fin,n,args,t)
-        @attributes = attrs
-        @finite = fin
-        @name = n
-        @arguments = args
-        @type = t
-      end
-      def signature
-        "type #{@name}"
-      end
+      def signature; "type #{@name}" end
       def to_s
         spec = @attributes + (@finite ? ['finite'] : []) + [@name] + @arguments + (@type ? ["= #{@type}"] : [])
         "type #{spec * " "};"
@@ -29,14 +20,6 @@ module Bpl
     
     class FunctionDeclaration < Declaration
       children :name, :type_arguments, :arguments, :return, :body
-      def initialize(attrs,n,targs,args,ret,bd)
-        @attributes = attrs
-        @name = n
-        @type_argument = targs
-        @arguments = args
-        @return = ret
-        @body = bd
-      end
       def resolve(id)
         id.is_storage? && @arguments.find{|decl| decl.names.include? id.name}
       end
@@ -53,10 +36,6 @@ module Bpl
     
     class AxiomDeclaration < Declaration
       children :expression
-      def initialize(attrs,expr)
-        @attributes = attrs
-        @expression = expr
-      end
       def to_s
         (['axiom'] + @attributes + [@expression]) * " " + ';'
       end
@@ -64,15 +43,7 @@ module Bpl
     
     class NameDeclaration < Declaration
       children :names, :type, :where
-      def initialize(attrs,names,type,where)
-        @attributes = attrs
-        @names = names
-        @type = type
-        @where = where
-      end
-      def signature
-        "#{@names * ", "}: #{@type}"
-      end
+      def signature; "#{@names * ", "}: #{@type}" end
       def to_s
         str = ""
         str << @attributes * " " + " " unless @attributes.empty?
@@ -85,25 +56,13 @@ module Bpl
     end
     
     class VariableDeclaration < NameDeclaration
-      def initialize(attrs,names,type,where)
-        super(attrs,names,type,where)
-      end
-      def signature
-        "var #{@names * ", "}: #{@type}"
-      end
+      def signature; "var #{@names * ", "}: #{@type}" end
       def to_s; "var #{super.to_s};" end
     end
     
     class ConstantDeclaration < NameDeclaration
       children :unique, :order_spec
-      def initialize(attrs,uniq,names,type,ord)
-        super(attrs,names,type,nil)
-        @unique = uniq
-        @order_spec = ord
-      end
-      def signature
-        "const #{@names * ", "}: #{@type}"
-      end
+      def signature; "const #{@names * ", "}: #{@type}" end
       def to_s
         lhs = @attributes + (@unique ? ['unique'] : []) + [@names * ", "]
         rhs = [@type]
@@ -120,17 +79,7 @@ module Bpl
     
     class ProcedureDeclaration < Declaration
       children :name, :type_arguments, :parameters, :returns
-      children :specifications
-      children :body
-      def initialize(attrs,name,targs,params,rets,specs,body)
-        @attributes = attrs
-        @name = name
-        @type_arguments = targs
-        @parameters = params
-        @returns = rets
-        @specifications = specs
-        @body = body
-      end
+      children :specifications, :body
       def resolve(id)
         if id.is_storage? then
           @parameters.find{|decl| decl.names.include? id.name} ||
@@ -164,9 +113,6 @@ module Bpl
     end
     
     class ImplementationDeclaration < ProcedureDeclaration
-      def initialize(attrs,name,targs,params,rets,bodies)
-        super(attrs,name,targs,params,rets,[],bodies)
-      end
       def to_s
         str = "implementation #{sig_string}"
         str << "\n" + (@body * "\n")

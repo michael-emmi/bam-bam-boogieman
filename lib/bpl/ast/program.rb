@@ -5,20 +5,13 @@ module Bpl
     class Program
       include Traversable
       children :declarations
-
-      def initialize(decls = [])
-        @declarations = decls
-        @declarations.each do |d|
-          d.program = self
-        end
-      end
       
       def add(decl)
         @declarations << decl
         decl.program = self
       end
-      
-      def resolve_identifiers        
+
+      def resolve_identifiers
         scope = [self]
         traverse do |elem,turn|
           case elem
