@@ -12,7 +12,9 @@ module Bpl
     
     class AssertStatement < Statement
       children :expression
-      def to_s; "assert #{@expression};" end
+      def to_s
+        "assert #{@attributes.empty? ? "" : @attributes * " " + " "}#{@expression};"
+      end
     end
     
     class AssumeStatement < Statement
@@ -79,24 +81,11 @@ module Bpl
       include Traversable
       children :declarations, :statements
       def to_s
-        str = ""
-        unless @declarations.empty?
-          str << "\n"
-          @declarations.each do |d|
-            str << "#{d}\n"
-          end
-        end
-        unless @statements.empty?
-          str << "\n"
-          @statements.each do |s|
-            case s
-            when Statement
-              str << "#{s}\n"
-            else
-              str << "#{s}:\n"
-            end
-          end
-        end
+        str = "\n"
+        str << @declarations * "\n"
+        str << "\n\n" if @declarations
+        str << @statements.map{|s| s.is_a?(String) ? "#{s}:" : s} * "\n"
+        str << "\n"
         "{#{str.gsub(/^(.*[^:\n])$/,"#{"  "}\\1")}}"
       end
     end

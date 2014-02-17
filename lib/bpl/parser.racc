@@ -119,13 +119,14 @@ rule
   enss_opt: { [] } | enss
   
   stmt:
-    'assert' expr ';' { AssertStatement.new expression: val[1] }
+    'assert' attrs expr ';' { AssertStatement.new attributes: val[1], expression: val[2] }
     | 'assume' attrs expr ';' { AssumeStatement.new attributes: val[1], expression: val[2] }
     | 'havoc' idents ';' { val[1].each{|id| id.kind = :storage}; HavocStatement.new expression: val[1] }
     | lhss ':=' exprs ';' { AssignStatement.new lhs: val[0], rhs: val[2] }
     | 'call' attrs call_lhs '(' exprs_opt ')' ';' { 
       CallStatement.new attributes: val[1], assignments: val[2][:rets], 
-      procedure: val[2][:name], arguments: val[4] }
+      procedure: val[2][:name], arguments: val[4]
+    }
     | 'call' 'forall' ident '(' wc_exprs_opt ')' ';' { 
       val[2].kind = :procedure
       CallStatement.new attributes: [], assignments: nil, procedure: val[2],
@@ -264,7 +265,7 @@ rule
     'implementation' attrs name type_args '(' param_decls_opt ')' out_params pbodies {
       ImplementationDeclaration.new attributes: val[1], name: val[2],
         type_arguments: val[3], parameters: val[5], returns: val[7],
-        bodies: val[8]
+        body: val[8]
     }
   
   program: decls { Program.new declarations: val[0] }
