@@ -4,20 +4,20 @@ module Bpl
   module AST
     class Statement
       include Traversable
-      attr_accessor :attributes
+      children :attributes
       
       Return = Statement.new
       def Return.to_s; "return;" end
     end
     
     class AssertStatement < Statement
-      attr_accessor :expression
+      children :expression
       def initialize(e); @expression = e end
       def to_s; "assert #{@expression};" end
     end
     
     class AssumeStatement < Statement
-      attr_accessor :expression
+      children :expression
       def initialize(attrs,e); @attributes = attrs; @expression = e end
       def to_s
         "assume #{@attributes.empty? ? "" : @attributes * " " + " "}#{@expression};" 
@@ -25,19 +25,19 @@ module Bpl
     end
     
     class HavocStatement < Statement
-      attr_accessor :identifiers
+      children :identifiers
       def initialize(ids); @identifiers = ids end
       def to_s; "havoc #{@identifiers * ", "};" end
     end
     
     class AssignStatement < Statement
-      attr_accessor :lhs, :rhs
+      children :lhs, :rhs
       def initialize(l,r); @lhs = l; @rhs = r end
       def to_s; "#{@lhs * ", "} := #{@rhs * ", "};" end
     end
     
     class CallStatement < Statement
-      attr_accessor :procedure, :arguments, :assignments
+      children :procedure, :arguments, :assignments
       def initialize(attrs,rets,p,args)
         @attributes = attrs
         @procedure = p
@@ -58,7 +58,7 @@ module Bpl
     end
     
     class IfStatement < Statement
-      attr_accessor :condition, :block, :else
+      children :condition, :block, :else
       def initialize(cond,blk,els); @condition = cond; @block = blk; @else = els end
       def to_s
         "if (#{@condition}) #{@block}#{@else.nil? ? "" : " else #{@else}" }"
@@ -66,7 +66,7 @@ module Bpl
     end
     
     class WhileStatement < Statement
-      attr_accessor :condition, :invariants, :block
+      children :condition, :invariants, :block
       def initialize(cond,invs,blk)
         @condition = cond
         @invariants = invs
@@ -79,7 +79,7 @@ module Bpl
     end
     
     class BreakStatement < Statement
-      attr_accessor :identifiers
+      children :identifiers
       def initialize(ids); @identifiers = ids end
       def to_s
         tgts = @identifiers.empty? ? "" : " " + @identifiers * ", "
@@ -88,14 +88,14 @@ module Bpl
     end
     
     class GotoStatement < Statement
-      attr_accessor :identifiers
+      children :identifiers
       def initialize(ids); @identifiers = ids end
       def to_s; "goto #{@identifiers * ", "};" end
     end
     
     class Block
       include Traversable
-      attr_accessor :declarations, :statements
+      children :declarations, :statements
       def initialize(decls,stmts)
         @declarations = decls
         @statements = stmts

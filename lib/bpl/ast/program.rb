@@ -4,8 +4,7 @@ module Bpl
   module AST
     class Program
       include Traversable
-            
-      attr_accessor :declarations
+      children :declarations
 
       def initialize(decls = [])
         @declarations = decls
@@ -13,10 +12,12 @@ module Bpl
           d.program = self
         end
       end
+      
       def add(decl)
         @declarations << decl
         decl.program = self
       end
+      
       def resolve_identifiers        
         scope = [self]
         traverse do |elem,turn|
@@ -37,18 +38,6 @@ module Bpl
             end
           end
           elem
-        end
-
-        replace do |p|
-          case p
-          when ProcedureDeclaration
-            p unless p.name =~ /printf/
-          when CallStatement
-            p.attributes << Attribute.new("found", [1])
-            p
-          else
-            p
-          end
         end
       end
 

@@ -44,18 +44,19 @@ module Bpl
       def is_function?; @kind && @kind == :function end
       def is_label?; @kind && @kind == :label end
       def to_s
-        @name + (@declaration ? "<#{@declaration.signature}>".green : "<?>".red)
+        @declaration ? @name.green : @name.red
+        # @name + (@declaration ? "<#{@declaration.signature}>".green : "<?>".red)
       end
     end
     
     class FunctionApplication < Expression
-      attr_accessor :function, :arguments
+      children :function, :arguments
       def initialize(f,args); @function = f; @arguments = args end
       def to_s; "#{@function}(#{@arguments * ","})" end
     end
     
     class UnaryExpression < Expression
-      attr_accessor :expression
+      children :expression
       def initialize(e); @expression = e end
     end
     
@@ -72,32 +73,32 @@ module Bpl
     end
     
     class BinaryExpression < Expression
-      attr_accessor :lhs, :op, :rhs
+      children :lhs, :op, :rhs
       def initialize(vs); @lhs, @op, @rhs = vs end
       def to_s; "(#{lhs} #{op} #{rhs})" end
     end
     
     class MapSelect < Expression
-      attr_accessor :map, :indexes
+      children :map, :indexes
       def initialize(m,idx); @map = m; @indexes = idx end
       def to_s; "#{map}[#{indexes * ","}]" end
     end
     
     class MapUpdate < Expression
-      attr_accessor :map, :indexes, :value
+      children :map, :indexes, :value
       def initialize(m,idx,v); @map = m; @indexes = idx; @value = v end
       def to_s; "#{map}[#{indexes * ","} := #{value}]" end
     end
     
     class BitvectorExtract < Expression
-      attr_accessor :bitvector, :msb, :lsb
+      children :bitvector, :msb, :lsb
       def initialize(v,m,l); @bitvector = v; @msb = m; @lsb = l end
       def to_s; "#{@bitvector}[#{@msb}:#{@lsb}]" end
     end
     
     class QuantifiedExpression < Expression
-      attr_accessor :quantifier, :type_arguments, :variables, :expression
-      attr_accessor :attributes, :triggers
+      children :quantifier, :type_arguments, :variables, :expression
+      children :attributes, :triggers
       def initialize(q,tvs,vs,ants,e)
         @quantifier = q
         @type_arguments = tvs
@@ -118,7 +119,8 @@ module Bpl
     end
     
     class Attribute
-      attr_accessor :name, :values
+      include Traversable
+      children :name, :values
       def initialize(n,vs); @name = n; @values = vs end
       def to_s
         vs = @values.map{|s| (s.is_a? String) ? "\"#{s}\"" : s } * ", "
@@ -127,7 +129,8 @@ module Bpl
     end
     
     class Trigger
-      attr_accessor :expressions
+      include Traversable
+      children :expressions
       def initialize(es); @expressions = es end
       def to_s; "{#{@expressions * ", "}}" end
     end

@@ -5,12 +5,12 @@ module Bpl
     class Declaration
       include Traversable
       attr_accessor :program
-      attr_accessor :attributes
+      children :attributes
     end
     
     class TypeDeclaration < Declaration
-      attr_accessor :name, :arguments
-      attr_accessor :finite, :type
+      children :name, :arguments
+      children :finite, :type
       def initialize(attrs,fin,n,args,t)
         @attributes = attrs
         @finite = fin
@@ -28,7 +28,7 @@ module Bpl
     end
     
     class FunctionDeclaration < Declaration
-      attr_accessor :name, :type_arguments, :arguments, :return, :body
+      children :name, :type_arguments, :arguments, :return, :body
       def initialize(attrs,n,targs,args,ret,bd)
         @attributes = attrs
         @name = n
@@ -52,7 +52,7 @@ module Bpl
     end
     
     class AxiomDeclaration < Declaration
-      attr_accessor :expression
+      children :expression
       def initialize(attrs,expr)
         @attributes = attrs
         @expression = expr
@@ -63,7 +63,7 @@ module Bpl
     end
     
     class NameDeclaration < Declaration
-      attr_accessor :names, :type, :where
+      children :names, :type, :where
       def initialize(attrs,names,type,where)
         @attributes = attrs
         @names = names
@@ -95,7 +95,7 @@ module Bpl
     end
     
     class ConstantDeclaration < NameDeclaration
-      attr_accessor :unique, :order_spec
+      children :unique, :order_spec
       def initialize(attrs,uniq,names,type,ord)
         super(attrs,names,type,nil)
         @unique = uniq
@@ -119,9 +119,9 @@ module Bpl
     end
     
     class ProcedureDeclaration < Declaration
-      attr_accessor :name, :type_arguments, :parameters, :returns
-      attr_accessor :specifications
-      attr_accessor :variables, :statements
+      children :name, :type_arguments, :parameters, :returns
+      children :specifications
+      children :body
       def initialize(attrs,name,targs,params,rets,specs,body)
         @attributes = attrs
         @name = name
