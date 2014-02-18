@@ -7,6 +7,7 @@ module Bpl
     class Expression
       include Traversable
       attr_accessor :scope
+      def inspect; to_s end
 
       Wildcard = Expression.new
       def Wildcard.to_s; "*" end
@@ -17,18 +18,21 @@ module Bpl
     end
 
     class BooleanLiteral < Literal
+      def inspect; (@value ? "true" : "false").bold end
       def to_s; @value ? "true" : "false" end
       def type; Type::Boolean end
     end
 
     class IntegerLiteral < Literal
+      def inspect; "#{@value}" end
       def to_s; "#{@value}" end
       def type; Type::Integer end
     end
 
     class BitvectorLiteral < Literal
       attr_accessor :base
-      def to_s; "#{value}bv#{base}" end
+      def inspect; "#{@value}bv#{@base}".bold end
+      def to_s; "#{@value}bv#{@base}" end
       def type; BitvectorType.new @base end
     end
     
@@ -40,15 +44,29 @@ module Bpl
       def is_procedure?; @kind && @kind == :procedure end
       def is_function?; @kind && @kind == :function end
       def is_label?; @kind && @kind == :label end
-      def to_s
-        @declaration ? @name.green : @name.red
-        # @name + (@declaration ? "<#{@declaration.signature}>".green : "<?>".red)
+      def type
+        if (d = @declaration) && d.methods.include?(:type) then
+          d.type
+        else
+          nil
+        end
       end
+      def inspect
+        (@declaration ? @name.green : @name.red) + (type ? ":#{type.inspect.yellow}" : "")
+      end
+      def to_s; @name end
     end
     
     class FunctionApplication < Expression
       children :function, :arguments
+      def inspect
+        "#{@function.inspect}(#{@arguments.map(&:inspect) * ","})" +
+        (type ? ":#{type.inspect.yellow}" : "")
+      end
       def to_s; "#{@function}(#{@arguments * ","})" end
+      def type
+        @function.declaration && @function.declaration.return.type
+      end
     end
     
     class UnaryExpression < Expression
@@ -56,42 +74,68 @@ module Bpl
     end
     
     class OldExpression < UnaryExpression
-      def to_s; "old(#{expression})" end
+      def inspect; "#{'old'.bold}(#{@expression.inspect})" end
+      def to_s; "old(#{@expression})" end
+      def type; @expression.type end
     end    
     
     class LogicalNegation < UnaryExpression
-      def to_s; "!#{expression}" end
+      def inspect; "!#{@expression.inspect}" end
+      def to_s; "!#{@expression}" end
+      def type; Type::Boolean end
     end
     
     class ArithmeticNegation < UnaryExpression
-      def to_s; "-#{expression}" end
+      def inspect; "-#{@expression.inspect}" end
+      def to_s; "-#{@expression}" end
+      def type; Type::Integer end
     end
     
     class BinaryExpression < Expression
       children :lhs, :op, :rhs
-      def to_s; "(#{lhs} #{op} #{rhs})" end
+      def inspect; "(#{@lhs.inspect} #{@op} #{@rhs.inspect})" end
+      def to_s; "(#{@lhs} #{@op} #{@rhs})" end
+      def type
+        case @op
+        when '<==>', '==>', '||', '&&', '==', '!=', '<', '>', '<=', '>=', '<:'
+          Type::Boolean
+        when '++'
+          @lhs.type
+        when '+', '-', '*', '/', '%'
+          Type::Integer
+        end
+      end
     end
     
     class MapSelect < Expression
       children :map, :indexes
-      def to_s; "#{map}[#{indexes * ","}]" end
+      def inspect; "#{@map.inspect}[#{@indexes.map(&:inspect) * ","}]" end
+      def to_s; "#{@map}[#{@indexes * ","}]" end
+      def type; @map.type.is_a?(MapType) && @map.type.range end
     end
     
     class MapUpdate < Expression
       children :map, :indexes, :value
-      def to_s; "#{map}[#{indexes * ","} := #{value}]" end
+      def inspect; "#{@map.inspect}[#{@indexes.map(&:inspect) * ","} := #{@value.inspect}]" end
+      def to_s; "#{@map}[#{@indexes * ","} := #{@value}]" end
+      def type; @map.type end
     end
     
     class BitvectorExtract < Expression
       children :bitvector, :msb, :lsb
+      def inspect; "#{@bitvector.inspect}[#{@msb}:#{@lsb}]" end
       def to_s; "#{@bitvector}[#{@msb}:#{@lsb}]" end
+      def type; BitvectorType.new width: (@msb - @lsb) end
     end
     
     class QuantifiedExpression < Expression
       children :quantifier, :type_arguments, :variables, :expression
       children :attributes, :triggers
-      def resolve(id)
-        id.is_storage? && @variables.find{|decl| decl.names.include? id.name}
+      def inspect
+        tvs = @type_arguments.empty? ? [] : ["<#{@type_arguments.map(&:inspect) * ", "}>"]
+        lhs = ([@quantifier.bold] + tvs + [@variables.map(&:inspect) * ", "]) * " "
+        rhs = (@attributes.map(&:inspect) + @triggers.map(&:inspect) + [@expression.inspect]) * " "
+        "(#{lhs} :: #{rhs})"
       end
       def to_s
         tvs = @type_arguments.empty? ? [] : ["<#{@type_arguments * ", "}>"]
@@ -99,11 +143,16 @@ module Bpl
         rhs = (@attributes + @triggers + [@expression]) * " "
         "(#{lhs} :: #{rhs})"
       end
+      def type; Type::Boolean end
     end
     
     class Attribute
       include Traversable
       children :name, :values
+      def inspect
+        vs = @values.map{|s| (s.is_a? String) ? "\"#{s}\"" : s.inspect } * ", "
+        "{:#{@name}#{vs.empty? ? "" : " " + vs}}"
+      end
       def to_s
         vs = @values.map{|s| (s.is_a? String) ? "\"#{s}\"" : s } * ", "
         "{:#{@name}#{vs.empty? ? "" : " " + vs}}"
@@ -113,6 +162,7 @@ module Bpl
     class Trigger
       include Traversable
       children :expressions
+      def inspect; "{#{@expressions.map(&:inspect) * ", "}}" end
       def to_s; "{#{@expressions * ", "}}" end
     end
   end

@@ -51,10 +51,10 @@ module Traversable
   end  
   
   def each(&block)
-    traverse {|x,p| block.call x if p == :pre; self}
+    traverse {|x,p| block.call x if p == :pre; x}
   end
   
   def replace(&block)
-    traverse {|x,p| if p == :post then block.call x else self end}
+    traverse {|x,p| if p == :post then block.call x else x end}
   end
 end

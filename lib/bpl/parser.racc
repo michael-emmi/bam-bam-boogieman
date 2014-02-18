@@ -52,7 +52,7 @@ rule
     | '(' type ')' { val[1] }
     
   map_type: type_args '[' types ']' type {
-    MapType.new arguments: val[0], range: val[2], domain: val[4]
+    MapType.new arguments: val[0], domain: val[2], range: val[4]
   }
 
   tc_args:
@@ -279,13 +279,16 @@ require_relative 'ast/specification'
 require_relative 'ast/statement'
 require_relative 'ast/declaration'
 require_relative 'ast/program'
+require_relative 'analysis/resolution'
+require_relative 'analysis/type_checking'
 include Bpl::AST
 
 ---- inner
 def parse(input)
   program = scan_str(input)
   program.declarations.each do |d| d.program = program end
-  program.resolve_identifiers
+  program.resolve_identifiers!
+  program.type_check
   program
 end
 

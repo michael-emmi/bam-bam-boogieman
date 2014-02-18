@@ -9,6 +9,6 @@ abort "give me a string" unless ARGV.size > 0
 
 input = File.exists?(ARGV.first) ? File.read(ARGV.first) : (ARGV * " ")
 program = BoogieLanguage.new.parse (input)
-# puts "INSPECT", program.inspect
-puts "PARSED", program
+puts "INSPECT", program.inspect
+# puts "PARSED", program
 
