@@ -1,0 +1,40 @@
+class Z3Model
+  
+  options no_result_var
+
+  token IDENTIFIER NUMBER BOOLEAN
+  
+rule 
+  target: mappings
+  
+  mapping:
+    lhss '->' rhs { h = {}; h[val[0]] = val[2]; h }
+    | 'else' '->' rhs { h = {}; h.default = val[2]; h }
+
+  mappings:
+    { {} }
+    | mapping mappings { val[0].merge(val[1]) }  
+  
+  lhs: ident | literal
+  lhss: lhs | lhs lhss { v = val[1]; [val[0]] + (v.is_a?(Array) ? v : [v]) }
+  
+  rhs: 
+    ident
+    | literal
+    | '{' mappings '}' { val[1] }
+  
+  ident: IDENTIFIER
+  literal: '(' '-' NUMBER ')' { -val[2] } | NUMBER | BOOLEAN
+  end
+
+---- header
+require_relative 'lexer.rex'
+# require_relative 'ast/type'
+# include Bpl::AST
+
+---- inner
+def parse(input)
+  model = scan_str(input)
+end
+
+---- footer
