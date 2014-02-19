@@ -1,36 +1,22 @@
+require_relative 'traversable'
+
 module Bpl
   module AST
     class Declaration
+      include Traversable
       attr_accessor :program
-      attr_accessor :attributes
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        block.call self, :post
-      end
+      children :attributes
+      def inspect; to_s end
     end
     
     class TypeDeclaration < Declaration
-      attr_accessor :name, :arguments
-      attr_accessor :finite, :type
-      def initialize(attrs,fin,n,args,t)
-        @attributes = attrs
-        @finite = fin
-        @name = n
-        @arguments = args
-        @type = t
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @arguments.each{|x| x.traverse &block}
-        @type.traverse &block if @type
-        block.call self, :post
-      end
-      def signature
-        "type #{@name}"
+      children :name, :arguments
+      children :finite, :type
+      def signature; "type #{@name}" end
+      def inspect
+        spec = @attributes.map(&:inspect) + (@finite ? ['finite'] : []) + 
+          [@name] + @arguments.map(&:inspect) + (@type ? ["= #{@type.inspect}"] : [])
+        "type #{spec * " "};"
       end
       def to_s
         spec = @attributes + (@finite ? ['finite'] : []) + [@name] + @arguments + (@type ? ["= #{@type}"] : [])
@@ -39,30 +25,18 @@ module Bpl
     end
     
     class FunctionDeclaration < Declaration
-      attr_accessor :name, :type_arguments, :arguments, :return, :body
-      def initialize(attrs,n,targs,args,ret,bd)
-        @attributes = attrs
-        @name = n
-        @type_argument = targs
-        @arguments = args
-        @return = ret
-        @body = bd
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @type_arguments.each{|x| x.traverse &block} if @type_arguments
-        @arguments.each{|x| x.traverse &block}
-        @return.traverse &block
-        @body.traverse &block if @body
-        block.call self, :post
-      end
+      children :name, :type_arguments, :arguments, :return, :body
       def resolve(id)
         id.is_storage? && @arguments.find{|decl| decl.names.include? id.name}
       end
       def signature
         "function #{@name}(#{@arguments.map{|x|x.type} * ","}) returns (#{@return})"
+      end
+      def inspect
+        str = "function ".bold
+        str << @attributes.map(&:inspect) * " " + " " unless @attributes.empty?
+        str << "#{@name}(#{@arguments.map(&:inspect) * ", "}) #{'returns'.bold} (#{@return.inspect})"
+        str << (@body ? " { #{@body.inspect} }" : ";")
       end
       def to_s
         str = "function "
@@ -73,41 +47,24 @@ module Bpl
     end
     
     class AxiomDeclaration < Declaration
-      attr_accessor :expression
-      def initialize(attrs,expr)
-        @attributes = attrs
-        @expression = expr
+      children :expression
+      def inspect
+        (['axiom'.bold] + @attributes.map(&:inspect) + [@expression.inspect]) * " " + ';'
       end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @expression.traverse &block
-        block.call self, :post
-      end
-      def to_s
-        (['axiom'] + @attributes + [@expression]) * " " + ';'
-      end
+      def to_s; (['axiom'] + @attributes + [@expression]) * " " + ';' end
     end
     
     class NameDeclaration < Declaration
-      attr_accessor :names, :type, :where
-      def initialize(attrs,names,type,where)
-        @attributes = attrs
-        @names = names
-        @type = type
-        @where = where
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @type.traverse &block
-        @where.traverse &block if @where
-        block.call self, :post
-      end
-      def signature
-        "#{@names * ", "}: #{@type}"
+      children :names, :type, :where
+      def signature; "#{@names * ", "}: #{@type}" end
+      def inspect
+        str = ""
+        str << @attributes.map(&:inspect) * " " + " " unless @attributes.empty?
+        str << @names * ", "
+        str << ": " unless @names.empty?
+        str << @type.inspect
+        str << " where #{@where.inspect}" if @where
+        str
       end
       def to_s
         str = ""
@@ -121,24 +78,25 @@ module Bpl
     end
     
     class VariableDeclaration < NameDeclaration
-      def initialize(attrs,names,type,where)
-        super(attrs,names,type,where)
-      end
-      def signature
-        "var #{@names * ", "}: #{@type}"
-      end
+      def signature; "var #{@names * ", "}: #{@type}" end
+      def inspect; "#{'var'.bold} #{eval(super.inspect)};" end
       def to_s; "var #{super.to_s};" end
     end
     
     class ConstantDeclaration < NameDeclaration
-      attr_accessor :unique, :order_spec
-      def initialize(attrs,uniq,names,type,ord)
-        super(attrs,names,type,nil)
-        @unique = uniq
-        @order_spec = ord
-      end
-      def signature
-        "const #{@names * ", "}: #{@type}"
+      children :unique, :order_spec
+      def signature; "const #{@names * ", "}: #{@type}" end
+      def inspect
+        lhs = @attributes.map(&:inspect) + (@unique ? ['unique'.bold] : []) + [@names * ", "]
+        rhs = [@type.inspect]
+        if @order_spec && @order_spec[0]
+          rhs << ['<:'] 
+          unless @order_spec[0].empty?
+            rhs << @order_spec[0].map{|c,p| (c ? 'unique '.bold : '') + p.to_s } * ", " 
+          end
+        end
+        rhs << ['complete'.bold] if @order_spec && @order_spec[1]
+        "#{'const'.bold} #{lhs * " "}: #{rhs * " "};"
       end
       def to_s
         lhs = @attributes + (@unique ? ['unique'] : []) + [@names * ", "]
@@ -155,41 +113,13 @@ module Bpl
     end
     
     class ProcedureDeclaration < Declaration
-      attr_accessor :name, :type_arguments, :parameters, :returns
-      attr_accessor :specifications
-      attr_accessor :variables, :statements
-      def initialize(attrs,name,targs,params,rets,specs,body)
-        @attributes = attrs
-        @name = name
-        @type_arguments = targs
-        @parameters = params
-        @returns = rets
-        @specifications = specs
-        @body = body
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @type_arguments.each{|x| x.traverse &block}
-        @parameters.each{|x| x.traverse &block}
-        @returns.each{|x| x.traverse &block}
-        @specifications.each{|x| x.traverse &block}
-        @body.traverse &block if @body
-        block.call self, :post
-      end
-      def resolve(id)
-        if id.is_storage? then
-          @parameters.find{|decl| decl.names.include? id.name} ||
-          @returns.find{|decl| decl.names.include? id.name} ||
-          @body && @body.declarations.find{|decl| decl.names.include? id.name}
-        elsif id.is_label? && @body then
-          ls = @body.statements.find{|ls| ls[:labels].include? id.name}
-          def ls.signature; "label" end if ls
-          ls
-        else
-          nil
-        end
+      children :name, :type_arguments, :parameters, :returns
+      children :specifications, :body
+      def inspect_sig
+        str = "#{(@attributes.map(&:inspect) + [@name]) * " "}"
+        str << "(#{@parameters.map(&:inspect) * ", "}) "
+        str << "#{'returns'.bold} (#{@returns.map(&:inspect) * ", "})" unless @returns.empty?
+        str
       end
       def sig_string
         str = "#{(@attributes + [@name]) * " "}"
@@ -201,6 +131,13 @@ module Bpl
         "procedure #{@name}(#{@parameters.map{:type} * ","})" +
         (@returns.empty? ? "" : " returns (#{@returns.map{:type} * ","})")
       end
+      def inspect
+        str = "#{'procedure'.bold} #{inspect_sig}"
+        str << ";" unless @body
+        str << "\n" + @specifications.map(&:inspect) * "\n" unless @specifications.empty?
+        str << "\n" + @body.inspect if @body
+        str
+      end
       def to_s
         str = "procedure #{sig_string}"
         str << ";" unless @body
@@ -211,8 +148,10 @@ module Bpl
     end
     
     class ImplementationDeclaration < ProcedureDeclaration
-      def initialize(attrs,name,targs,params,rets,bodies)
-        super(attrs,name,targs,params,rets,[],bodies)
+      def inspect
+        str = "implementation".bold + " #{inspect_sig}"
+        str << "\n" + (@body.inspect * "\n")
+        str
       end
       def to_s
         str = "implementation #{sig_string}"

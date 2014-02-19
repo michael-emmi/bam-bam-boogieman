@@ -18,7 +18,7 @@ rule
 
           {OPERATOR}        { [text, text] }
 
-          \d+bv\d+          { [:BITVECTOR, [text[/(\d+)bv/,1], text[/bv(\d+)/,1]]] }
+          \d+bv\d+          { [:BITVECTOR, {value: text[/(\d+)bv/,1].to_i, base: text[/bv(\d+)/,1].to_i}] }
           \d+               { [:NUMBER, text.to_i] }
           bv\d+\b           { [:BVTYPE, text[2..-1].to_i] }
 

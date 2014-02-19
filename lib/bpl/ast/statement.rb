@@ -1,37 +1,31 @@
+require_relative 'traversable'
+
 module Bpl
   module AST
     class Statement
-      attr_accessor :attributes
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        block.call self, :post
-      end
+      include Traversable
+      children :attributes
+      def inspect; to_s end
       
       Return = Statement.new
+      def Return.inspect; 'return'.bold + ';' end
       def Return.to_s; "return;" end
     end
     
     class AssertStatement < Statement
-      attr_accessor :expression
-      def initialize(e); @expression = e end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @expression.traverse &block
-        block.call self, :post
+      children :expression
+      def inspect
+        "#{'assert'.bold} #{@attributes.empty? ? "" : @attributes.map(&:inspect) * " " + " "}#{@expression.inspect};"
       end
-      def to_s; "assert #{@expression};" end
+      def to_s
+        "assert #{@attributes.empty? ? "" : @attributes * " " + " "}#{@expression};"
+      end
     end
     
     class AssumeStatement < Statement
-      attr_accessor :expression
-      def initialize(attrs,e); @attributes = attrs; @expression = e end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @expression.traverse &block
-        block.call self, :post
+      children :expression
+      def inspect
+        "#{'assume'.bold} #{@attributes.empty? ? "" : @attributes.map(&:inspect) * " " + " "}#{@expression.inspect};" 
       end
       def to_s
         "assume #{@attributes.empty? ? "" : @attributes * " " + " "}#{@expression};" 
@@ -39,48 +33,30 @@ module Bpl
     end
     
     class HavocStatement < Statement
-      attr_accessor :identifiers
-      def initialize(ids); @identifiers = ids end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @identifiers.each{|id| id.traverse &block}
-        block.call self, :post
-      end
+      children :identifiers
+      def inspect; "havoc #{@identifiers.map(&:inspect) * ", "};" end
       def to_s; "havoc #{@identifiers * ", "};" end
     end
     
     class AssignStatement < Statement
-      attr_accessor :lhs, :rhs
-      def initialize(l,r); @lhs = l; @rhs = r end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @lhs.each{|x| x.traverse &block}
-        @rhs.each{|x| x.traverse &block}
-        block.call self, :post
-      end
+      children :lhs, :rhs
+      def inspect; "#{@lhs.map(&:inspect) * ", "} := #{@rhs.map(&:inspect) * ", "};" end
       def to_s; "#{@lhs * ", "} := #{@rhs * ", "};" end
     end
     
     class CallStatement < Statement
-      attr_accessor :procedure, :arguments, :assignments
-      def initialize(attrs,rets,p,args)
-        @attributes = attrs
-        @procedure = p
-        @arguments = args
-        @assignments = rets
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @attributes.each{|x| x.traverse &block}
-        @procedure.traverse &block
-        @arguments.each{|x| x.traverse &block}
-        @assignments.each{|x| x.traverse &block}
-        block.call self, :post
-      end
+      children :procedure, :arguments, :assignments
       def forall?; @assignments.nil? end
+      def inspect
+        lhs = ""
+        lhs << (@attributes.map(&:inspect) * " ") + " " unless @attributes.empty?
+        if @assignments then
+          lhs << @assignments.map(&:inspect) * ", " + " := " unless @assignments.empty?
+        else
+          lhs << "forall " if forall?
+        end
+        "call".bold + " #{lhs}#{@procedure.inspect}(#{@arguments.map(&:inspect) * ", "});"
+      end
       def to_s
         lhs = ""
         lhs << (@attributes * " ") + " " unless @attributes.empty?
@@ -94,15 +70,9 @@ module Bpl
     end
     
     class IfStatement < Statement
-      attr_accessor :condition, :block, :else
-      def initialize(cond,blk,els); @condition = cond; @block = blk; @else = els end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @condition.traverse &block
-        @block.traverse &block
-        @else.traverse &block if @else
-        block.call self, :post
+      children :condition, :block, :else
+      def inspect
+        "#{'if'.bold} (#{@condition.inspect}) #{@block.inspect}#{@else.nil? ? "" : " else #{@else.inspect}" }"
       end
       def to_s
         "if (#{@condition}) #{@block}#{@else.nil? ? "" : " else #{@else}" }"
@@ -110,19 +80,10 @@ module Bpl
     end
     
     class WhileStatement < Statement
-      attr_accessor :condition, :invariants, :block
-      def initialize(cond,invs,blk)
-        @condition = cond
-        @invariants = invs
-        @block = blk
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @condition.traverse &block
-        @invariants.each{|iv| iv.traverse &block}
-        @block.traverse &block
-        block.call self, :post
+      children :condition, :invariants, :block
+      def inspect
+        invs = @invariants.empty? ? " " : "\n" + @invariants.map(&:inspect) * "\n" + "\n"
+        "#{'while'.bold} (#{@condition.inspect})#{invs}#{@block.inspect}"
       end
       def to_s
         invs = @invariants.empty? ? " " : "\n" + @invariants * "\n" + "\n"
@@ -131,13 +92,10 @@ module Bpl
     end
     
     class BreakStatement < Statement
-      attr_accessor :identifiers
-      def initialize(ids); @identifiers = ids end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @identifiers.each {|id| id.traverse &block}
-        block.call self, :post
+      children :identifiers
+      def inspect
+        tgts = @identifiers.empty? ? "" : " " + @identifiers.map(&:inspect) * ", "
+        "#{'break'.bold}#{tgts};"
       end
       def to_s
         tgts = @identifiers.empty? ? "" : " " + @identifiers * ", "
@@ -146,47 +104,28 @@ module Bpl
     end
     
     class GotoStatement < Statement
-      attr_accessor :identifiers
-      def initialize(ids); @identifiers = ids end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @identifiers.each {|id| id.traverse &block}
-        block.call self, :post
-      end
+      children :identifiers
+      def inspect; "#{'goto'.bold} #{@identifiers.map(&:inspect) * ", "};" end
       def to_s; "goto #{@identifiers * ", "};" end
     end
     
     class Block
-      attr_accessor :declarations, :statements
-      def initialize(decls,stmts)
-        @declarations = decls
-        @statements = stmts
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @declarations.each{|d| d.traverse &block}
-        @statements.each{|ls| ls[:stmt].traverse &block}
-        block.call self, :post
+      include Traversable
+      children :declarations, :statements
+      def inspect
+        str = "\n"
+        str << @declarations.map(&:inspect) * "\n"
+        str << "\n\n" if @declarations
+        str << @statements.map{|s| s.is_a?(String) ? "#{s}:" : s.inspect} * "\n"
+        str << "\n"
+        "{#{str.gsub(/^(.*[^:\n])$/,"#{"  "}\\1")}}"
       end
       def to_s
-        str = ""
-        unless @declarations.empty?
-          str << "\n"
-          @declarations.each do |d|
-            str << "#{d}\n"
-          end
-        end
-        unless @statements.empty?
-          str << "\n"
-          @statements.each do |ls|
-            ls[:labels].each do |lab|
-              str << "#{lab}:\n"
-            end
-            str << "#{ls[:stmt]}\n" if ls[:stmt]
-          end
-        end
+        str = "\n"
+        str << @declarations * "\n"
+        str << "\n\n" if @declarations
+        str << @statements.map{|s| s.is_a?(String) ? "#{s}:" : s} * "\n"
+        str << "\n"
         "{#{str.gsub(/^(.*[^:\n])$/,"#{"  "}\\1")}}"
       end
     end

@@ -28,14 +28,14 @@ rule
   name: IDENTIFIER { val[0] }
   names: name { [val[0]] } | name ',' names { [val[0]] + val[2] }
       
-  ident: IDENTIFIER { Identifier.new val[0] }
+  ident: IDENTIFIER { Identifier.new name: val[0] }
   idents: ident { [val[0]] } | ident ',' idents { [val[0]] + val[2] }
   idents_opt: { [] } | idents
       
   literal: 
-    bool_lit    { BooleanLiteral.new val[0] }
+    bool_lit    { BooleanLiteral.new value: val[0] }
     | BITVECTOR  { BitvectorLiteral.new val[0] }
-    | NUMBER     { IntegerLiteral.new val[0] }      
+    | NUMBER     { IntegerLiteral.new value: val[0] }      
   bool_lit: 'true' { true } | 'false' { false }
 
   string: STRING
@@ -43,54 +43,63 @@ rule
   type:
     type_atom
     | map_type
-    | name tc_args { CustomType.new val[0], val[1] }
+    | name tc_args { CustomType.new name: val[0], arguments: val[1] }
   
   type_atom:
     'bool' { Type::Boolean }
     | 'int' { Type::Integer }
-    | BVTYPE { BitvectorType.new val[0] }
+    | BVTYPE { BitvectorType.new width: val[0] }
     | '(' type ')' { val[1] }
     
-  map_type: type_args '[' types ']' type { MapType.new val[0], val[2], val[4] }
+  map_type: type_args '[' types ']' type {
+    MapType.new arguments: val[0], domain: val[2], range: val[4]
+  }
 
   tc_args:
     { [] }
     | type_atom tc_args { [val[0]] + val[1] }
-    | name tc_args { [CustomType.new(val[0],val[1])] }
+    | name tc_args { [(CustomType.new name: val[0], arguments: val[1])] }
     | map_type { [val[0]] }
     
   types: type { [val[0]] } | type ',' types { [val[0]] + val[2] }
     
   type_args: { [] } | '<' names '>' { val[1] }
   
-  expr: expr '<==>' expr  { BinaryExpression.new val }
-      | expr '==>' expr   { BinaryExpression.new val }
-      | expr '||' expr    { BinaryExpression.new val }
-      | expr '&&' expr    { BinaryExpression.new val }
-      | expr '==' expr    { BinaryExpression.new val }
-      | expr '!=' expr    { BinaryExpression.new val }
-      | expr '<' expr     { BinaryExpression.new val }
-      | expr '>' expr     { BinaryExpression.new val }
-      | expr '<=' expr    { BinaryExpression.new val }
-      | expr '>=' expr    { BinaryExpression.new val }
-      | expr '<:' expr    { BinaryExpression.new val }
-      | expr '++' expr    { BinaryExpression.new val }
-      | expr '+' expr     { BinaryExpression.new val }
-      | expr '-' expr     { BinaryExpression.new val }
-      | expr '*' expr     { BinaryExpression.new val }
-      | expr '/' expr     { BinaryExpression.new val }
-      | expr '%' expr     { BinaryExpression.new val }
-      | '!' expr          { LogicalNegation.new val[1] }
-      | '-' expr          { ArithmeticNegation.new val[1] }
-      | expr '[' exprs ']' { MapSelect.new val[0], val[2] }
-      | expr '[' exprs ':=' expr ']' { MapUpdate.new val[0], val[2], val[4] }
-      | expr '[' NUMBER ':' NUMBER ']' { BitvectorExtract.new val[0], val[2], val[4] }
+  expr: expr '<==>' expr  { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '==>' expr   { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '||' expr    { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '&&' expr    { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '==' expr    { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '!=' expr    { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '<' expr     { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '>' expr     { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '<=' expr    { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '>=' expr    { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '<:' expr    { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '++' expr    { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '+' expr     { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '-' expr     { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '*' expr     { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '/' expr     { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | expr '%' expr     { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
+      | '!' expr          { LogicalNegation.new expression: val[1] }
+      | '-' expr          { ArithmeticNegation.new expression: val[1] }
+      | expr '[' exprs ']' { MapSelect.new map: val[0], indexes: val[2] }
+      | expr '[' exprs ':=' expr ']' { MapUpdate.new map: val[0], indexes: val[2], value: val[4] }
+      | expr '[' NUMBER ':' NUMBER ']' { BitvectorExtract.new bitvector: val[0], msb: val[2], lsb: val[4] }
       | literal       
-      | ident '(' exprs_opt ')' { val[0].kind = :function; FunctionApplication.new val[0], val[2] }
+      | ident '(' exprs_opt ')' { 
+        val[0].kind = :function
+        FunctionApplication.new function: val[0], arguments: val[2]
+      }
       | ident { val[0].kind = :storage; val[0] }
-      | 'old' '(' expr ')' { OldExpression.new val[2] }
+      | 'old' '(' expr ')' { OldExpression.new expression: val[2] }
       | '(' quantifier type_args param_decls '::' ants expr ')' { 
-        QuantifiedExpression.new val[1], val[2], val[3], val[5], val[6] 
+        QuantifiedExpression.new quantifier: val[1], type_arguments: val[2], 
+          variables: val[3], 
+          attributes: val[5].select{|a| a.is_a?(Attribute)},
+          triggers: val[5].select{|t| t.is_a?(Trigger)},
+          expression: val[6] 
       }
       | '(' expr ')'  { val[1] }
       
@@ -99,9 +108,9 @@ rule
   
   quantifier: 'forall' | 'exists'
 
-  attr: '{:' name enss_opt '}' { Attribute.new val[1], val[2] }
+  attr: '{:' name enss_opt '}' { Attribute.new name: val[1], values: val[2] }
   attrs: { [] } | attr attrs { [val[0]] + val[1] }
-  trigger: '{' exprs '}' { Trigger.new val[1] }
+  trigger: '{' exprs '}' { Trigger.new expressions: val[1] }
   ant: attr | trigger
   ants: { [] } | ant ants { [val[0]] + val[1] }
 
@@ -110,26 +119,45 @@ rule
   enss_opt: { [] } | enss
   
   stmt:
-    'assert' expr ';' { AssertStatement.new val[1] }
-    | 'assume' attrs expr ';' { AssumeStatement.new val[1], val[2] }
-    | 'havoc' idents ';' { val[1].each{|id| id.kind = :storage}; HavocStatement.new val[1] }
-    | lhss ':=' exprs ';' { AssignStatement.new val[0], val[2] }
-    | 'call' attrs call_lhs '(' exprs_opt ')' ';' { CallStatement.new val[1], val[2][:rets], val[2][:name], val[4] }
-    | 'call' 'forall' ident '(' wc_exprs_opt ')' ';' { val[2].kind = :procedure; CallStatement.new [], nil, val[2], val[4] }
+    'assert' attrs expr ';' { AssertStatement.new attributes: val[1], expression: val[2] }
+    | 'assume' attrs expr ';' { AssumeStatement.new attributes: val[1], expression: val[2] }
+    | 'havoc' idents ';' { val[1].each{|id| id.kind = :storage}; HavocStatement.new expression: val[1] }
+    | lhss ':=' exprs ';' { AssignStatement.new lhs: val[0], rhs: val[2] }
+    | 'call' attrs call_lhs '(' exprs_opt ')' ';' { 
+      CallStatement.new attributes: val[1], assignments: val[2][:rets], 
+      procedure: val[2][:name], arguments: val[4]
+    }
+    | 'call' 'forall' ident '(' wc_exprs_opt ')' ';' { 
+      val[2].kind = :procedure
+      CallStatement.new attributes: [], assignments: nil, procedure: val[2],
+      arguments: val[4]
+    }
     | if_stmt
-    | 'while' '(' wc_expr ')' loop_invs block { WhileStatement.new val[2], val[4], val[5] }
-    | 'break' idents_opt ';' { val[1].each{|id| id.kind = :label}; BreakStatement.new val[1] }
+    | 'while' '(' wc_expr ')' loop_invs block { 
+      WhileStatement.new condition: val[2], invariants: val[4], block: val[5]
+    }
+    | 'break' idents_opt ';' { 
+      val[1].each{|id| id.kind = :label}
+      BreakStatement.new identifiers: val[1]
+    }
     | 'return' ';' { Statement::Return }
-    | 'goto' idents ';' { val[1].each{|id| id.kind = :label}; GotoStatement.new val[1] }
+    | 'goto' idents ';' { 
+      val[1].each{|id| id.kind = :label}
+      GotoStatement.new identifiers: val[1]
+    }
     
   call_lhs: 
     ident { val[0].kind = :procedure; {name: val[0], rets: []} } 
-    | idents ':=' ident { val[0].each{|id| id.kind = :storage}; val[2].kind = :procedure; {name: val[2], rets: val[0]} }
+    | idents ':=' ident {
+      val[0].each{|id| id.kind = :storage}
+      val[2].kind = :procedure
+      {name: val[2], rets: val[0]}
+    }
   
-  if_stmt: 'if' '(' wc_expr ')' block else_stmt { IfStatement.new val[2], val[4], val[5] }
+  if_stmt: 'if' '(' wc_expr ')' block else_stmt { IfStatement.new condition: val[2], invariants: val[4], block: val[5] }
   else_stmt: { nil } | 'else' block { val[1] } | 'else' if_stmt { val[1] }
 
-  lhs: ident selects { val[0].kind = :storage; val[1].empty? ? val[0] : val[1].reduce(val[0]){|m,x| MapSelect.new m, x} }
+  lhs: ident selects { val[0].kind = :storage; val[1].empty? ? val[0] : val[1].reduce(val[0]){|m,x| MapSelect.new map: m, indexes: x} }
   lhss: lhs { [val[0]] } | lhs ',' lhss { [val[0]] + val[2] }
 
   select: '[' exprs ']' { val[1] }
@@ -139,22 +167,16 @@ rule
   wc_exprs: wc_expr { [val[0]] } | wc_expr ',' wc_exprs { [val[0]] + val[2] }
   wc_exprs_opt: { [] } | wc_exprs
   
-  loop_inv: free_opt 'invariant' expr ';' { LoopInvariant.new val[0], val[2] }
+  loop_inv: free_opt 'invariant' expr ';' { LoopInvariant.new free: val[0], expression: val[2] }
   loop_invs: { [] } | loop_inv loop_invs { [val[0]] + val[1] }
   free_opt: { false } | 'free' { true }
   
   lstmts: 
     { [] } 
-    | name ':' lstmts { 
-      if val[2].empty? then 
-        [{labels: [val[0]], stmt: nil}]
-      else
-        [{labels: [val[0]] + val[2].first[:labels], stmt: val[2].first[:stmt]}] + val[2][1..-1]
-      end
-     }
-    | stmt lstmts { [{labels: [], stmt: val[0]}] + val[1] }
+    | name ':' lstmts { [val[0]] + val[2] }
+    | stmt lstmts { [val[0]] + val[1] }
 
-  block: '{' lstmts '}' { Block.new [], val[1] }
+  block: '{' lstmts '}' { Block.new declarations: [], statements: val[1] }
   
   decl:
     type_decl
@@ -170,14 +192,16 @@ rule
     if val[5] && val[2]
       abort "Illegal declaration of type #{([val[3]] + val[4]) * " "}"
     end
-    TypeDeclaration.new val[1], val[2], val[3], val[4], val[5] 
+    TypeDeclaration.new attributes: val[1], finite: val[2], name: val[3],
+      arguments: val[4], type: val[5] 
   }
   finite_opt: { false } | 'finite' { true }
   tc_params: { [] } | name tc_params { [val[0]] + val[1] }
   type_syn: { nil } | '=' type { val[1] }
 
   const_decl: 'const' attrs unique_opt names ':' type order_spec ';' {
-    ConstantDeclaration.new val[1], val[2], val[3], val[5], val[6]
+    ConstantDeclaration.new attributes: val[1], unique: val[2], names: val[3],
+      type: val[5], order_spec: val[6]
   }
   unique_opt: { false } | 'unique' { true }
   order_spec: parent_info complete_opt { [val[0],val[1]] }
@@ -188,19 +212,23 @@ rule
   complete_opt: { false } | 'complete' { true }
 
   func_decl: 'function' attrs name type_args '(' fargs_opt ')' 'returns' '(' farg ')' fbody {
-    FunctionDeclaration.new val[1], val[2], val[3], val[5], val[9], val[11]
+    FunctionDeclaration.new attributes: val[1], name: val[2],
+      type_arguments: val[3], arguments: val[5], return: val[9], body: val[11]
   }
   farg: 
-    name ':' type { NameDeclaration.new [], [val[0]], val[2], nil }
-    | type { NameDeclaration.new [], [], val[0], nil }
+    name ':' type { NameDeclaration.new attributes: [], names: [val[0]], type: val[2], where: nil }
+    | type { NameDeclaration.new attributes: [], names: [], type: val[0], where: nil }
   fargs: farg { [val[0]] } | farg ',' fargs { [val[0]] + val[2] }
   fargs_opt: { [] } | fargs
   fbody: ';' { nil } | '{' expr '}' { val[1] }
 
-  axiom_decl: 'axiom' attrs expr ';' { AxiomDeclaration.new val[1], val[2] }
+  axiom_decl: 'axiom' attrs expr ';' { 
+    AxiomDeclaration.new attributes: val[1], expression: val[2]
+  }
 
   var_decl: 'var' attrs typed_ids ';' {
-    VariableDeclaration.new val[1], val[2][:ids], val[2][:type], val[2][:where]
+    VariableDeclaration.new attributes: val[1], names: val[2][:ids], 
+      type: val[2][:type], where: val[2][:where]
   }
   typed_ids: names ':' type where_clause { {ids: val[0], type: val[2], where: val[3]} }
   var_decls: { [] } | var_decl var_decls { [val[0]] + val[1] }
@@ -208,31 +236,39 @@ rule
 
   proc_decl: 
     'procedure' attrs name type_args '(' param_decls_opt ')' out_params pspec {
-      ProcedureDeclaration.new val[1], val[2], val[3], val[5], val[7], val[8][:specs], val[8][:body]
+      ProcedureDeclaration.new attributes: val[1], name: val[2], 
+        type_arguments: val[3], parameters: val[5], returns: val[7], 
+        specifications: val[8][:specs], body: val[8][:body]
     }
   out_params: { [] } | 'returns' '(' param_decls_opt ')' { val[2] }
   pspec: ';' specs { {specs: val[1], body: nil} } | specs pbody { {specs: val[0], body: val[1]} }
-  pbody: '{' var_decls lstmts '}' { Block.new val[1], val[2] }
+  pbody: '{' var_decls lstmts '}' { Block.new declarations: val[1], statements: val[2] }
   pbodies: pbody { [val[0]] } | pbody pbodies { [val[0]] + val[1] }
 
   param_decl: typed_ids {
-    NameDeclaration.new [], val[0][:ids], val[0][:type], val[0][:where] 
+    NameDeclaration.new attributes: [], names: val[0][:ids],
+      type: val[0][:type], where: val[0][:where] 
   }
   param_decls: param_decl { [val[0]] } | param_decl ',' param_decls { [val[0]] + val[2] }
   param_decls_opt: { [] } | param_decls
 
   spec: 
-    free_opt 'requires' expr ';' { RequiresClause.new val[0], val[2] }
-    | free_opt 'modifies' idents ';' { val[2].each{|id| id.kind = :storage}; ModifiesClause.new val[0], val[2] }
-    | free_opt 'ensures' expr ';' { EnsuresClause.new val[0], val[2] }
+    free_opt 'requires' expr ';' { RequiresClause.new free: val[0], expression: val[2] }
+    | free_opt 'modifies' idents ';' {
+      val[2].each{|id| id.kind = :storage}
+      ModifiesClause.new free: val[0], identifiers: val[2]
+    }
+    | free_opt 'ensures' expr ';' { EnsuresClause.new free: val[0], expression: val[2] }
   specs: { [] } | spec specs { [val[0]] + val[1] }
 
   impl_decl:
     'implementation' attrs name type_args '(' param_decls_opt ')' out_params pbodies {
-      ImplementationDeclaration.new val[1], val[2], val[3], val[5], val[7], val[8]
+      ImplementationDeclaration.new attributes: val[1], name: val[2],
+        type_arguments: val[3], parameters: val[5], returns: val[7],
+        body: val[8]
     }
   
-  program: decls { Program.new val[0] }
+  program: decls { Program.new declarations: val[0] }
 end
 
 ---- header
@@ -243,12 +279,16 @@ require_relative 'ast/specification'
 require_relative 'ast/statement'
 require_relative 'ast/declaration'
 require_relative 'ast/program'
+require_relative 'analysis/resolution'
+require_relative 'analysis/type_checking'
 include Bpl::AST
 
 ---- inner
 def parse(input)
   program = scan_str(input)
-  program.resolve_identifiers
+  program.declarations.each do |d| d.program = program end
+  program.resolve_identifiers!
+  program.type_check
   program
 end
 

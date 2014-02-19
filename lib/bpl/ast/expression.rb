@@ -1,15 +1,13 @@
+require_relative 'traversable'
 require_relative 'type'
 require 'colorize'
 
 module Bpl
   module AST
     class Expression
+      include Traversable
       attr_accessor :scope
-      def traverse
-        return unless block_given?
-        yield self, :pre
-        yield self, :post
-     end
+      def inspect; to_s end
 
       Wildcard = Expression.new
       def Wildcard.to_s; "*" end
@@ -17,23 +15,24 @@ module Bpl
     
     class Literal < Expression
       attr_accessor :value
-      def initialize(v); @value = v end
     end
 
     class BooleanLiteral < Literal
+      def inspect; (@value ? "true" : "false").bold end
       def to_s; @value ? "true" : "false" end
       def type; Type::Boolean end
     end
 
     class IntegerLiteral < Literal
+      def inspect; "#{@value}" end
       def to_s; "#{@value}" end
       def type; Type::Integer end
     end
 
     class BitvectorLiteral < Literal
       attr_accessor :base
-      def initialize(v); @value = v[0]; @base = v[1] end
-      def to_s; "#{value}bv#{base}" end
+      def inspect; "#{@value}bv#{@base}".bold end
+      def to_s; "#{@value}bv#{@base}" end
       def type; BitvectorType.new @base end
     end
     
@@ -41,127 +40,102 @@ module Bpl
       attr_accessor :name
       attr_accessor :kind # :label, :procedure, :storage, :function, 
       attr_accessor :declaration
-      def initialize(n); @name = n end
       def is_storage?; @kind && @kind == :storage end
       def is_procedure?; @kind && @kind == :procedure end
       def is_function?; @kind && @kind == :function end
       def is_label?; @kind && @kind == :label end
-      def to_s
-        @name + (@declaration ? "<#{@declaration.signature}>".green : "<?>".red)
+      def type
+        if (d = @declaration) && d.methods.include?(:type) then
+          d.type
+        else
+          nil
+        end
       end
+      def inspect
+        (@declaration ? @name.green : @name.red) + (type ? ":#{type.inspect.yellow}" : "")
+      end
+      def to_s; @name end
     end
     
     class FunctionApplication < Expression
-      attr_accessor :function, :arguments
-      def initialize(f,args); @function = f; @arguments = args end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @function.traverse &block
-        @arguments.each{|x| x.traverse &block}
-        block.call self, :post
+      children :function, :arguments
+      def inspect
+        "#{@function.inspect}(#{@arguments.map(&:inspect) * ","})" +
+        (type ? ":#{type.inspect.yellow}" : "")
       end
       def to_s; "#{@function}(#{@arguments * ","})" end
+      def type
+        @function.declaration && @function.declaration.return.type
+      end
     end
     
     class UnaryExpression < Expression
-      attr_accessor :expression
-      def initialize(e); @expression = e end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @expression.traverse &block
-        block.call self, :post
-      end
+      children :expression
     end
     
     class OldExpression < UnaryExpression
-      def to_s; "old(#{expression})" end
+      def inspect; "#{'old'.bold}(#{@expression.inspect})" end
+      def to_s; "old(#{@expression})" end
+      def type; @expression.type end
     end    
     
     class LogicalNegation < UnaryExpression
-      def to_s; "!#{expression}" end
+      def inspect; "!#{@expression.inspect}" end
+      def to_s; "!#{@expression}" end
+      def type; Type::Boolean end
     end
     
     class ArithmeticNegation < UnaryExpression
-      def to_s; "-#{expression}" end
+      def inspect; "-#{@expression.inspect}" end
+      def to_s; "-#{@expression}" end
+      def type; Type::Integer end
     end
     
     class BinaryExpression < Expression
-      attr_accessor :lhs, :op, :rhs
-      def initialize(vs); @lhs, @op, @rhs = vs end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @lhs.traverse &block
-        @rhs.traverse &block
-        block.call self, :post
+      children :lhs, :op, :rhs
+      def inspect; "(#{@lhs.inspect} #{@op} #{@rhs.inspect})" end
+      def to_s; "(#{@lhs} #{@op} #{@rhs})" end
+      def type
+        case @op
+        when '<==>', '==>', '||', '&&', '==', '!=', '<', '>', '<=', '>=', '<:'
+          Type::Boolean
+        when '++'
+          @lhs.type
+        when '+', '-', '*', '/', '%'
+          Type::Integer
+        end
       end
-      def to_s; "(#{lhs} #{op} #{rhs})" end
     end
     
     class MapSelect < Expression
-      attr_accessor :map, :indexes
-      def initialize(m,idx); @map = m; @indexes = idx end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @map.traverse &block
-        @indexes.each{|x| x.traverse &block}
-        block.call self, :post
-      end
-      def to_s; "#{map}[#{indexes * ","}]" end
+      children :map, :indexes
+      def inspect; "#{@map.inspect}[#{@indexes.map(&:inspect) * ","}]" end
+      def to_s; "#{@map}[#{@indexes * ","}]" end
+      def type; @map.type.is_a?(MapType) && @map.type.range end
     end
     
     class MapUpdate < Expression
-      attr_accessor :map, :indexes, :value
-      def initialize(m,idx,v); @map = m; @indexes = idx; @value = v end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @map.traverse &block
-        @indexes.each{|x| x.traverse &block}
-        @value.traverse &block
-        block.call self, :pre
-      end
-      def to_s; "#{map}[#{indexes * ","} := #{value}]" end
+      children :map, :indexes, :value
+      def inspect; "#{@map.inspect}[#{@indexes.map(&:inspect) * ","} := #{@value.inspect}]" end
+      def to_s; "#{@map}[#{@indexes * ","} := #{@value}]" end
+      def type; @map.type end
     end
     
     class BitvectorExtract < Expression
-      attr_accessor :bitvector, :msb, :lsb
-      def initialize(v,m,l); @bitvector = v; @msb = m; @lsb = l end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @bitvector.traverse &block
-        block.call self, :post
-      end
+      children :bitvector, :msb, :lsb
+      def inspect; "#{@bitvector.inspect}[#{@msb}:#{@lsb}]" end
       def to_s; "#{@bitvector}[#{@msb}:#{@lsb}]" end
+      def type; BitvectorType.new width: (@msb - @lsb) end
     end
     
     class QuantifiedExpression < Expression
-      attr_accessor :quantifier, :type_arguments, :variables, :expression
-      attr_accessor :attributes, :triggers
-      def initialize(q,tvs,vs,ants,e)
-        @quantifier = q
-        @type_arguments = tvs
-        @variables = vs
-        @attributes = ants.select{|a| a.is_a? Attribute}
-        @triggers = ants.select{|t| t.is_a? Trigger}
-        @expression = e
-      end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @type_arguments.each{|x| x.traverse &block}
-        @variables.each{|x| x.traverse &block}
-        @attributes.each{|x| x.traverse &block}
-        @triggers.each{|x| x.traverse &block}
-        @expression.traverse &block
-        block.call self, :post
-      end
-      def resolve(id)
-        id.is_storage? && @variables.find{|decl| decl.names.include? id.name}
+      children :quantifier, :type_arguments, :variables, :expression
+      children :attributes, :triggers
+      def inspect
+        tvs = @type_arguments.empty? ? [] : ["<#{@type_arguments.map(&:inspect) * ", "}>"]
+        lhs = ([@quantifier.bold] + tvs + [@variables.map(&:inspect) * ", "]) * " "
+        rhs = (@attributes.map(&:inspect) + @triggers.map(&:inspect) + [@expression.inspect]) * " "
+        "(#{lhs} :: #{rhs})"
       end
       def to_s
         tvs = @type_arguments.empty? ? [] : ["<#{@type_arguments * ", "}>"]
@@ -169,16 +143,15 @@ module Bpl
         rhs = (@attributes + @triggers + [@expression]) * " "
         "(#{lhs} :: #{rhs})"
       end
+      def type; Type::Boolean end
     end
     
     class Attribute
-      attr_accessor :name, :values
-      def initialize(n,vs); @name = n; @values = vs end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @values.each{|v| v.traverse &block}
-        block.call self, :post
+      include Traversable
+      children :name, :values
+      def inspect
+        vs = @values.map{|s| (s.is_a? String) ? "\"#{s}\"" : s.inspect } * ", "
+        "{:#{@name}#{vs.empty? ? "" : " " + vs}}"
       end
       def to_s
         vs = @values.map{|s| (s.is_a? String) ? "\"#{s}\"" : s } * ", "
@@ -187,14 +160,9 @@ module Bpl
     end
     
     class Trigger
-      attr_accessor :expressions
-      def initialize(es); @expressions = es end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @expressions.each{|v| v.traverse &block}
-        block.call self, :post
-      end
+      include Traversable
+      children :expressions
+      def inspect; "{#{@expressions.map(&:inspect) * ", "}}" end
       def to_s; "{#{@expressions * ", "}}" end
     end
   end

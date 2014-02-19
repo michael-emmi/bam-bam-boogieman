@@ -1,49 +1,40 @@
+require_relative 'traversable'
+
 module Bpl
   module AST
     class Type
+      include Traversable
+      def inspect; to_s end
+      
       Boolean = Type.new
       Integer = Type.new
+      def Boolean.inspect; "bool" end
       def Boolean.to_s; "bool" end
+      def Integer.inspect; "int" end
       def Integer.to_s; "int" end
-
-      def traverse
-        return unless block_given?
-        yield self, :pre
-        yield self, :post
-      end
     end
     
     class BitvectorType < Type
       attr_accessor :width
-      def initialize(w); @width = w end
+      def inspect; "bv#{@width}" end
       def to_s; "bv#{@width}" end
     end
     
     class CustomType < Type
-      attr_accessor :name, :arguments
-      def initialize(n,args); @name = n; @arguments = args end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @arguments.each{|x| x.traverse &block}
-        block.call self, :post
-      end
+      children :name, :arguments
+      def inspect; ([@name] + @arguments.map(&:inspect)) * " " end
       def to_s; ([@name] + @arguments) * " " end
     end
     
     class MapType < Type
-      attr_accessor :arguments, :range, :domain
-      def initialize(args,x,t); @arguments = args; @range = x; @domain = t end
-      def traverse(&block)
-        return unless block_given?
-        block.call self, :pre
-        @arguments.each{|x| x.traverse &block}
-        @domain.traverse &block
-        block.call self, :post
+      children :arguments, :domain, :range
+      def inspect
+        args = (@arguments.empty? ? "" : "<#{@arguments.map(&:inspect) * ","}> ")
+        "#{args}[#{@domain.map(&:inspect) * ","}] #{@range.inspect}"
       end
       def to_s
         args = (@arguments.empty? ? "" : "<#{@arguments * ","}> ")
-        "#{args}[#{@range * ","}] #{@domain}"
+        "#{args}[#{@domain * ","}] #{@range}"
       end
     end
   end
