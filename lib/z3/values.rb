@@ -9,6 +9,13 @@ module Z3
 
   class Constant < Node
     attr_accessor :name, :value
+    def <=>(node)
+      case node
+      when Constant; @name <=> node.name
+      when Function; 1
+      else -1
+      end
+    end
     def to_s; "const #{@name} = #{@value}" end
     def eql?(c) c.is_a?(Constant) && c.name == @name end
     def hash; @name.hash end
@@ -16,6 +23,12 @@ module Z3
   
   class Variable < Node
     attr_accessor :name, :sequence_number, :value
+    def <=>(node)
+      case node
+      when Variable; @name <=> node.name
+      else 1
+      end
+    end
     def to_s
       "var #{@name}/#{@sequence_number} = #{@value}"
     end
@@ -25,6 +38,12 @@ module Z3
     attr_accessor :name, :values
     def []=(i,j) @values[i] = j end
     def [](i) @values[i] end
+    def <=>(node)
+      case node
+      when Function; @name <=> node.name
+      else -1
+      end
+    end
     def to_s
       "function #{@name} = {\n  #{@values.map do |ks,v|
         case ks
@@ -46,12 +65,10 @@ module Z3
 
   class Value < Node
     attr_accessor :id
-    attr_accessor :name, :type
     def eql?(v) v.is_a?(Value) && v.id == @id end
     def hash; @id.hash end
-    def z3_name; "T@U!val!#{@id}" end
-    def to_s; "#{@name || z3_name}" end
-    # def to_s; "#{@name || z3_name}#{@type ? " : #{@type}" : ""}" end
+    def name; "VAL?#{@id}" end
+    def to_s; "#{name}" end
   end
   
   class Type < Value
@@ -87,6 +104,7 @@ module Z3
     @@blacklist = [
       'type', 'U_2_bool', 'U_2_int', 'bool_2_U', 'int_2_U', 'tickleBool',
       'Ctor',
+      /Map\/\d/,
       /MapType\d+Type/, /MapType\d+TypeInv\d+/,
       /inline\$/,
       /call\d+formal/,
@@ -101,20 +119,12 @@ module Z3
     def []=(i,j) @entries[i] = j end
     def [](i) @entries[i] end
 
-    def lookup_primitive_value(value)
-      return if value.nil?
-      if !@entries[@@u2b][value].nil?
-        @entries[@@u2b][value]
-      elsif !@entries[@@u2i][value].nil?
-        @entries[@@u2i][value]
-      else
-        value
-      end
-    end
-    
-    def lookup_map_value(value)
-      return if value.nil?
-      @map_table[value] || value
+    def lookup_value(value, use_map_table = true)
+      return value if value.nil?
+      return @entries[@@u2b][value] unless @entries[@@u2b][value].nil?
+      return @entries[@@u2i][value] unless @entries[@@u2i][value].nil?
+      return @map_table[value] unless !use_map_table || @map_table[value].nil?
+      return value
     end
     
     def blacklisted(name)
@@ -125,73 +135,49 @@ module Z3
 
     # def lookup_type(v) @mappings[@@type] && @mappings[@@type][v] end
     
-    def resolve_primitive_values!
-      @entries.reject{|name| blacklisted name}.each do |f,entry|
-        case entry
-        when Function
-          entry.values = entry.values.map do |keys,val|
-            keys = case keys
-              when Array; keys.map do |key| lookup_primitive_value(key) end
-              else lookup_primitive_value(keys)
-            end
-            val = lookup_primitive_value(val)
-            [keys,val]
-          end.to_h
-        else
-          entry.value = lookup_primitive_value(entry.value)
-        end
+    def resolve_value(value)
+      new_value = lookup_value value
+      case new_value
+      when MapValue
+        new_value.values = new_value.values.map{|k,v| [resolve_value(k), resolve_value(v)]}.to_h
+        new_value
+      else
+        new_value
       end
     end
     
-    def resolve_map_values!
-      puts "RESOLVING..."
-      @something_resolved = false
-
-      @entries.reject{|name| blacklisted(name) || name =~ /Map\/\d/}.each do |f,entry|
+    def resolve_values!
+      @entries.reject{|name| blacklisted(name) || name =~ /Map\/\d/}.each do |_,entry|
         case entry
         when Function
           entry.values = entry.values.map do |keys,val|
             keys = case keys
-            when Array; keys.map do |key| 
-              v = lookup_map_value(key)
-              @something_resolved = true unless v.eql?(key)
-              v
+            when Array; keys.map{|key| resolve_value(key)}
+            else resolve_value(keys)
             end
-            else
-              v = lookup_map_value(keys)
-              @something_resolved = true unless v.eql?(keys)
-              v
-            end
-            v = lookup_map_value(val)
-            @something_resolved = true unless v.eql?(val)
-            [keys,v]
+            [keys, resolve_value(val)]
           end.to_h
         else
-          v = lookup_map_value(entry.value)
-          @something_resolved = true unless v.eql?(entry.value)
-          entry.value = v
+          entry.value = resolve_value(entry.value)
         end
       end
-      puts "SOMETHIGN RESOLVED" if @something_resolved
-      @something_resolved
-    end
+    end    
     
     def collect_map_values!
       @map_table = {}
       @entries[@@map2].values.each do |keys,val|
         next unless keys
+        keys = keys.map{|key| lookup_value key, false}
+        val = lookup_value val, false
         @map_table[keys[0]] ||= MapValue.new
         @map_table[keys[0]][keys[1]] = val
       end
     end
 
-    def resolve!      
-      resolve_primitive_values!
+    def resolve!
       collect_map_values!
-      begin
-        fresh = resolve_map_values!
-      end while fresh
+      resolve_values!
     end
-    def to_s; @entries.reject{|name| blacklisted name}.map{|_,v| v} * "\n" end
+    def to_s; @entries.reject{|k,_| blacklisted k}.map{|_,v| v}.sort * "\n" end
   end
 end
