@@ -12,6 +12,4 @@ model = Z3Model.new.parse input
 # puts "INSPECT", program.inspect
 # puts "PARSED", model
 
-model.each do |k,v|
-  puts "#{k} -> #{v}"
-end
+puts model

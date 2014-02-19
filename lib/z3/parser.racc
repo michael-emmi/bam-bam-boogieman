@@ -5,25 +5,36 @@ class Z3Model
   token VARIABLE CONSTANT VALUE TYPE NUMBER BOOLEAN LABEL FORMAL MAP2 MAP3 WEIRD
   
 rule 
-  target: mappings
-  
-  mapping:
-    lhs '->' rhs { if val[0] && val[2] then {val[0] => val[2]} else {} end }
+  target: model
 
-  mappings:
-    { {} }
-    | mapping mappings { val[1].merge val[0] }  
+  model:
+    { Model.new }
+    | definition model { m = val[1]; m << val[0]; m }
+    
+  definition:
+    VARIABLE '->' rhs { Variable.new val[0].merge(value: val[2]) }
+    | constant '->' rhs { 
+      case val[2]
+      when Hash
+        Function.new val[0].merge(values: val[2])
+      else
+        Constant.new val[0].merge(value: val[2])
+      end
+    }
+    | FORMAL '->' rhs { Formal.new val[0].merge(value: val[2]) }
+    | LABEL '->' rhs { Label.new val[0].merge(value: val[2]) }
+    | WEIRD '->' rhs { }
   
-  lhs: VARIABLE | CONSTANT | LABEL | FORMAL | MAP2 | MAP3 | WEIRD
+  constant: CONSTANT | MAP2 | MAP3
   rhs: value | '{' fmappings '}' { val[1] }
   
   fmappings:
-    'else' '->' value { Function.new mappings: {nil => val[2]} }
-    | values '->' value fmappings { f = val[3]; f[val[0]] = val[2]; f }    
+    'else' '->' value { {nil => val[2]} }
+    | values '->' value fmappings { val[3].merge({val[0] => val[2]}) }
     
-  values: value { [val[0]] } | value values { [val[0]] + val[1] }
+  values: value { val[0] } | value values { vs = val[1]; [val[0]] + (vs.is_a?(Array) ? vs : [vs]) }
 
-  value: VALUE | TYPE | literal | WEIRD
+  value: VALUE { Value.new val[0] } | TYPE { Type.new val[0] } | literal | WEIRD
   literal: '(' '-' NUMBER ')' { -val[2] } | NUMBER | BOOLEAN
   end
 
@@ -35,6 +46,8 @@ include Z3
 ---- inner
 def parse(input)
   model = scan_str(input)
+  model.resolve!
+  model
 end
 
 ---- footer

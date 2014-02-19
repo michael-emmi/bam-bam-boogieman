@@ -33,16 +33,16 @@ rule
 
           {KEYWORD}         { [text, text] }
           
-          \%lbl\%(@|\+)\d+  { [:LABEL, Label.new(id: text[/(\d+)/,1]) ] }
-          call\d+formal@{IDENT}@\d+ { [:FORMAL, Formal.new(call_id: text[/call(\d+)/,1], parameter_name: text[/@(.*)@/,1], sequence_number: text[/@(\d+)/,1])] }
+          \%lbl\%(@|\+)\d+  { [:LABEL, {id: text[/(\d+)/,1]} ] }
+          call\d+formal@{IDENT}@\d+ { [:FORMAL, {call_id: text[/call(\d+)/,1], parameter_name: text[/@(.*)@/,1], sequence_number: text[/@(\d+)/,1]}] }
 
-          T@U!val!\d+       { [:VALUE, Value.new(id: text[/(\d+)/,1])] }
-          T@T!val!\d+       { [:TYPE, Type.new(id: text[/(\d+)/,1])] }
-          {IDENT}@\d+       { [:VARIABLE, Variable.new(name: text[/(.*)@/,1], sequence_number: text[/@(\d+)/,1])] }
-          {IDENT}(@@\d+)?   { [:CONSTANT, Constant.new(name: text)] }
+          T@U!val!\d+       { [:VALUE, {id: text[/(\d+)/,1].to_i}] }
+          T@T!val!\d+       { [:TYPE, {id: text[/(\d+)/,1].to_i}] }
+          {IDENT}@\d+       { [:VARIABLE, {name: text[/(.*)@/,1], sequence_number: text[/@(\d+)/,1]}] }
+          {IDENT}(@@\d+)?   { [:CONSTANT, {name: text}] }
 
-          \[2\]             { [:MAP2, Constant.new(name: 'Map/2')] }
-          \[3:=\]           { [:MAP3, Constant.new(name: 'Map/3')] }
+          \[2\]             { [:MAP2, {name: 'Map/2'}] }
+          \[3:=\]           { [:MAP3, {name: 'Map/3'}] }
           
 
           {IDENT}           { [:IDENTIFIER, text.to_sym] }
