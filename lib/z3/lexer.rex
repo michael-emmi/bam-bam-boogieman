@@ -1,12 +1,9 @@
 class Z3Model
 macro
   BLANK     \s+
-  # ML_COM_IN    \/\*
-  # ML_COM_OUT   \*\/
-  # SL_COM       \/\/
   SL_COM    \*\*\*
-  IDENT     [a-zA-Z_.$\#'`~^\\?@!%+\[\]:=][\w.$\#'`~^\\?@!%+\[\]:=-]*
-  
+  IDENT     [a-zA-Z_.$\#'`~^\\?][\w.$\#'`~^\\?]*
+
   OPERATOR  ->|-|\(|\)
   KEYWORD   \belse\b
 
@@ -20,6 +17,12 @@ rule
           # \"[^"]*\"         { [:STRING, text[1..-2]]}
 
           {BLANK}
+          
+          unique-value!\d+  { [:WEIRD, nil] }
+          distinct-elems!\d+!val!\d+ { [:WEIRD, nil] }
+          distinct-aux-f!!\d+ { [:WEIRD, nil] }
+          {IDENT}@@\d+!\d+!\d+ { [:WEIRD, nil] }
+          {IDENT}'!\d+!\d+  { [:WEIRD, nil] }
 
           {OPERATOR}        { [text, text] }
 
@@ -29,6 +32,18 @@ rule
           # bv\d+\b           { [:BVTYPE, text[2..-1].to_i] }
 
           {KEYWORD}         { [text, text] }
+          
+          \%lbl\%(@|\+)\d+  { [:LABEL, Label.new(id: text[/(\d+)/,1]) ] }
+          call\d+formal@{IDENT}@\d+ { [:FORMAL, Formal.new(call_id: text[/call(\d+)/,1], parameter_name: text[/@(.*)@/,1], sequence_number: text[/@(\d+)/,1])] }
+
+          T@U!val!\d+       { [:VALUE, Value.new(id: text[/(\d+)/,1])] }
+          T@T!val!\d+       { [:TYPE, Type.new(id: text[/(\d+)/,1])] }
+          {IDENT}@\d+       { [:VARIABLE, Variable.new(name: text[/(.*)@/,1], sequence_number: text[/@(\d+)/,1])] }
+          {IDENT}(@@\d+)?   { [:CONSTANT, Constant.new(name: text)] }
+
+          \[2\]             { [:MAP2, Constant.new(name: 'Map/2')] }
+          \[3:=\]           { [:MAP3, Constant.new(name: 'Map/3')] }
+          
 
           {IDENT}           { [:IDENTIFIER, text.to_sym] }
           .                 { [text, text] }

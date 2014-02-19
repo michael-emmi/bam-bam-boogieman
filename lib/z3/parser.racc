@@ -2,35 +2,35 @@ class Z3Model
   
   options no_result_var
 
-  token IDENTIFIER NUMBER BOOLEAN
+  token VARIABLE CONSTANT VALUE TYPE NUMBER BOOLEAN LABEL FORMAL MAP2 MAP3 WEIRD
   
 rule 
   target: mappings
   
   mapping:
-    lhss '->' rhs { h = {}; h[val[0]] = val[2]; h }
-    | 'else' '->' rhs { h = {}; h.default = val[2]; h }
+    lhs '->' rhs { if val[0] && val[2] then {val[0] => val[2]} else {} end }
 
   mappings:
     { {} }
-    | mapping mappings { val[0].merge(val[1]) }  
+    | mapping mappings { val[1].merge val[0] }  
   
-  lhs: ident | literal
-  lhss: lhs | lhs lhss { v = val[1]; [val[0]] + (v.is_a?(Array) ? v : [v]) }
+  lhs: VARIABLE | CONSTANT | LABEL | FORMAL | MAP2 | MAP3 | WEIRD
+  rhs: value | '{' fmappings '}' { val[1] }
   
-  rhs: 
-    ident
-    | literal
-    | '{' mappings '}' { val[1] }
-  
-  ident: IDENTIFIER
+  fmappings:
+    'else' '->' value { Function.new mappings: {nil => val[2]} }
+    | values '->' value fmappings { f = val[3]; f[val[0]] = val[2]; f }    
+    
+  values: value { [val[0]] } | value values { [val[0]] + val[1] }
+
+  value: VALUE | TYPE | literal | WEIRD
   literal: '(' '-' NUMBER ')' { -val[2] } | NUMBER | BOOLEAN
   end
 
 ---- header
 require_relative 'lexer.rex'
-# require_relative 'ast/type'
-# include Bpl::AST
+require_relative 'values'
+include Z3
 
 ---- inner
 def parse(input)

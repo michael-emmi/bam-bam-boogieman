@@ -13,5 +13,5 @@ model = Z3Model.new.parse input
 # puts "PARSED", model
 
 model.each do |k,v|
-  puts "#{k} -> #{v}" unless v.is_a?(Hash)
+  puts "#{k} -> #{v}"
 end
