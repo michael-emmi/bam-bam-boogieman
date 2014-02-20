@@ -7,8 +7,6 @@ module Bpl
     class Expression
       include Traversable
       attr_accessor :scope
-      def inspect; print &:inspect end
-      def to_s; print {|a| a} end
 
       Wildcard = Expression.new
       def Wildcard.print; "*" end

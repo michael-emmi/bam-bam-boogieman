@@ -5,8 +5,6 @@ module Bpl
     class Statement
       include Traversable
       children :attributes
-      def inspect; print &:inspect end
-      def to_s; print {|a| a} end
       
       Return = Statement.new
       def Return.print; "return;" end

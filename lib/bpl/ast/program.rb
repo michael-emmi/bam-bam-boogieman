@@ -11,8 +11,7 @@ module Bpl
         decl.program = self
       end
 
-      def to_s; @declarations * "\n" end
-      def inspect; @declarations.map(&:inspect) * "\n" end
+      def print; @declarations.map{|d| yield d} * "\n" end
       
       def name
         "THE PROGRAM W/ NO NAME"

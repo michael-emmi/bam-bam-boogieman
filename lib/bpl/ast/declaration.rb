@@ -6,8 +6,6 @@ module Bpl
       include Traversable
       attr_accessor :program
       children :attributes
-      def inspect; print &:inspect end
-      def to_s; print {|a| a} end
     end
     
     class TypeDeclaration < Declaration
@@ -57,7 +55,7 @@ module Bpl
     
     class VariableDeclaration < NameDeclaration
       def signature; "var #{@names * ", "}: #{@type}" end
-      def print; "var #{super.to_s};" end
+      def print; "var #{super};" end
     end
     
     class ConstantDeclaration < NameDeclaration

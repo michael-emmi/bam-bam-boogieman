@@ -4,8 +4,6 @@ module Bpl
   module AST
     class Type
       include Traversable
-      def inspect; print &:inspect end
-      def to_s; print {|a| a} end
       
       Boolean = Type.new
       Integer = Type.new

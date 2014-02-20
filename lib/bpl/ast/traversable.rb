@@ -24,6 +24,9 @@ module Traversable
       send("#{k}=",v) if respond_to?("#{k}=")
     end
   end
+
+  def inspect; print &:inspect end
+  def to_s; print {|a| a} end
   
   def traverse(&block)
     return self unless block_given?

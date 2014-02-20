@@ -5,8 +5,6 @@ module Bpl
     class Specification
       include Traversable
       attr_accessor :free
-      def inspect; print &:inspect end
-      def to_s; print {|a| a} end
     end
     
     class LoopInvariant < Specification
