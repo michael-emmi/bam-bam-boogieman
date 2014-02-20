@@ -5,33 +5,28 @@ module Bpl
     class Specification
       include Traversable
       attr_accessor :free
+      def inspect; print &:inspect end
+      def to_s; print {|a| a} end
     end
     
     class LoopInvariant < Specification
       children :expression
-      def inspect; "#{@free ? "free " : ""}#{'invariant'.bold} #{@expression.inspect};" end
-      def to_s; "#{@free ? "free " : ""}invariant #{@expression};" end
+      def print; "#{"free" if @free} invariant #{yield @expression};".split.join(' ') end
     end
     
     class RequiresClause < Specification
       children :expression
-      def inspect; "#{@free ? "free " : ""}#{'requires'.bold} #{@expression.inspect};" end
-      def to_s; "#{@free ? "free " : ""}requires #{@expression};" end
+      def print; "#{"free" if @free} requires #{yield @expression};".split.join(' ') end
     end
     
     class ModifiesClause < Specification
       children :identifiers
-      def inspect
-        (@free ? "free ".bold : "") + "modifies".bold +
-        " #{@identifiers.map(&:inspect) * ", "};"
-      end
-      def to_s; "#{@free ? "free " : ""}modifies #{@identifiers * ", "};" end
+      def print; "#{"free" if @free} modifies #{@identifiers.map{|a| yield a} * ", "};".split.join(' ') end
     end
     
     class EnsuresClause < Specification
       children :expression
-      def inspect; "#{@free ? "free ".bold : ""}#{'ensures'.bold} #{@expression.inspect};" end
-      def to_s; "#{@free ? "free " : ""}ensures #{@expression};" end
+      def print; "#{"free" if @free} ensures #{yield @expression};".split.join(' ') end
     end
   end
 end

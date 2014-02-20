@@ -4,37 +4,30 @@ module Bpl
   module AST
     class Type
       include Traversable
-      def inspect; to_s end
+      def inspect; print &:inspect end
+      def to_s; print {|a| a} end
       
       Boolean = Type.new
       Integer = Type.new
-      def Boolean.inspect; "bool" end
-      def Boolean.to_s; "bool" end
-      def Integer.inspect; "int" end
-      def Integer.to_s; "int" end
+      def Boolean.print; "bool" end
+      def Integer.print; "int" end
     end
     
     class BitvectorType < Type
       attr_accessor :width
-      def inspect; "bv#{@width}" end
-      def to_s; "bv#{@width}" end
+      def print; "bv#{@width}" end
     end
     
     class CustomType < Type
       children :name, :arguments
-      def inspect; ([@name] + @arguments.map(&:inspect)) * " " end
-      def to_s; ([@name] + @arguments) * " " end
+      def print; "#{@name} #{@arguments.map{|a| yield a} * " "}".split.join(' ') end
     end
     
     class MapType < Type
       children :arguments, :domain, :range
-      def inspect
-        args = (@arguments.empty? ? "" : "<#{@arguments.map(&:inspect) * ","}> ")
-        "#{args}[#{@domain.map(&:inspect) * ","}] #{@range.inspect}"
-      end
-      def to_s
-        args = (@arguments.empty? ? "" : "<#{@arguments * ","}> ")
-        "#{args}[#{@domain * ","}] #{@range}"
+      def print
+        args = @arguments.empty? ? "" : "<#{@arguments.map{|a| yield a} * ","}>"
+        "#{args} [#{@domain.map{|a| yield a} * ","}] #{yield @range}".split.join(' ')
       end
     end
   end

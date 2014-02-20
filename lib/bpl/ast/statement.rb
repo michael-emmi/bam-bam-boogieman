@@ -5,126 +5,83 @@ module Bpl
     class Statement
       include Traversable
       children :attributes
-      def inspect; to_s end
+      def inspect; print &:inspect end
+      def to_s; print {|a| a} end
       
       Return = Statement.new
-      def Return.inspect; 'return'.bold + ';' end
-      def Return.to_s; "return;" end
+      def Return.print; "return;" end
     end
     
     class AssertStatement < Statement
       children :expression
-      def inspect
-        "#{'assert'.bold} #{@attributes.empty? ? "" : @attributes.map(&:inspect) * " " + " "}#{@expression.inspect};"
-      end
-      def to_s
-        "assert #{@attributes.empty? ? "" : @attributes * " " + " "}#{@expression};"
-      end
+      def print; "assert #{@attributes.map{|a| yield a} * " "} #{yield @expression};".squeeze("\s") end
     end
     
     class AssumeStatement < Statement
       children :expression
-      def inspect
-        "#{'assume'.bold} #{@attributes.empty? ? "" : @attributes.map(&:inspect) * " " + " "}#{@expression.inspect};" 
-      end
-      def to_s
-        "assume #{@attributes.empty? ? "" : @attributes * " " + " "}#{@expression};" 
-      end
+      def print; "assume #{@attributes.map{|a| yield a} * " "} #{yield @expression};".squeeze("\s") end
     end
     
     class HavocStatement < Statement
       children :identifiers
-      def inspect; "havoc #{@identifiers.map(&:inspect) * ", "};" end
-      def to_s; "havoc #{@identifiers * ", "};" end
+      def print; "havoc #{@identifiers.map{|a| yield a} * ", "};" end
     end
     
     class AssignStatement < Statement
       children :lhs, :rhs
-      def inspect; "#{@lhs.map(&:inspect) * ", "} := #{@rhs.map(&:inspect) * ", "};" end
-      def to_s; "#{@lhs * ", "} := #{@rhs * ", "};" end
+      def print; "#{@lhs.map{|a| yield a} * ", "} := #{@rhs.map{|a| yield a} * ", "};" end
     end
     
     class CallStatement < Statement
       children :procedure, :arguments, :assignments
       def forall?; @assignments.nil? end
-      def inspect
-        lhs = ""
-        lhs << (@attributes.map(&:inspect) * " ") + " " unless @attributes.empty?
-        if @assignments then
-          lhs << @assignments.map(&:inspect) * ", " + " := " unless @assignments.empty?
+      def print
+        attrs = @attributes.map{|a| yield a} * " "
+        if @assignments
+          rets = @assignments.map{|a| yield a} * ", " + (@assignments.empty? ? '' : ' := ')
         else
-          lhs << "forall " if forall?
+          rets = "forall"
         end
-        "call".bold + " #{lhs}#{@procedure.inspect}(#{@arguments.map(&:inspect) * ", "});"
-      end
-      def to_s
-        lhs = ""
-        lhs << (@attributes * " ") + " " unless @attributes.empty?
-        if @assignments then
-          lhs << @assignments * ", " + " := " unless @assignments.empty?
-        else
-          lhs << "forall " if forall?
-        end
-        "call #{lhs}#{@procedure}(#{@arguments * ", "});"
+        proc = yield @procedure
+        args = @arguments.map{|a| yield a} * ", "
+        "call #{attrs} #{rets} #{proc}(#{args});".squeeze("\s")
       end
     end
     
     class IfStatement < Statement
       children :condition, :block, :else
-      def inspect
-        "#{'if'.bold} (#{@condition.inspect}) #{@block.inspect}#{@else.nil? ? "" : " else #{@else.inspect}" }"
-      end
-      def to_s
-        "if (#{@condition}) #{@block}#{@else.nil? ? "" : " else #{@else}" }"
+      def print
+        cond = yield @condition
+        block = yield @block
+        els_ = @else ? " else #{yield @else}" : ""
+        "if (#{cond}) #{block}#{els_}"
       end
     end
     
     class WhileStatement < Statement
       children :condition, :invariants, :block
-      def inspect
-        invs = @invariants.empty? ? " " : "\n" + @invariants.map(&:inspect) * "\n" + "\n"
-        "#{'while'.bold} (#{@condition.inspect})#{invs}#{@block.inspect}"
-      end
-      def to_s
-        invs = @invariants.empty? ? " " : "\n" + @invariants * "\n" + "\n"
-        "while (#{@condition})#{invs}#{@block}"
+      def print
+        invs = @invariants.empty? ? " " : "\n" + @invariants.map{|a| yield a} * "\n" + "\n"
+        "while (#{yield @condition})#{invs}#{yield @block}"
       end
     end
     
     class BreakStatement < Statement
       children :identifiers
-      def inspect
-        tgts = @identifiers.empty? ? "" : " " + @identifiers.map(&:inspect) * ", "
-        "#{'break'.bold}#{tgts};"
-      end
-      def to_s
-        tgts = @identifiers.empty? ? "" : " " + @identifiers * ", "
-        "break#{tgts};"
-      end
+      def print; "break #{@identifiers.map{|a| yield a} * ", "};" end
     end
     
     class GotoStatement < Statement
       children :identifiers
-      def inspect; "#{'goto'.bold} #{@identifiers.map(&:inspect) * ", "};" end
-      def to_s; "goto #{@identifiers * ", "};" end
+      def print; "goto #{@identifiers.map{|a| yield a} * ", "};" end
     end
     
-    class Block
-      include Traversable
+    class Block < Statement
       children :declarations, :statements
-      def inspect
+      def print
         str = "\n"
-        str << @declarations.map(&:inspect) * "\n"
-        str << "\n\n" if @declarations
-        str << @statements.map{|s| s.is_a?(String) ? "#{s}:" : s.inspect} * "\n"
-        str << "\n"
-        "{#{str.gsub(/^(.*[^:\n])$/,"#{"  "}\\1")}}"
-      end
-      def to_s
-        str = "\n"
-        str << @declarations * "\n"
-        str << "\n\n" if @declarations
-        str << @statements.map{|s| s.is_a?(String) ? "#{s}:" : s} * "\n"
+        str << @declarations.map{|d| yield d} * "\n" + "\n\n" unless @declarations.empty?
+        str << @statements.map{|s| s.is_a?(String) ? "#{s}:" : yield(s)} * "\n"
         str << "\n"
         "{#{str.gsub(/^(.*[^:\n])$/,"#{"  "}\\1")}}"
       end
