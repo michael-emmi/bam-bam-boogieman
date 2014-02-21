@@ -216,15 +216,47 @@ rule
   parent_edges_opt: { [] } | parent_edges
   complete_opt: { false } | 'complete' { true }
 
-  func_decl: 'function' attrs name type_args '(' fargs_opt ')' 'returns' '(' farg_unnamed ')' fbody {
+  func_decl: 'function' attrs name type_args '(' fargs_opt ')' 'returns' '(' farg ')' fbody {
     FunctionDeclaration.new attributes: val[1], name: val[2],
       type_arguments: val[3], arguments: val[5], return: val[9], body: val[11]
   }
-  fargs_opt: { [] } | fargs_named | fargs_unnamed
-  farg_named: typed_ids { NameDeclaration.new val[0] }
-  fargs_named: farg_named { [val[0]] } | farg_named ',' fargs_named { [val[0]] + val[2] }
-  farg_unnamed: type { NameDeclaration.new(names: [], type: val[0]) }
-  fargs_unnamed: farg_unnamed { [val[0]] } | farg_unnamed ',' fargs_unnamed { [val[0]] + val[2] }
+  
+  farg:
+    typed_ids { NameDeclaration.new val[0] } 
+    | type { NameDeclaration.new(names: [], type: val[0]) }
+  
+  fargs:
+    type { [{names: [], type: val[0]}] }
+    | type ',' fargs {
+      if val[2].first[:names].empty?
+        [{names: [], type: val[0]}] + val[2]
+      else
+        val[2].first[:names].unshift(val[0])
+        val[2]
+      end
+    }
+    | type ':' fargs {
+      # assert val[2].first[:names].empty?
+
+      unless val[0].respond_to?(:name)
+        raise ParseError, "parse error on value #{val[0]}: expecting name."
+      end
+      
+      if val[2].first[:names].empty?
+        val[2].first[:names].unshift(val[0])
+        val[2]
+      else
+        [{names: [val[0]], type: val[2].first[:names].shift}] + val[2]
+      end
+    }
+  fargs_opt: 
+    { [] } 
+    | fargs { 
+      val[0].map do |x|
+        x[:names].map!{|t| t.name}
+        NameDeclaration.new(x)
+      end
+    }
   fbody: ';' { nil } | '{' expr '}' { val[1] }
 
   axiom_decl: 'axiom' attrs expr ';' { 
