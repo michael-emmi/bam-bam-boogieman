@@ -25,7 +25,7 @@ module Bpl
         return unless d = @function.declaration
         
         flat_args = d.arguments.map(&:flatten).flatten
-        warn "incompatible arguments #{self} to function #{d.signature.split[0]}" \
+        warn "incompatible arguments #{self} to function #{d.signature.split(' returns').first}" \
           unless flat_args.count == @arguments.count &&
             flat_args.zip(@arguments).all?{|p,a| p.type.eql?(a.type)}
 
