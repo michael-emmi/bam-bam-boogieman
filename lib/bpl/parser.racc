@@ -104,7 +104,7 @@ rule
         QuantifiedExpression.new quantifier: val[1], type_arguments: val[2], 
           variables: val[3], 
           attributes: val[5].select{|a| a.is_a?(Hash)},
-          triggers: val[5].select{|t| t.is_a?(Array)},
+          triggers: val[5].select{|es| es.is_a?(Array)}.map{|es| Trigger.new(expressions: es)},
           expression: val[6] 
       }
       | '(' expr ')'  { val[1] }
@@ -114,7 +114,7 @@ rule
   
   quantifier: 'forall' | 'exists'
 
-  attr: '{:' name enss_opt '}' { {val[1] => val[2]} }
+  attr: '{:' name enss_opt '}' { {val[1].to_sym => val[2]} }
   attrs: { {} } | attr attrs { val[0].merge(val[1]) }
   trigger: '{' exprs '}' { val[1] }
   ant: attr | trigger

@@ -1,5 +1,12 @@
 module Bpl
   module AST
+    
+    class Declaration
+      def is_entrypoint?
+        is_a?(ProcedureDeclaration) && attributes.has_key?(:entrypoint)
+      end
+    end
+
     class Program
       
       def normalize!
@@ -9,12 +16,8 @@ module Bpl
         wrap_entrypoint_procedures!
       end
       
-      def is_entrypoint?(decl)
-        decl.is_a?(ProcedureDeclaration) && decl.attributes.has_key?(:entrypoint)
-      end
-      
       def locate_entrypoints!
-        entrypoints = @declarations.select{|d| is_entrypoint?(d)}
+        entrypoints = @declarations.select(&:is_entrypoint?)
         
         if entrypoints.empty?
           warn "no entry points found; looking for the usual suspects, e.g. main."
@@ -32,13 +35,13 @@ module Bpl
           case elem
           when CallStatement
             abort "found call to entry point procedure #{elem.procedure}." \
-              if is_entrypoint?(elem.procedure.declaration)
+              if (d = elem.procedure.declaration) && d.is_entrypoint?
           end
         end
       end
       
       def wrap_entrypoint_procedures!
-        @declarations.select{|d| is_entrypoint?(d)}.each do |proc|
+        @declarations.select(&:is_entrypoint?).each do |proc|
           if proc.has_body? then
             proc.body.statements.unshift( "assume {:startpoint} true;".parse )
             proc.replace do |elem|
@@ -64,7 +67,7 @@ module Bpl
           end
         end
       end
-
+      
     end
   end
 end

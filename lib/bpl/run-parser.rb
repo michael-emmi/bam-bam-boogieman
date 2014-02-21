@@ -32,11 +32,20 @@ module Kernel
   end
 end
 
+$use_assertions = false
+$add_inline_attributes = false
+
+class String
+  def parse; BoogieLanguage.new.parse_str(self) end
+end
+
 require_relative 'parser.tab'
 require_relative 'analysis/resolution'
 require_relative 'analysis/type_checking'
 require_relative 'analysis/normalization'
+require_relative 'analysis/vectorization'
 require_relative 'analysis/df_sequentialization'
+require_relative 'analysis/backend'
 
 abort "give me a string" unless ARGV.size > 0
 
@@ -45,8 +54,13 @@ program = BoogieLanguage.new.parse (input)
 program.resolve!
 program.type_check
 program.normalize!
-program.df_sequentialize!
+program.vectorize!
+# program.df_sequentialize!
+program.prepare_for_backend!
 program.resolve!
+
+# NOTE the right order is: vectorize ; seq ; error-flag ; inlines
+
 puts "INSPECT", program.inspect
 # puts "PARSED", program
 

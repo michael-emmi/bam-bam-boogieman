@@ -46,14 +46,18 @@ module Bpl
           case child
           when Node
             c = child.traverse(&block)
-            instance_variable_set(var,c) if c && c.is_a?(child.class)        
+            instance_variable_set(var,c) if c && c.is_a?(Node)
           when Array
             cs = child.reduce([]) do |cs,c|
               cc = c.is_a?(Node) ? c.traverse(&block) : c
               cs + case cc
-              when c.class; [cc]
+              when nil; []
               when Array; cc
-              else []
+              when Node; [cc]
+              when c.class; [cc]
+              else
+                puts "FOUND SOMEHTING CRAZY -- #{cc} -- FROM -- #{c}"
+                []
               end
             end
             instance_variable_set(var,cs)

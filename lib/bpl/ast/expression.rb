@@ -36,6 +36,22 @@ module Bpl
       def is_procedure?; @kind && @kind == :procedure end
       def is_function?; @kind && @kind == :function end
       def is_label?; @kind && @kind == :label end
+      
+      def is_variable?
+        @declaration && @declaration.is_a?(VariableDeclaration)
+      end
+      def is_constant?
+        @declaration && @declaration.is_a?(ConstantDeclaration)
+      end
+      def is_local?
+        @declaration && @declaration.parent && 
+        @declaration.parent.is_a?(ProcedureDeclaration)
+      end
+      def is_global?
+        @declaration && @declaration.parent && 
+        @declaration.parent.is_a?(Program)
+      end
+
       def type
         if (d = @declaration) && d.methods.include?(:type) then
           d.type
@@ -123,10 +139,15 @@ module Bpl
         end
         vs = @variables.map{|a| yield a} * ", "
         as = print_attrs(&block)
-        ts = @triggers.map{|ts| "{#{ts.map{|t| yield t} * ", "}}"} * " "
+        ts = @triggers.map{|t| yield t} * " "
         "(#{@quantifier} #{tvs} #{vs} :: #{as} #{ts} #{yield @expression})".squeeze("\s")
       end
       def type; Type::Boolean end
+    end
+    
+    class Trigger < Expression
+      children :expressions
+      def print(&block) "{#{@expressions.map{|e| yield e} * ", "}}" end
     end
   end
 end

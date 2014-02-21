@@ -1,27 +1,18 @@
-
-class String
-  def parse; BoogieLanguage.new.parse_str(self) end
-end
-
 module Bpl
   module AST
     
     class Identifier
+      def start; "#{@name}.start".parse end
       def next; "#{@name}.next".parse end
       def guess; "#{@name}.guess".parse end
       def save; "#{@name}.save".parse end
-      # def next; Identifier.new(name: "#{@name}.next", kind: @kind) end
-      # def guess; Identifier.new(name: "#{@name}.guess", kind: @kind) end
-      # def save; Identifier.new(name: "#{@name}.save", kind: @kind) end
     end
     
     class VariableDeclaration
+      def start; "var #{@names.map{|g| "#{g}.start"} * ", "}: #{@type};".parse end
       def next; "var #{@names.map{|g| "#{g}.next"} * ", "}: #{@type};".parse end
       def guess; "var #{@names.map{|g| "#{g}.guess"} * ", "}: #{@type};".parse end
       def save; "var #{@names.map{|g| "#{g}.save"} * ", "}: #{@type};".parse end
-      # def next; VariableDeclaration.new(names: @names.map{|g| "#{g}.next"}, type: @type, where: @where) end
-      # def guess; VariableDeclaration.new(names: @names.map{|g| "#{g}.guess"}, type: @type, where: @where) end
-      # def save; VariableDeclaration.new(names: @names.map{|g| "#{g}.save"}, type: @type, where: @where) end
     end
 
     class Program
@@ -30,10 +21,6 @@ module Bpl
         gs = global_variables.map{|d| d.idents}.flatten
         
         return if gs.empty?
-        
-        # TODO wrap this code around the entry point
-        begin_code = 
-        end_code =
 
         # @declarations << seq_idx = 
         @declarations << seq_idx = NameDeclaration.new(names: ['#s'], type: Type::Integer)
@@ -42,22 +29,17 @@ module Bpl
         replace do |elem|
           case elem
           when AssumeStatement
-            puts " ASSUME KEY ? #{elem}"
             if elem.attributes.has_key?(:startpoint)
-              
-              puts "START KEY"
 
-              ["havoc #{gs.map(&:guess) * ", "};".parse] +
               ["#s := 0;".parse] +
-              gs.map{|g| "#{g.next} := #{g.guess};".parse} +
+              ["#s.self := 0;".parse] +
+              gs.map{|g| "#{g.next} := #{g.start};".parse} +
               [elem]
 
             elsif elem.attributes.has_key?(:endpoint)
 
-              puts "END KEY"
-
               [elem] +
-              gs.map{|g| "assume #{g} == #{g.guess};".parse} +
+              gs.map{|g| "assume #{g} == #{g.start};".parse} +
               gs.map{|g| "#{g} := #{g.next};".parse}
 
             else
@@ -66,12 +48,19 @@ module Bpl
 
           when ProcedureDeclaration, ImplementationDeclaration
             if elem.has_body?
-              # elem.parameters << "#s.me: int".parse
-              elem.parameters << NameDeclaration.new(names: ['#s.me'], type: Type::Integer)
+              
+              unless elem.is_entrypoint?
+                # elem.parameters << "#s.self: int".parse
+                elem.parameters << NameDeclaration.new(names: ['#s.self'], type: Type::Integer)
+              end
 
               if elem.is_a?(ProcedureDeclaration)
                 elem.specifications << "modifies #{gs.map(&:next) * ", "};".parse
                 elem.specifications << "modifies #{seq_idx.idents * ", "};".parse
+              end
+              
+              if elem.is_entrypoint?
+                elem.body.declarations += global_variables.map(&:start)
               end
 
               if elem.body.any?{|id| id.is_a?(Identifier) && id.name =~ /.save/}
@@ -79,12 +68,12 @@ module Bpl
                 elem.body.declarations += global_variables.map(&:guess)
               end
               
-              elem.body.statements.unshift( "call boogie_si_record_int(#s.me);".parse )
+              elem.body.statements.unshift( "call boogie_si_record_int(#s.self);".parse )
             end
             elem
 
           when CallStatement
-            if elem.attributes.include? "async"
+            if elem.attributes.include? :async then
               elem.attributes.delete 'async'
               elem.arguments << "#s".parse \
                 unless elem.procedure.declaration.nil? || !elem.procedure.declaration.has_body?
@@ -111,7 +100,7 @@ module Bpl
               gs.map{|g| "#{g} := #{g.save};".parse}
               
             else # a synchronous procedure call
-              elem.arguments << "#s.me".parse \
+              elem.arguments << "#s.self".parse \
                 unless elem.procedure.declaration.nil? || !elem.procedure.declaration.has_body?
               elem
             end            
