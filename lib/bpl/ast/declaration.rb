@@ -19,7 +19,7 @@ module Bpl
     class FunctionDeclaration < Declaration
       children :name, :type_arguments, :arguments, :return, :body
       def signature
-        "function #{@name}(#{@arguments.map{|x|x.type} * ","}) returns (#{@return})"
+        "#{@name}(#{@arguments.map(&:flatten).flatten.map{|x|x.type} * ","}) returns (#{@return})"
       end
       def print(&blk)
         args = @arguments.map{|a| yield a} * ", "
@@ -41,6 +41,15 @@ module Bpl
         names = @names.empty? ? "" : (@names * ", " + ":")
         where = @where ? "where #{@where}" : ""
         "#{print_attrs(&blk)} #{names} #{yield @type} #{where}".split.join(' ')
+      end
+      def flatten
+        if @names.empty?
+          self
+        else
+          @names.map do |name|
+            self.class.new(names: [name], type: @type, where: @where)
+          end
+        end
       end
       def idents
         @names.map do |name|

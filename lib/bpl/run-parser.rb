@@ -3,6 +3,22 @@
 `rex lexer.rex`
 `racc parser.racc`
 
+require 'colorize'
+require 'set'
+
+module Kernel
+  @@warnings = Set.new
+
+  def warn(*args)
+    args.each do |str|
+      unless @@warnings.include? str
+        $stderr.puts "Warning: #{str}".yellow
+        @@warnings << str
+      end
+    end
+  end
+end
+
 require_relative 'parser.tab'
 
 abort "give me a string" unless ARGV.size > 0
@@ -13,6 +29,6 @@ program.resolve!
 program.type_check
 program.df_sequentialize!
 program.resolve!
-puts "INSPECT", program.inspect
+# puts "INSPECT", program.inspect
 # puts "PARSED", program
 
