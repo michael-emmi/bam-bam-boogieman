@@ -21,12 +21,13 @@ class BoogieLanguage
   options no_result_var
 
   token IDENTIFIER NUMBER BITVECTOR STRING BVTYPE
-  token PARSE_DECL PARSE_SPEC PARSE_STMT PARSE_EXPR
+  token PARSE_DECL PARSE_PARAM PARSE_SPEC PARSE_STMT PARSE_EXPR
   
 rule 
   target: 
     program
     | PARSE_DECL decl { val[1] }
+    | PARSE_PARAM param_decl { val[1] }
     | PARSE_SPEC spec { val[1] }
     | PARSE_STMT stmt { val[1] }
     | PARSE_EXPR expr { val[1] }
@@ -326,6 +327,12 @@ def parse_decl(str)
   do_parse
 end
 
+def parse_param(str)
+  scan_evaluate str
+  @rex_tokens.unshift [:PARSE_PARAM, ""]
+  do_parse
+end
+
 def parse_spec(str)
   scan_evaluate str
   @rex_tokens.unshift [:PARSE_SPEC, ""]
@@ -352,6 +359,8 @@ def parse_str(str)
     parse_decl(str)
   when /\b(assert|assume|havoc|call|if|while|break|goto|return)\b|:=/
     parse_stmt(str)
+  when /[^<:]:[^:]/
+    parse_param(str)
   else
     parse_expr(str)
   end

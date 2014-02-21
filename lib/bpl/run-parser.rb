@@ -54,8 +54,8 @@ program = BoogieLanguage.new.parse (input)
 program.resolve!
 program.type_check
 program.normalize!
-program.vectorize!
-# program.df_sequentialize!
+# program.vectorize!
+program.df_sequentialize!
 program.prepare_for_backend!
 program.resolve!
 

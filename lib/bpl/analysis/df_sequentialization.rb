@@ -22,8 +22,7 @@ module Bpl
         
         return if gs.empty?
 
-        # @declarations << seq_idx = 
-        @declarations << seq_idx = NameDeclaration.new(names: ['#s'], type: Type::Integer)
+        @declarations << seq_idx = "var #s: int;".parse
         @declarations += global_variables.map(&:next)
         
         replace do |elem|
@@ -48,10 +47,11 @@ module Bpl
 
           when ProcedureDeclaration, ImplementationDeclaration
             if elem.has_body?
-              
-              unless elem.is_entrypoint?
-                # elem.parameters << "#s.self: int".parse
-                elem.parameters << NameDeclaration.new(names: ['#s.self'], type: Type::Integer)
+
+              if elem.is_entrypoint?
+                elem.body.declarations << "var #s.self: int;".parse 
+              else
+                elem.parameters << "#s.self: int".parse
               end
 
               if elem.is_a?(ProcedureDeclaration)
