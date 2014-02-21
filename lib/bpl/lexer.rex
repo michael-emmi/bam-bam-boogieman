@@ -26,4 +26,5 @@ rule
 
           {IDENT}           { [:IDENTIFIER, text] }
           .                 { [text, text] }
+
 end

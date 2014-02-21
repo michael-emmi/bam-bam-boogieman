@@ -21,9 +21,15 @@ class BoogieLanguage
   options no_result_var
 
   token IDENTIFIER NUMBER BITVECTOR STRING BVTYPE
+  token PARSE_DECL PARSE_SPEC PARSE_STMT PARSE_EXPR
   
 rule 
-  target: program | stmt | spec
+  target: 
+    program
+    | PARSE_DECL decl { val[1] }
+    | PARSE_SPEC spec { val[1] }
+    | PARSE_STMT stmt { val[1] }
+    | PARSE_EXPR expr { val[1] }
   
   name: IDENTIFIER { val[0] }
   names: name { [val[0]] } | name ',' names { [val[0]] + val[2] }
@@ -287,6 +293,43 @@ include Bpl::AST
 ---- inner
 def parse(input)
   scan_str(input)
+end
+
+def parse_decl(str)
+  scan_evaluate str
+  @rex_tokens.unshift [:PARSE_DECL, ""]
+  do_parse
+end
+
+def parse_spec(str)
+  scan_evaluate str
+  @rex_tokens.unshift [:PARSE_SPEC, ""]
+  do_parse
+end
+
+def parse_stmt(str)
+  scan_evaluate str
+  @rex_tokens.unshift [:PARSE_STMT, ""]
+  do_parse
+end
+
+def parse_expr(str)
+  scan_evaluate str
+  @rex_tokens.unshift [:PARSE_EXPR, ""]
+  do_parse
+end
+
+def parse_str(str)
+  case str
+  when /\b(requires|ensures|modifies|invariant)\b/
+    parse_spec(str)
+  when /\b(type|const|function|axiom|var|procedure|implementation)\b/
+    parse_decl(str)
+  when /\b(assert|assume|havoc|call|if|while|break|goto|return)\b|:=/
+    parse_stmt(str)
+  else
+    parse_expr(str)
+  end
 end
 
 ---- footer

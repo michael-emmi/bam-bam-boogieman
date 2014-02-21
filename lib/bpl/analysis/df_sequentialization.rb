@@ -1,21 +1,27 @@
 
 class String
-  def parse; BoogieLanguage.new.parse(self) end
+  def parse; BoogieLanguage.new.parse_str(self) end
 end
 
 module Bpl
   module AST
     
     class Identifier
-      def next; Identifier.new(name: "#{@name}.next", kind: @kind) end
-      def guess; Identifier.new(name: "#{@name}.guess", kind: @kind) end
-      def save; Identifier.new(name: "#{@name}.save", kind: @kind) end
+      def next; "#{@name}.next".parse end
+      def guess; "#{@name}.guess".parse end
+      def save; "#{@name}.save".parse end
+      # def next; Identifier.new(name: "#{@name}.next", kind: @kind) end
+      # def guess; Identifier.new(name: "#{@name}.guess", kind: @kind) end
+      # def save; Identifier.new(name: "#{@name}.save", kind: @kind) end
     end
     
     class VariableDeclaration
-      def next; VariableDeclaration.new(names: @names.map{|g| "#{g}.next"}, type: @type, where: @where) end
-      def guess; VariableDeclaration.new(names: @names.map{|g| "#{g}.guess"}, type: @type, where: @where) end
-      def save; VariableDeclaration.new(names: @names.map{|g| "#{g}.save"}, type: @type, where: @where) end
+      def next; "var #{@names.map{|g| "#{g}.next"} * ", "}: #{@type};".parse end
+      def guess; "var #{@names.map{|g| "#{g}.guess"} * ", "}: #{@type};".parse end
+      def save; "var #{@names.map{|g| "#{g}.save"} * ", "}: #{@type};".parse end
+      # def next; VariableDeclaration.new(names: @names.map{|g| "#{g}.next"}, type: @type, where: @where) end
+      # def guess; VariableDeclaration.new(names: @names.map{|g| "#{g}.guess"}, type: @type, where: @where) end
+      # def save; VariableDeclaration.new(names: @names.map{|g| "#{g}.save"}, type: @type, where: @where) end
     end
 
     class Program
@@ -32,6 +38,7 @@ module Bpl
           gs.map{|g| "assume #{g} == #{g.guess};".parse} +
           gs.map{|g| "#{g} := #{g.next};".parse}
 
+        # @declarations << seq_idx = 
         @declarations << seq_idx = NameDeclaration.new(names: ['#s'], type: Type::Integer)
         @declarations += global_variables.map(&:next)
         
@@ -39,6 +46,7 @@ module Bpl
           case elem
           when ProcedureDeclaration, ImplementationDeclaration
             if elem.has_body?
+              # elem.parameters << "#s.me: int".parse
               elem.parameters << NameDeclaration.new(names: ['#s.me'], type: Type::Integer)
 
               if elem.is_a?(ProcedureDeclaration)
@@ -58,7 +66,7 @@ module Bpl
           when CallStatement
             if elem.attributes.include? "async"
               elem.attributes.delete 'async'
-              elem.arguments << Identifier.new(name: '#s', kind: :storage) \
+              elem.arguments << "#s".parse \
                 unless elem.procedure.declaration.nil? || !elem.procedure.declaration.has_body?
               
               # replace the return assignments with dummy assignments
@@ -83,7 +91,7 @@ module Bpl
               gs.map{|g| "#{g} := #{g.save};".parse}
               
             else # a synchronous procedure call
-              elem.arguments << Identifier.new(name: '#s.me', kind: :storage) \
+              elem.arguments << "#s.me".parse \
                 unless elem.procedure.declaration.nil? || !elem.procedure.declaration.has_body?
               elem
             end            

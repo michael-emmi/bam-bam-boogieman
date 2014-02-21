@@ -3,8 +3,17 @@
 `rex lexer.rex`
 `racc parser.racc`
 
-require 'colorize'
 require 'set'
+
+begin
+  require 'colorize'
+rescue LoadError
+  class String
+    def yellow; self end
+    def red; self end
+    def green; self end
+  end
+end
 
 module Kernel
   @@warnings = Set.new
@@ -29,6 +38,6 @@ program.resolve!
 program.type_check
 program.df_sequentialize!
 program.resolve!
-# puts "INSPECT", program.inspect
+puts "INSPECT", program.inspect
 # puts "PARSED", program
 

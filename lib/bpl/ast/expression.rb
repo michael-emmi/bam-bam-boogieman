@@ -1,6 +1,5 @@
 require_relative 'node'
 require_relative 'type'
-require 'colorize'
 
 module Bpl
   module AST
