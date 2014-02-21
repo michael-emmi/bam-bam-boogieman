@@ -205,9 +205,8 @@ rule
   tc_params: { [] } | name tc_params { [val[0]] + val[1] }
   type_syn: { nil } | '=' type { val[1] }
 
-  const_decl: 'const' attrs unique_opt names ':' type order_spec ';' {
-    ConstantDeclaration.new attributes: val[1], unique: val[2], names: val[3],
-      type: val[5], order_spec: val[6]
+  const_decl: 'const' attrs unique_opt typed_ids order_spec ';' {
+    ConstantDeclaration.new(val[3].merge({attributes: val[1], unique: val[2], order_spec: val[4]}))
   }
   unique_opt: { false } | 'unique' { true }
   order_spec: parent_info complete_opt { [val[0],val[1]] }
@@ -217,28 +216,28 @@ rule
   parent_edges_opt: { [] } | parent_edges
   complete_opt: { false } | 'complete' { true }
 
-  func_decl: 'function' attrs name type_args '(' fargs_opt ')' 'returns' '(' farg ')' fbody {
+  func_decl: 'function' attrs name type_args '(' fargs_opt ')' 'returns' '(' farg_unnamed ')' fbody {
     FunctionDeclaration.new attributes: val[1], name: val[2],
       type_arguments: val[3], arguments: val[5], return: val[9], body: val[11]
   }
-  farg: 
-    names ':' type { NameDeclaration.new attributes: [], names: val[0], type: val[2], where: nil }
-    | type { NameDeclaration.new attributes: [], names: [], type: val[0], where: nil }
-  fargs: farg { [val[0]] } | farg ',' fargs { [val[0]] + val[2] }
-  fargs_opt: { [] } | fargs
+  fargs_opt: { [] } | fargs_named | fargs_unnamed
+  farg_named: typed_ids { NameDeclaration.new val[0] }
+  fargs_named: farg_named { [val[0]] } | farg_named ',' fargs_named { [val[0]] + val[2] }
+  farg_unnamed: type { NameDeclaration.new(names: [], type: val[0]) }
+  fargs_unnamed: farg_unnamed { [val[0]] } | farg_unnamed ',' fargs_unnamed { [val[0]] + val[2] }
   fbody: ';' { nil } | '{' expr '}' { val[1] }
 
   axiom_decl: 'axiom' attrs expr ';' { 
     AxiomDeclaration.new attributes: val[1], expression: val[2]
   }
 
-  var_decl: 'var' attrs typed_ids ';' {
-    VariableDeclaration.new attributes: val[1], names: val[2][:ids], 
-      type: val[2][:type], where: val[2][:where]
+  var_decl: 'var' attrs typed_ids_where ';' {
+    VariableDeclaration.new(val[2].merge({attributes: val[1]}))
   }
-  typed_ids: names ':' type where_clause { {ids: val[0], type: val[2], where: val[3]} }
+  typed_ids: names ':' type { {names: val[0], type: val[2]} }
+  typed_ids_where: typed_ids where_clause { val[0].merge(val[1]) }
   var_decls: { [] } | var_decl var_decls { [val[0]] + val[1] }
-  where_clause: { nil } | 'where' expr { val[1] }
+  where_clause: { {} } | 'where' expr { {where: val[1]} }
 
   proc_decl: 
     'procedure' attrs name type_args '(' param_decls_opt ')' out_params pspec {
@@ -251,10 +250,7 @@ rule
   pbody: '{' var_decls lstmts '}' { Block.new declarations: val[1], statements: val[2] }
   pbodies: pbody { [val[0]] } | pbody pbodies { [val[0]] + val[1] }
 
-  param_decl: typed_ids {
-    NameDeclaration.new attributes: [], names: val[0][:ids],
-      type: val[0][:type], where: val[0][:where] 
-  }
+  param_decl: typed_ids_where { NameDeclaration.new val[0] }
   param_decls: param_decl { [val[0]] } | param_decl ',' param_decls { [val[0]] + val[2] }
   param_decls_opt: { [] } | param_decls
 

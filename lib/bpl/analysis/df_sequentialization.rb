@@ -29,6 +29,8 @@ module Bpl
 
         gs = global_variables.map{|d| d.idents}.flatten
         
+        return if gs.empty?
+        
         # TODO wrap this code around the entry point
         begin_code = 
           ["havoc #{gs.map(&:guess) * ", "};".parse] +
@@ -98,7 +100,7 @@ module Bpl
           else
             elem
           end
-        end unless gs.empty?
+        end
 
       end
     end
