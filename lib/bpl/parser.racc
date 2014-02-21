@@ -146,7 +146,7 @@ rule
       val[1].each{|id| id.kind = :label}
       BreakStatement.new identifiers: val[1]
     }
-    | 'return' ';' { Statement::Return }
+    | 'return' ';' { ReturnStatement.new }
     | 'goto' idents ';' { 
       val[1].each{|id| id.kind = :label}
       GotoStatement.new identifiers: val[1]
@@ -313,9 +313,6 @@ require_relative 'ast/specification'
 require_relative 'ast/statement'
 require_relative 'ast/declaration'
 require_relative 'ast/program'
-require_relative 'analysis/resolution'
-require_relative 'analysis/type_checking'
-require_relative 'analysis/df_sequentialization'
 include Bpl::AST
 
 ---- inner

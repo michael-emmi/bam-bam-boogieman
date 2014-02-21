@@ -17,6 +17,10 @@ end
 
 module Kernel
   @@warnings = Set.new
+  alias :old_abort :abort
+  def abort(str)
+    old_abort("Error: #{str}".red)
+  end
 
   def warn(*args)
     args.each do |str|
@@ -29,6 +33,10 @@ module Kernel
 end
 
 require_relative 'parser.tab'
+require_relative 'analysis/resolution'
+require_relative 'analysis/type_checking'
+require_relative 'analysis/normalization'
+require_relative 'analysis/df_sequentialization'
 
 abort "give me a string" unless ARGV.size > 0
 
@@ -36,6 +44,7 @@ input = File.exists?(ARGV.first) ? File.read(ARGV.first) : (ARGV * " ")
 program = BoogieLanguage.new.parse (input)
 program.resolve!
 program.type_check
+program.normalize!
 program.df_sequentialize!
 program.resolve!
 puts "INSPECT", program.inspect

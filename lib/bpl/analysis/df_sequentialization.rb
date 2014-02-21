@@ -33,12 +33,7 @@ module Bpl
         
         # TODO wrap this code around the entry point
         begin_code = 
-          ["havoc #{gs.map(&:guess) * ", "};".parse] +
-          ["#s := 0;".parse] +
-          gs.map{|g| "#{g.next} := #{g.guess};".parse}
         end_code =
-          gs.map{|g| "assume #{g} == #{g.guess};".parse} +
-          gs.map{|g| "#{g} := #{g.next};".parse}
 
         # @declarations << seq_idx = 
         @declarations << seq_idx = NameDeclaration.new(names: ['#s'], type: Type::Integer)
@@ -46,6 +41,29 @@ module Bpl
         
         replace do |elem|
           case elem
+          when AssumeStatement
+            puts " ASSUME KEY ? #{elem}"
+            if elem.attributes.has_key?(:startpoint)
+              
+              puts "START KEY"
+
+              ["havoc #{gs.map(&:guess) * ", "};".parse] +
+              ["#s := 0;".parse] +
+              gs.map{|g| "#{g.next} := #{g.guess};".parse} +
+              [elem]
+
+            elsif elem.attributes.has_key?(:endpoint)
+
+              puts "END KEY"
+
+              [elem] +
+              gs.map{|g| "assume #{g} == #{g.guess};".parse} +
+              gs.map{|g| "#{g} := #{g.next};".parse}
+
+            else
+              elem
+            end
+
           when ProcedureDeclaration, ImplementationDeclaration
             if elem.has_body?
               # elem.parameters << "#s.me: int".parse

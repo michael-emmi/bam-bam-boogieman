@@ -3,8 +3,6 @@ require_relative 'node'
 module Bpl
   module AST
     class Statement < Node
-      Return = Statement.new
-      def Return.print; "return;" end
     end
     
     class AssertStatement < Statement
@@ -68,6 +66,10 @@ module Bpl
     class GotoStatement < Statement
       children :identifiers
       def print; "goto #{@identifiers.map{|a| yield a} * ", "};" end
+    end
+    
+    class ReturnStatement < Statement
+      def print; "return;" end
     end
     
     class Block < Statement
