@@ -18,9 +18,6 @@ module Bpl
     
     class FunctionDeclaration < Declaration
       children :name, :type_arguments, :arguments, :return, :body
-      def resolve(id)
-        id.is_storage? && @arguments.find{|decl| decl.names.include? id.name}
-      end
       def signature
         "function #{@name}(#{@arguments.map{|x|x.type} * ","}) returns (#{@return})"
       end

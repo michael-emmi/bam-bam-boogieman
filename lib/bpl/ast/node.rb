@@ -12,6 +12,9 @@ module Bpl
           end
           @children
         end
+        def inherited(subclass)
+          subclass.instance_variable_set("@children",@children)
+        end
       end
   
       children :attributes

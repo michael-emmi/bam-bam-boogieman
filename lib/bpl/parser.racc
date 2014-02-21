@@ -216,7 +216,7 @@ rule
       type_arguments: val[3], arguments: val[5], return: val[9], body: val[11]
   }
   farg: 
-    name ':' type { NameDeclaration.new attributes: [], names: [val[0]], type: val[2], where: nil }
+    names ':' type { NameDeclaration.new attributes: [], names: val[0], type: val[2], where: nil }
     | type { NameDeclaration.new attributes: [], names: [], type: val[0], where: nil }
   fargs: farg { [val[0]] } | farg ',' fargs { [val[0]] + val[2] }
   fargs_opt: { [] } | fargs
