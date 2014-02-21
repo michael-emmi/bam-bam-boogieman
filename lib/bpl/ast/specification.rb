@@ -1,9 +1,8 @@
-require_relative 'traversable'
+require_relative 'node'
 
 module Bpl
   module AST
-    class Specification
-      include Traversable
+    class Specification < Node
       attr_accessor :free
     end
     

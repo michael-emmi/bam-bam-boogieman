@@ -1,23 +1,20 @@
-require_relative 'traversable'
+require_relative 'node'
 
 module Bpl
   module AST
-    class Statement
-      include Traversable
-      children :attributes
-      
+    class Statement < Node
       Return = Statement.new
       def Return.print; "return;" end
     end
     
     class AssertStatement < Statement
       children :expression
-      def print; "assert #{@attributes.map{|a| yield a} * " "} #{yield @expression};".squeeze("\s") end
+      def print(&blk) "assert #{print_attrs(&blk)} #{yield @expression};".squeeze("\s") end
     end
     
     class AssumeStatement < Statement
       children :expression
-      def print; "assume #{@attributes.map{|a| yield a} * " "} #{yield @expression};".squeeze("\s") end
+      def print(&blk) "assume #{print_attrs(&blk)} #{yield @expression};".squeeze("\s") end
     end
     
     class HavocStatement < Statement
@@ -33,8 +30,7 @@ module Bpl
     class CallStatement < Statement
       children :procedure, :arguments, :assignments
       def forall?; @assignments.nil? end
-      def print
-        attrs = @attributes.map{|a| yield a} * " "
+      def print(&blk)
         if @assignments
           rets = @assignments.map{|a| yield a} * ", " + (@assignments.empty? ? '' : ' := ')
         else
@@ -42,7 +38,7 @@ module Bpl
         end
         proc = yield @procedure
         args = @arguments.map{|a| yield a} * ", "
-        "call #{attrs} #{rets} #{proc}(#{args});".squeeze("\s")
+        "call #{print_attrs(&blk)} #{rets} #{proc}(#{args});".squeeze("\s")
       end
     end
     

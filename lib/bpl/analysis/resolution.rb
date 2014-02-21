@@ -1,10 +1,9 @@
-# require_relative 'traversable'
-
 module Bpl
   module AST
     
     class Program
-      def resolve_identifiers!
+      def resolve!
+        @declarations.each do |d| d.parent = self end
         scope = [self]
         traverse do |elem,turn|
           case elem
@@ -22,6 +21,8 @@ module Bpl
                 warn "could not resolve identifier #{elem}"
               end
             end
+          when Statement
+            elem.parent = scope.first
           end
           elem
         end

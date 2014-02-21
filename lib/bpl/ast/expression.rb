@@ -1,13 +1,10 @@
-require_relative 'traversable'
+require_relative 'node'
 require_relative 'type'
 require 'colorize'
 
 module Bpl
   module AST
-    class Expression
-      include Traversable
-      attr_accessor :scope
-
+    class Expression < Node
       Wildcard = Expression.new
       def Wildcard.print; "*" end
     end
@@ -118,33 +115,19 @@ module Bpl
     end
     
     class QuantifiedExpression < Expression
-      children :quantifier, :type_arguments, :variables, :expression
-      children :attributes, :triggers
-      def print
+      children :quantifier, :type_arguments, :variables, :expression, :triggers
+      def print(&block)
         if @type_arguments.empty?
           tvs = ""
         else
           tvs = "<#{@type_arguments.map{|a| yield a} * ", "}>"
         end
         vs = @variables.map{|a| yield a} * ", "
-        as = @attributes.map{|a| yield a} * " "
-        ts = @triggers.map{|a| yield a} * " "
+        as = print_attrs(&block)
+        ts = @triggers.map{|ts| "{#{ts.map{|t| yield t} * ", "}}"} * " "
         "(#{@quantifier} #{tvs} #{vs} :: #{as} #{ts} #{yield @expression})".squeeze("\s")
       end
       def type; Type::Boolean end
-    end
-    
-    class Attribute < Expression
-      children :name, :values
-      def print
-        vs = @values.map{|s| (s.is_a? String) ? "\"#{s}\"" : yield(s) } * ", "
-        "{:#{@name}#{vs.empty? ? "" : " #{vs}"}}"
-      end
-    end
-    
-    class Trigger < Expression
-      children :expressions
-      def print; "{#{@expressions.map{|a| yield a} * ", "}}" end
     end
   end
 end

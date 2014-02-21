@@ -23,7 +23,7 @@ class BoogieLanguage
   token IDENTIFIER NUMBER BITVECTOR STRING BVTYPE
   
 rule 
-  target: program
+  target: program | stmt | spec
   
   name: IDENTIFIER { val[0] }
   names: name { [val[0]] } | name ',' names { [val[0]] + val[2] }
@@ -97,8 +97,8 @@ rule
       | '(' quantifier type_args param_decls '::' ants expr ')' { 
         QuantifiedExpression.new quantifier: val[1], type_arguments: val[2], 
           variables: val[3], 
-          attributes: val[5].select{|a| a.is_a?(Attribute)},
-          triggers: val[5].select{|t| t.is_a?(Trigger)},
+          attributes: val[5].select{|a| a.is_a?(Hash)},
+          triggers: val[5].select{|t| t.is_a?(Array)},
           expression: val[6] 
       }
       | '(' expr ')'  { val[1] }
@@ -108,9 +108,9 @@ rule
   
   quantifier: 'forall' | 'exists'
 
-  attr: '{:' name enss_opt '}' { Attribute.new name: val[1], values: val[2] }
-  attrs: { [] } | attr attrs { [val[0]] + val[1] }
-  trigger: '{' exprs '}' { Trigger.new expressions: val[1] }
+  attr: '{:' name enss_opt '}' { {val[1] => val[2]} }
+  attrs: { {} } | attr attrs { val[0].merge(val[1]) }
+  trigger: '{' exprs '}' { val[1] }
   ant: attr | trigger
   ants: { [] } | ant ants { [val[0]] + val[1] }
 
@@ -281,15 +281,12 @@ require_relative 'ast/declaration'
 require_relative 'ast/program'
 require_relative 'analysis/resolution'
 require_relative 'analysis/type_checking'
+require_relative 'analysis/df_sequentialization'
 include Bpl::AST
 
 ---- inner
 def parse(input)
-  program = scan_str(input)
-  program.declarations.each do |d| d.program = program end
-  program.resolve_identifiers!
-  program.type_check
-  program
+  scan_str(input)
 end
 
 ---- footer

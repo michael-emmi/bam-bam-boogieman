@@ -1,10 +1,8 @@
-require_relative 'traversable'
+require_relative 'node'
 
 module Bpl
   module AST
-    class Type
-      include Traversable
-      
+    class Type < Node
       Boolean = Type.new
       Integer = Type.new
       def Boolean.print; "bool" end

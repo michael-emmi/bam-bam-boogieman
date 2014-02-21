@@ -1,22 +1,18 @@
-require_relative 'traversable'
+require_relative 'node'
 
 module Bpl
   module AST
-    class Declaration
-      include Traversable
-      attr_accessor :program
-      children :attributes
+    class Declaration < Node
     end
     
     class TypeDeclaration < Declaration
       children :name, :arguments
       children :finite, :type
       def signature; "type #{@name}" end
-      def print
-        attrs = @attributes.map{|a| yield a} * " "
+      def print(&blk)
         args = @arguments.map{|a| yield a} * " "
         type = @type ? " = #{yield @type}" : ""
-        "type #{attrs} #{'finite' if @finite} #{@name} #{args} #{type};".squeeze("\s")
+        "type #{print_attrs(&blk)} #{'finite' if @finite} #{@name} #{args} #{type};".squeeze("\s")
       end
     end
     
@@ -28,28 +24,31 @@ module Bpl
       def signature
         "function #{@name}(#{@arguments.map{|x|x.type} * ","}) returns (#{@return})"
       end
-      def print
-        attrs = @attributes.map{|a| yield a} * " "
+      def print(&blk)
         args = @arguments.map{|a| yield a} * ", "
         ret = yield @return
         body = @body ? " { #{yield @body} }" : ";"
-        "function #{attrs} #{@name}(#{args}) returns (#{ret})#{body}".squeeze("\s")
+        "function #{print_attrs(&blk)} #{@name}(#{args}) returns (#{ret})#{body}".squeeze("\s")
       end
     end
     
     class AxiomDeclaration < Declaration
       children :expression
-      def print; "axiom #{@attributes.map{|a| yield a} * " "} #{yield @expression};".squeeze("\s") end
+      def print(&blk) "axiom #{print_attrs(&blk)} #{yield @expression};".squeeze("\s") end
     end
     
     class NameDeclaration < Declaration
       children :names, :type, :where
       def signature; "#{@names * ", "}: #{@type}" end      
-      def print
-        attrs = @attributes.map{|a| yield a} * " "
+      def print(&blk)
         names = @names.empty? ? "" : (@names * ", " + ":")
         where = @where ? "where #{@where}" : ""
-        "#{attrs} #{names} #{yield @type} #{where}".split.join(' ')
+        "#{print_attrs(&blk)} #{names} #{yield @type} #{where}".split.join(' ')
+      end
+      def idents
+        @names.map do |name|
+          Identifier.new name: name, kind: :storage, declaration: self
+        end
       end
     end
     
@@ -61,8 +60,7 @@ module Bpl
     class ConstantDeclaration < NameDeclaration
       children :unique, :order_spec
       def signature; "const #{@names * ", "}: #{@type}" end
-      def print
-        attrs = @attributes.map{|a| yield a} * " "
+      def print(&blk)
         names = @names.empty? ? "" : (@names * ", " + ":")
         ord = ""
         if @order_spec && @order_spec[0]
@@ -72,18 +70,25 @@ module Bpl
           end
         end
         ord << ' complete' if @order_spec && @order_spec[1]
-        "const #{attrs} #{'unique' if @unique} #{names} #{yield @type}#{ord};".squeeze("\s")
+        "const #{print_attrs(&blk)} #{'unique' if @unique} #{names} #{yield @type}#{ord};".squeeze("\s")
       end
     end
     
     class ProcedureDeclaration < Declaration
       children :name, :type_arguments, :parameters, :returns
       children :specifications, :body
-      def sig
-        attrs = @attributes.map{|a| yield a} * " "
+      def has_body?; !@body.nil? end
+      def fresh_var(type)
+        return nil unless @body
+        taken = @body.declarations.map{|d| d.names}.flatten
+        var = (0..Float::INFINITY).each{|i| unless taken.include?(v = "_#{i}"); break v end}
+        @body.declarations << decl = VariableDeclaration.new(names: [var], type: type)
+        decl
+      end
+      def sig(&blk)
         params = @parameters.map{|a| yield a} * ", "
         rets = @returns.empty? ? "" : "returns (#{@returns.map{|a| yield a} * ", "})"
-        "#{attrs} #{@name}(#{params}) #{rets}".split.join(' ')
+        "#{print_attrs(&blk)} #{@name}(#{params}) #{rets}".split.join(' ')
       end
       def signature
         "procedure #{@name}(#{@parameters.map{:type} * ","})" +

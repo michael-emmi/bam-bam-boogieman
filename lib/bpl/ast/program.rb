@@ -1,18 +1,11 @@
-require_relative 'traversable'
+require_relative 'node'
 
 module Bpl
   module AST
-    class Program
-      include Traversable
+    class Program < Node
       children :declarations
-      
-      def add(decl)
-        @declarations << decl
-        decl.program = self
-      end
-
-      def print; @declarations.map{|d| yield d} * "\n" end
-      
+      def print; @declarations.map{|d| yield d} * "\n" end      
+      def global_variables; @declarations.select{|d| d.is_a?(VariableDeclaration)} end      
       def name
         "THE PROGRAM W/ NO NAME"
       end
