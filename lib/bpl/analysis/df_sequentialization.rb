@@ -2,17 +2,17 @@ module Bpl
   module AST
     
     class Identifier
-      def start; "#{@name}.start".parse end
-      def next; "#{@name}.next".parse end
-      def guess; "#{@name}.guess".parse end
-      def save; "#{@name}.save".parse end
+      def start; bpl "#{@name}.start" end
+      def next; bpl "#{@name}.next" end
+      def guess; bpl "#{@name}.guess" end
+      def save; bpl "#{@name}.save" end
     end
     
     class VariableDeclaration
-      def start; "var #{@names.map{|g| "#{g}.start"} * ", "}: #{@type};".parse end
-      def next; "var #{@names.map{|g| "#{g}.next"} * ", "}: #{@type};".parse end
-      def guess; "var #{@names.map{|g| "#{g}.guess"} * ", "}: #{@type};".parse end
-      def save; "var #{@names.map{|g| "#{g}.save"} * ", "}: #{@type};".parse end
+      def start; bpl "var #{@names.map{|g| "#{g}.start"} * ", "}: #{@type};" end
+      def next; bpl "var #{@names.map{|g| "#{g}.next"} * ", "}: #{@type};" end
+      def guess; bpl "var #{@names.map{|g| "#{g}.guess"} * ", "}: #{@type};" end
+      def save; bpl "var #{@names.map{|g| "#{g}.save"} * ", "}: #{@type};" end
     end
 
     class Program
@@ -22,7 +22,7 @@ module Bpl
         
         return if gs.empty?
 
-        @declarations << seq_idx = "var #s: int;".parse
+        @declarations << seq_idx = bpl("var #s: int;")
         @declarations += global_variables.map(&:next)
         
         replace do |elem|
@@ -30,16 +30,16 @@ module Bpl
           when AssumeStatement
             if elem.attributes.has_key?(:startpoint)
 
-              ["#s := 0;".parse] +
-              ["#s.self := 0;".parse] +
-              gs.map{|g| "#{g.next} := #{g.start};".parse} +
+              [bpl("#s := 0;")] +
+              [bpl("#s.self := 0;")] +
+              gs.map{|g| bpl("#{g.next} := #{g.start};")} +
               [elem]
 
             elsif elem.attributes.has_key?(:endpoint)
 
               [elem] +
-              gs.map{|g| "assume #{g} == #{g.start};".parse} +
-              gs.map{|g| "#{g} := #{g.next};".parse}
+              gs.map{|g| bpl("assume #{g} == #{g.start};")} +
+              gs.map{|g| bpl("#{g} := #{g.next};")}
 
             else
               elem
@@ -49,14 +49,14 @@ module Bpl
             if elem.has_body?
 
               if elem.is_entrypoint?
-                elem.body.declarations << "var #s.self: int;".parse 
+                elem.body.declarations << bpl("var #s.self: int;")
               else
-                elem.parameters << "#s.self: int".parse
+                elem.parameters << bpl("#s.self: int")
               end
 
               if elem.is_a?(ProcedureDeclaration)
-                elem.specifications << "modifies #{gs.map(&:next) * ", "};".parse
-                elem.specifications << "modifies #{seq_idx.idents * ", "};".parse
+                elem.specifications << bpl("modifies #{gs.map(&:next) * ", "};")
+                elem.specifications << bpl("modifies #{seq_idx.idents * ", "};")
               end
               
               if elem.is_entrypoint?
@@ -68,14 +68,14 @@ module Bpl
                 elem.body.declarations += global_variables.map(&:guess)
               end
               
-              elem.body.statements.unshift( "call boogie_si_record_int(#s.self);".parse )
+              elem.body.statements.unshift( bpl "call boogie_si_record_int(#s.self);" )
             end
             elem
 
           when CallStatement
             if elem.attributes.include? :async then
               elem.attributes.delete 'async'
-              elem.arguments << "#s".parse \
+              elem.arguments << bpl("#s") \
                 unless elem.procedure.declaration.nil? || !elem.procedure.declaration.has_body?
               
               # replace the return assignments with dummy assignments
@@ -91,16 +91,17 @@ module Bpl
               end
               
               # some async-simulating guessing magic
-              gs.map{|g| "#{g.save} := #{g};".parse} +
-              gs.map{|g| "#{g} := #{g.next};".parse} +
-              gs.map{|g| "havoc #{g.guess};".parse} +
-              gs.map{|g| "#{g.next} := #{g.guess};".parse} +
-              [ "#s := #s + 1;".parse, elem ] +
-              gs.map{|g| "assume #{g} == #{g.guess};".parse} +
-              gs.map{|g| "#{g} := #{g.save};".parse}
+              gs.map{|g| bpl("#{g.save} := #{g};")} +
+              gs.map{|g| bpl("#{g} := #{g.next};")} +
+              gs.map{|g| bpl("havoc #{g.guess};")} +
+              gs.map{|g| bpl("#{g.next} := #{g.guess};")} +
+              [ bpl("#s := #s + 1;") ] +
+              [ elem ] +
+              gs.map{|g| bpl("assume #{g} == #{g.guess};")} +
+              gs.map{|g| bpl("#{g} := #{g.save};")}
               
             else # a synchronous procedure call
-              elem.arguments << "#s.self".parse \
+              elem.arguments << bpl("#s.self") \
                 unless elem.procedure.declaration.nil? || !elem.procedure.declaration.has_body?
               elem
             end            

@@ -140,7 +140,7 @@ module Bpl
         vs = @variables.map{|a| yield a} * ", "
         as = print_attrs(&block)
         ts = @triggers.map{|t| yield t} * " "
-        "(#{@quantifier} #{tvs} #{vs} :: #{as} #{ts} #{yield @expression})".squeeze("\s")
+        "(#{@quantifier} #{tvs} #{vs} :: #{as} #{ts} #{yield @expression})".fmt
       end
       def type; Type::Boolean end
     end

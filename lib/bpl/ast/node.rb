@@ -1,3 +1,9 @@
+class String
+  def fmt
+    self.split.join(' ').gsub(/\s*;/, ';')
+  end
+end
+
 module Bpl
   module AST
     class Node
@@ -36,6 +42,8 @@ module Bpl
   
       def inspect; print &:inspect end
       def to_s; print {|a| a} end
+      
+      def +(n) [self] + case n when Array; n else [n] end end
   
       def traverse(&block)
         return self unless block_given?

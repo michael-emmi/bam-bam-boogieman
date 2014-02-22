@@ -7,12 +7,12 @@ module Bpl
     
     class AssertStatement < Statement
       children :expression
-      def print(&blk) "assert #{print_attrs(&blk)} #{yield @expression};".squeeze("\s") end
+      def print(&blk) "assert #{print_attrs(&blk)} #{yield @expression};".fmt end
     end
     
     class AssumeStatement < Statement
       children :expression
-      def print(&blk) "assume #{print_attrs(&blk)} #{yield @expression};".squeeze("\s") end
+      def print(&blk) "assume #{print_attrs(&blk)} #{yield @expression};".fmt end
     end
     
     class HavocStatement < Statement
@@ -36,7 +36,7 @@ module Bpl
         end
         proc = yield @procedure
         args = @arguments.map{|a| yield a} * ", "
-        "call #{print_attrs(&blk)} #{rets} #{proc}(#{args});".squeeze("\s")
+        "call #{print_attrs(&blk)} #{rets} #{proc}(#{args});".fmt
       end
     end
     

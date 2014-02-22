@@ -7,6 +7,11 @@ module Bpl
       Integer = Type.new
       def Boolean.print; "bool" end
       def Integer.print; "int" end
+      alias :old_eql? :eql?
+      def eql?(ty) old_eql?(ty.is_a?(CustomType) ? ty.base : ty) end
+
+      # def base; nil end
+      # (is_a?(CustomType) ? base : self).oldeql?( ty.is_a?(CustomType) ? ty.base : ty )
     end
     
     class BitvectorType < Type
@@ -16,23 +21,35 @@ module Bpl
     
     class CustomType < Type
       children :name, :arguments
-      def eql?(other)
-        other.is_a?(CustomType) && other.name == @name
+      attr_accessor :declaration
+      def base
+        case @declaration && @declaration.type
+        when CustomType; base(@declaration.type)
+        when Type; @declaration.type
+        else self
+        end
       end
-      def print; "#{@name} #{@arguments.map{|a| yield a} * " "}".split.join(' ') end
+      def eql?(ty)
+        ty = ty.is_a?(CustomType) ? ty.base : ty
+        case ty
+        when CustomType; base.is_a?(CustomType) && base.name == ty.name
+        else !base.is_a?(CustomType) && base.eql?(ty)
+        end
+      end
+      def print; "#{@name} #{@arguments.map{|a| yield a} * " "}".fmt end
     end
     
     class MapType < Type
       children :arguments, :domain, :range
-      def eql?(other)
-        other.is_a?(MapType) && 
-        other.domain.count == @domain.count &&
-        other.domain.zip(@domain).all?{|t1,t2| t1.eql?(t2)} &&
-        other.range.eql?(@range)
+      def eql?(ty)
+        ty.is_a?(MapType) && 
+        ty.domain.count == @domain.count &&
+        ty.domain.zip(@domain).all?{|t1,t2| t1.eql?(t2)} &&
+        ty.range.eql?(@range)
       end
       def print
         args = @arguments.empty? ? "" : "<#{@arguments.map{|a| yield a} * ","}>"
-        "#{args} [#{@domain.map{|a| yield a} * ","}] #{yield @range}".split.join(' ')
+        "#{args} [#{@domain.map{|a| yield a} * ","}] #{yield @range}".fmt
       end
     end
   end

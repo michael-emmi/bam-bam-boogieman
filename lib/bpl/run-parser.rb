@@ -30,6 +30,14 @@ module Kernel
       end
     end
   end
+  
+  def bpl(str) BoogieLanguage.new.parse_str(str) end
+  # def s(str) BoogieLanguage.new.parse_stmt(str) end
+  # def d(str) BoogieLanguage.new.parse_decl(str) end
+  # def sp(str) BoogieLanguage.new.parse_spec(str) end
+  # def e(str) BoogieLanguage.new.parse_expr(str) end
+  # def n(str) BoogieLanguage.new.parse_param(str) end
+
 end
 
 $use_assertions = false
@@ -37,6 +45,7 @@ $add_inline_attributes = false
 
 class String
   def parse; BoogieLanguage.new.parse_str(self) end
+  def bpl; BoogieLanguage.new.parse_str(self) end
 end
 
 require_relative 'parser.tab'
@@ -61,6 +70,6 @@ program.resolve!
 
 # NOTE the right order is: vectorize ; seq ; error-flag ; inlines
 
-puts "INSPECT", program.inspect
+# puts "INSPECT", program.inspect
 # puts "PARSED", program
 

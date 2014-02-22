@@ -1,5 +1,6 @@
 require_relative 'node'
 
+
 module Bpl
   module AST
     class Declaration < Node
@@ -12,26 +13,27 @@ module Bpl
       def print(&blk)
         args = @arguments.map{|a| yield a} * " "
         type = @type ? " = #{yield @type}" : ""
-        "type #{print_attrs(&blk)} #{'finite' if @finite} #{@name} #{args} #{type};".squeeze("\s")
+        "type #{print_attrs(&blk)} #{'finite' if @finite} #{@name} #{args} #{type};".fmt
       end
     end
     
     class FunctionDeclaration < Declaration
       children :name, :type_arguments, :arguments, :return, :body
       def signature
-        "#{@name}(#{@arguments.map(&:flatten).flatten.map{|x|x.type} * ","}) returns (#{@return})"
+        args = @arguments.map(&:flatten).flatten.map{|x|x.type} * ","
+        "#{@name}(#{args}): #{@return.type}".gsub(/\s/,'')
       end
       def print(&blk)
         args = @arguments.map{|a| yield a} * ", "
         ret = yield @return
         body = @body ? " { #{yield @body} }" : ";"
-        "function #{print_attrs(&blk)} #{@name}(#{args}) returns (#{ret})#{body}".squeeze("\s")
+        "function #{print_attrs(&blk)} #{@name}(#{args}) returns (#{ret})#{body}".fmt
       end
     end
     
     class AxiomDeclaration < Declaration
       children :expression
-      def print(&blk) "axiom #{print_attrs(&blk)} #{yield @expression};".squeeze("\s") end
+      def print(&blk) "axiom #{print_attrs(&blk)} #{yield @expression};".fmt end
     end
     
     class NameDeclaration < Declaration
@@ -40,7 +42,7 @@ module Bpl
       def print(&blk)
         names = @names.empty? ? "" : (@names * ", " + ":")
         where = @where ? "where #{@where}" : ""
-        "#{print_attrs(&blk)} #{names} #{yield @type} #{where}".split.join(' ')
+        "#{print_attrs(&blk)} #{names} #{yield @type} #{where}".fmt
       end
       def flatten
         if @names.empty?
@@ -76,7 +78,7 @@ module Bpl
           end
         end
         ord << ' complete' if @order_spec && @order_spec[1]
-        "const #{print_attrs(&blk)} #{'unique' if @unique} #{names} #{yield @type}#{ord};".squeeze("\s")
+        "const #{print_attrs(&blk)} #{'unique' if @unique} #{names} #{yield @type}#{ord};".fmt
       end
     end
     
@@ -94,11 +96,11 @@ module Bpl
       def sig(&blk)
         params = @parameters.map{|a| yield a} * ", "
         rets = @returns.empty? ? "" : "returns (#{@returns.map{|a| yield a} * ", "})"
-        "#{print_attrs(&blk)} #{@name}(#{params}) #{rets}".split.join(' ')
+        "#{print_attrs(&blk)} #{@name}(#{params}) #{rets}".fmt
       end
       def signature
-        "procedure #{@name}(#{@parameters.map{:type} * ","})" +
-        (@returns.empty? ? "" : " returns (#{@returns.map{:type} * ","})")
+        "#{@name}(#{@parameters.map(&:type) * ","})" +
+        (@returns.empty? ? "" : ":#{@returns.map(&:type) * ","}")
       end
       def print(&block)
         specs = @specifications.empty? ? "" : "\n"

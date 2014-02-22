@@ -21,23 +21,41 @@ module Bpl
                 warn "could not resolve identifier #{elem}"
               end
             end
+          when CustomType
+            case turn
+            when :pre
+              elem.declaration = scope.last.resolve(elem)
+              warn "could not resolve type #{elem}"  unless elem.declaration
+
+            end
           when Statement
             elem.parent = scope.first
           end
           elem
         end
-      end
-      
+      end      
+    end
+    
+    class Program
       def resolve(id)
-        @declarations.find do |decl|
-          id.is_storage? && decl.is_a?(NameDeclaration) && decl.names.include?(id.name) ||
-          id.is_function? && decl.is_a?(FunctionDeclaration) && decl.name == id.name ||
-          id.is_procedure? && decl.is_a?(ProcedureDeclaration) && decl.name == id.name
+        case id
+        when Identifier
+          @declarations.find do |decl|
+            id.is_storage? && decl.is_a?(NameDeclaration) && decl.names.include?(id.name) ||
+            id.is_function? && decl.is_a?(FunctionDeclaration) && decl.name == id.name ||
+            id.is_procedure? && decl.is_a?(ProcedureDeclaration) && decl.name == id.name
+          end
+        when Type
+          @declarations.find do |decl|
+            decl.is_a?(TypeDeclaration) && decl.name == id.name
+          end
+        else
+          nil
         end
       end
     end
     
-    class ProcedureDeclaration < Declaration
+    class ProcedureDeclaration
       def resolve(id)
         if id.is_storage? then
           @parameters.find{|decl| decl.names.include? id.name} ||
@@ -53,13 +71,13 @@ module Bpl
       end
     end
     
-    class FunctionDeclaration < Declaration
+    class FunctionDeclaration
       def resolve(id)
         id.is_storage? && @arguments.find{|decl| decl.names.include? id.name}
       end
     end
     
-    class QuantifiedExpression < Expression
+    class QuantifiedExpression
       def resolve(id)
         id.is_storage? && @variables.find{|decl| decl.names.include? id.name}
       end

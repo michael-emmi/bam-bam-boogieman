@@ -8,22 +8,22 @@ module Bpl
     
     class LoopInvariant < Specification
       children :expression
-      def print; "#{"free" if @free} invariant #{yield @expression};".split.join(' ') end
+      def print; "#{"free" if @free} invariant #{yield @expression};".fmt end
     end
     
     class RequiresClause < Specification
       children :expression
-      def print; "#{"free" if @free} requires #{yield @expression};".split.join(' ') end
+      def print; "#{"free" if @free} requires #{yield @expression};".fmt end
     end
     
     class ModifiesClause < Specification
       children :identifiers
-      def print; "#{"free" if @free} modifies #{@identifiers.map{|a| yield a} * ", "};".split.join(' ') end
+      def print; "#{"free" if @free} modifies #{@identifiers.map{|a| yield a} * ", "};".fmt end
     end
     
     class EnsuresClause < Specification
       children :expression
-      def print; "#{"free" if @free} ensures #{yield @expression};".split.join(' ') end
+      def print; "#{"free" if @free} ensures #{yield @expression};".fmt end
     end
   end
 end
