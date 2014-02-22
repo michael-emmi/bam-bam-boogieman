@@ -74,7 +74,7 @@ module Bpl
 
           when CallStatement
             if elem.attributes.include? :async then
-              elem.attributes.delete 'async'
+              elem.attributes.delete :async
               elem.arguments << bpl("#s") \
                 unless elem.procedure.declaration.nil? || !elem.procedure.declaration.has_body?
               

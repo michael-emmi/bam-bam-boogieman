@@ -3,12 +3,14 @@ module Bpl
 
     class Program
       
-      def prepare_for_backend!
-        replace_assertions_with_error_flag!
-        add_inline_attributes! if $add_inline_attributes
+      def prepare_for_backend! verifier
+        replace_assertions_with_error_flag! verifier
+        add_inline_attributes! if verifier == :boogie_fi
       end
       
-      def replace_assertions_with_error_flag!
+      def replace_assertions_with_error_flag! verifier
+        use_assertions = (verifier != :boogie_si)
+        
         @declarations << "var #e: bool;".parse
         @declarations.each do |d|
           next unless d.is_a?(ProcedureDeclaration) && d.has_body?
@@ -21,7 +23,7 @@ module Bpl
             d.replace do |s|
               if s.is_a?(ReturnStatement) then
                  ["assume #e;".parse] + 
-                 ($use_assertions ? ["assert false;".parse] : []) + 
+                 (use_assertions ? ["assert false;".parse] : []) + 
                  [s]
               else
                 s

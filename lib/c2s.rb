@@ -39,9 +39,6 @@ module Kernel
   def bpl(str) BoogieLanguage.new.parse_str(str) end
 end
 
-$use_assertions = false
-$add_inline_attributes = false
-
 class String
   def parse; BoogieLanguage.new.parse_str(self) end
   def bpl; BoogieLanguage.new.parse_str(self) end
@@ -140,11 +137,11 @@ if __FILE__ == $0 then
     opts.separator ""
     opts.separator "Staging options:"
     
-    opts.on("--[no-]resolution", "Do identifier resolution? (default #{@resolution})") do |r|
+    opts.on("--[no-]resolve", "Do identifier resolution? (default #{@resolution})") do |r|
       @resolution = r
     end
     
-    opts.on("--[no-]type-checking", "Do type checking? (default #{@type_checking})") do |r|
+    opts.on("--[no-]type-check", "Do type checking? (default #{@type_checking})") do |r|
       @type_checking = r
     end
     
@@ -156,7 +153,7 @@ if __FILE__ == $0 then
       @verification = v
     end    
     
-    opts.on("--[no-]inspect", "Inspect program? (default #{@inspect})") do |i|
+    opts.on("--[no-]inspect", "Inspect program? (default #{@inspection})") do |i|
       @inspection = i
     end    
 
@@ -191,6 +188,9 @@ if __FILE__ == $0 then
     #   @graph = g
     # end
   end.parse!
+  
+  puts "c2s version #{$version}, copyright (c) 2014, michael.emmi@gmail.com".bold \
+    unless @quiet
 
   abort "Must specify a single Boogie source file." unless ARGV.size == 1
   src = ARGV[0]
@@ -220,11 +220,11 @@ if __FILE__ == $0 then
 
   if @sequentialization
     timed('Normalization') {program.normalize!}
-    # timed('Vectorization') {program.vectorize!(@rounds,@delays)}
+    timed('Vectorization') {program.vectorize!(@rounds,@delays)}
     timed('Sequentialization') {program.df_sequentialize!}
   end
 
-  program.prepare_for_backend!
+  program.prepare_for_backend! @verifier
 
   if @inspection
     timed 'Inspection' do
@@ -236,10 +236,11 @@ if __FILE__ == $0 then
   
   if @output_file
     timed('Writing to file') {File.write(@output_file,program)}
+    puts "Output written to #{@output_file}."
   elsif @verify
     warn "verification not yet implemented."
   else
-    warn "without verification or output, my efforts are wasted."
+    warn "without verification or output, my efforts are wasted." unless @quiet
   end
   
 end

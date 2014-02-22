@@ -17,19 +17,19 @@ module Bpl
       end
       
       def locate_entrypoints!
-        entrypoints = @declarations.select(&:is_entrypoint?)
+        eps = @declarations.select(&:is_entrypoint?)
         
-        if entrypoints.empty?
+        if eps.empty?
           warn "no entry points found; looking for the usual suspects..."
-          entrypoints = @declarations.select do |d| 
+          eps = @declarations.select do |d| 
             d.is_a?(ProcedureDeclaration) && d.name =~ /\b[Mm]ain\b/
           end
-          entrypoints.each{|d| d.attributes[:entrypoint] = []}
-          warn "using entry point(s): #{entrypoints.map(&:name) * ", "}" \
-            unless entrypoints.empty?
+          eps.each{|d| d.attributes[:entrypoint] = []}
+          warn "using entry point#{'s' if eps.count > 1}: #{eps.map(&:name) * ", "}" \
+            unless eps.empty?
         end
 
-        fail "no entry points found." if entrypoints.empty?
+        fail "no entry points found." if eps.empty?
       end
       
       def sanity_check

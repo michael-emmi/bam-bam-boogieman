@@ -4,13 +4,26 @@ module Bpl
     class Program
 
       def vectorize!(rounds,delays)
-        n = rounds
 
-        replace do |expr|
-          if expr.is_a?(Identifier) && expr.is_variable? && expr.is_global? then
-            "#{expr}[k]".parse
+        replace do |elem|
+          case elem
+          # when Identifier
+          #   if elem.is_variable? && elem.is_global? then
+          #     "#{expr}[k]".parse
+          #   else
+          #     elem
+          #   end
+
+          when AssumeStatement
+            if elem.attributes.include? :yield then
+              elem.attributes.delete :yield
+              # TODO translate the yield...
+
+            end
+            elem
+
           else
-            expr
+            elem
           end
         end
 
