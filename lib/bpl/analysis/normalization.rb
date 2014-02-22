@@ -20,11 +20,13 @@ module Bpl
         entrypoints = @declarations.select(&:is_entrypoint?)
         
         if entrypoints.empty?
-          warn "no entry points found; looking for the usual suspects, e.g. main."
+          warn "no entry points found; looking for the usual suspects..."
           entrypoints = @declarations.select do |d| 
             d.is_a?(ProcedureDeclaration) && d.name =~ /\b[Mm]ain\b/
           end
           entrypoints.each{|d| d.attributes[:entrypoint] = []}
+          warn "using entry point(s): #{entrypoints.map(&:name) * ", "}" \
+            unless entrypoints.empty?
         end
 
         fail "no entry points found." if entrypoints.empty?

@@ -3,8 +3,8 @@ module Bpl
   module AST
     class Program
 
-      def vectorize!
-        n = 4
+      def vectorize!(rounds,delays)
+        n = rounds
 
         replace do |expr|
           if expr.is_a?(Identifier) && expr.is_variable? && expr.is_global? then
