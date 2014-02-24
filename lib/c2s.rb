@@ -220,7 +220,8 @@ if __FILE__ == $0 then
 
   if @sequentialization
     timed('Normalization') {program.normalize!}
-    timed('Vectorization') {program.vectorize!(@rounds,@delays)}
+    timed('Vectorization') {program.vectorize!(@rounds || (@delays+1),@delays)}
+    program.resolve!
     timed('Sequentialization') {program.df_sequentialize!}
   end
 

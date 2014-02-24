@@ -27,13 +27,13 @@ module Bpl
       attr_accessor :parent
   
       def initialize(opts = {})
+        @attributes = []
         opts.each do |k,v|
           send("#{k}=",v) if respond_to?("#{k}=")
         end
       end
 
       def print_attrs
-        return "" unless @attributes
         @attributes.map do |k,vs|
           vals = vs.map{|e| case e when String; "\"#{e}\"" else yield e end} * ", "
           "{:#{k}#{vals.empty? ? "" : " #{vals}"}}"

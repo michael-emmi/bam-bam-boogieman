@@ -45,13 +45,14 @@ module Bpl
               elem
             end
 
-          when ProcedureDeclaration, ImplementationDeclaration
+          when ProcedureDeclaration
             if elem.has_body?
 
               if elem.is_entrypoint?
                 elem.body.declarations << bpl("var #s.self: int;")
               else
                 elem.parameters << bpl("#s.self: int")
+                elem.body.statements.unshift( bpl "call boogie_si_record_int(#s.self);" )
               end
 
               if elem.is_a?(ProcedureDeclaration)
@@ -68,7 +69,6 @@ module Bpl
                 elem.body.declarations += global_variables.map(&:guess)
               end
               
-              elem.body.statements.unshift( bpl "call boogie_si_record_int(#s.self);" )
             end
             elem
 

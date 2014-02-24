@@ -86,6 +86,9 @@ module Bpl
       children :name, :type_arguments, :parameters, :returns
       children :specifications, :body
       def has_body?; !@body.nil? end
+      def modified_vars
+        specifications.map{|s| s.is_a?(ModifiesClause) ? s.identifiers : []}.flatten
+      end
       def fresh_var(type)
         return nil unless @body
         taken = @body.declarations.map{|d| d.names}.flatten
