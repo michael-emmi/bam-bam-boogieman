@@ -1,15 +1,7 @@
 
 module Bpl
   module AST
-    
-    class Identifier
-      def init; bpl "#{@name}.0" end
-    end
-    
-    class VariableDeclaration
-      def init; bpl "const #{@names.map{|g| "#{g}.0"} * ", "}: [int] #{@type};" end
-    end
-    
+        
     class Program
 
       def vectorize!(rounds,delays)
@@ -21,16 +13,18 @@ module Bpl
         @declarations << bpl("const #DELAYS: int;")
         @declarations << bpl("axiom #ROUNDS == #{rounds};")
         @declarations << bpl("axiom #DELAYS == #{delays};")
-        @declarations += global_variables.map(&:init)
-        
+        @declarations += global_variables.map do |decl|
+          type = decl.type
+          decl.type = bpl_type("[int] #{type}")
+          bpl "const #{decl.names.map{|g| "#{g}.0"} * ", "}: [int] #{type};"
+        end
+        @declarations << bpl("var #d: int;")
+
         @declarations.each do |decl|
           case decl
-          when VariableDeclaration
-            decl.type = MapType.new(arguments: [], domain: [Type::Integer], range: decl.type)
-            
           when ProcedureDeclaration
             
-            if !decl.has_body? && !decl.modified_vars.empty?
+            if !decl.body && !decl.modified_vars.empty?
               decl.parameters << bpl("#k: int")
               decl.modified_vars.each do |x|
                 decl.specifications << 
@@ -48,11 +42,10 @@ module Bpl
                   end
                 end
               end
+            end
 
-            elsif decl.has_body? then
-              decl.specifications << bpl("modifies #d;")
-                  
-              if decl.attributes.include? :entrypoint
+            if decl.body then                  
+              if decl.is_entrypoint?
                 decl.body.declarations << bpl("var #k: int;")
 
               else
@@ -62,20 +55,21 @@ module Bpl
                 decl.body.statements.unshift bpl("#k := #k.0;")
               end
 
+              decl.specifications << bpl("modifies #d;")
               decl.body.declarations << bpl("var #j: int;") \
                 if decl.body.any?{|e| e.attributes.include? :yield}
                   
               decl.body.replace do |elem|
                 case elem            
                 when CallStatement
-                  next elem unless elem.procedure.declaration
-                  if elem.procedure.declaration.has_body?
+                  proc = elem.procedure.declaration
+                  if proc && proc.body
                     elem.arguments << bpl("#k")
                     elem.assignments << bpl("#k")
-                  elsif !elem.procedure.declaration.modified_vars.empty?
+                  elsif proc && !proc.modified_vars.empty?
                     elem.arguments << bpl("#k")
                   end
-                  elem
+                  next elem
 
                 when Identifier
                   if elem.is_variable? && elem.is_global? then
@@ -98,21 +92,21 @@ module Bpl
                     end
                     )
                     
-                  elsif elem.attributes.include?(:startpoint)
+                  elsif elem.attributes.include? :startpoint
 
                     next [ bpl("#d := 0;"),
                       bpl("#k := 0;"),
                       bpl("call boogie_si_record_int(#ROUNDS);"),
                       bpl("call boogie_si_record_int(#DELAYS);") ] +
-                    gs.map{|g| bpl("#{g} := #{g.init};")} +
-                    [elem]
+                      gs.map{|g| bpl("#{g} := #{g}.0;")} +
+                      [elem]
 
-                  elsif elem.attributes.include?(:endpoint)
+                  elsif elem.attributes.include? :endpoint
 
                     next [elem] +
-                    (1..rounds).map do |i|
-                      gs.map{|g| bpl("assume #{g}[#{i-1}] == #{g.init}[#{i}];")}
-                    end.flatten
+                      (1..rounds).map do |i|
+                        gs.map{|g| bpl("assume #{g}[#{i-1}] == #{g}.0[#{i}];")}
+                      end.flatten
 
                   end
                 end
@@ -121,8 +115,6 @@ module Bpl
             end
           end
         end
-
-        @declarations << bpl("var #d: int;")
 
       end
 

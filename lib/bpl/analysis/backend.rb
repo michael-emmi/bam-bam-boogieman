@@ -13,7 +13,7 @@ module Bpl
         
         @declarations << "var #e: bool;".parse
         @declarations.each do |d|
-          next unless d.is_a?(ProcedureDeclaration) && d.has_body?
+          next unless d.is_a?(ProcedureDeclaration) && d.body
           d.specifications << "modifies #e;".parse
           d.replace do |s|
             s.is_a?(AssertStatement) ? "#e := #e || !(#{s.expression});".parse : s
@@ -35,7 +35,7 @@ module Bpl
       
       def add_inline_attributes!
         @declarations.each do |d|
-          next unless d.is_a?(ProcedureDeclaration) && d.has_body?
+          next unless d.is_a?(ProcedureDeclaration) && d.body
           next if d.is_entrypoint?
           d.attributes[:inline] = ["1".parse]
         end

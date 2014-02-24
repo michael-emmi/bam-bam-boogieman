@@ -44,7 +44,7 @@ module Bpl
       
       def wrap_entrypoint_procedures!
         @declarations.select(&:is_entrypoint?).each do |proc|
-          if proc.has_body? then
+          if proc.body then
             proc.body.statements.unshift( "assume {:startpoint} true;".parse )
             proc.replace do |elem|
               case elem
@@ -62,7 +62,7 @@ module Bpl
       def put_returns_at_the_ends_of_procedures!
         @declarations.each do |d|
           if d.is_a?(ProcedureDeclaration) &&
-            d.has_body? &&
+            d.body &&
             !d.body.statements.last.is_a?(GotoStatement) &&
             !d.body.statements.last.is_a?(ReturnStatement)
             d.body.statements << "return;".parse

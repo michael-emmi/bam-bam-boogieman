@@ -37,6 +37,7 @@ module Kernel
   end
   
   def bpl(str) BoogieLanguage.new.parse_str(str) end
+  def bpl_type(str) BoogieLanguage.new.parse_type(str) end
 end
 
 class String
