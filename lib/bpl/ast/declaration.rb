@@ -1,6 +1,5 @@
 require_relative 'node'
 
-
 module Bpl
   module AST
     class Declaration < Node

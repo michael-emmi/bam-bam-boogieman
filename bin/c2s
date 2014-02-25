@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 $version = 0.7
+$LOAD_PATH.unshift File.join(File.dirname(__FILE__), '..', 'lib')
 
 require 'set'
 require 'optparse'
@@ -57,12 +58,19 @@ def racc
   'racc'
 end
 
-def generate_parser
-  # TODO don't have to redo each time...
+def regenerate_parser
   origin = Dir.pwd
-  Dir.chdir File.join(File.dirname(__FILE__),'bpl')
-  system("#{rex} lexer.rex")
-  system("#{racc} parser.racc")
+  Dir.chdir File.join(File.dirname(__FILE__), '..', 'lib', 'bpl')
+  if File.mtime('lexer.rex') > File.mtime('lexer.rex.rb')
+    timed 'Lexer-generation' do
+      system "#{rex} lexer.rex"
+    end
+  end
+  if File.mtime('parser.racc') > File.mtime('parser.tab.rb')
+    timed 'Parser-generation' do
+      system "#{racc} parser.racc"
+    end
+  end
   Dir.chdir origin
 end
 
@@ -197,15 +205,15 @@ if __FILE__ == $0 then
   src = ARGV[0]
   abort "Source file '#{src}' does not exist." unless File.exists?(src)
   
-  timed 'Parser-generation' do generate_parser end
+  regenerate_parser
 
-  require_relative 'bpl/parser.tab'
-  require_relative 'bpl/analysis/resolution'
-  require_relative 'bpl/analysis/type_checking'
-  require_relative 'bpl/analysis/normalization'
-  require_relative 'bpl/analysis/vectorization'
-  require_relative 'bpl/analysis/df_sequentialization'
-  require_relative 'bpl/analysis/backend'
+  require 'bpl/parser.tab'
+  require 'bpl/analysis/resolution'
+  require 'bpl/analysis/type_checking'
+  require 'bpl/analysis/normalization'
+  require 'bpl/analysis/vectorization'
+  require 'bpl/analysis/df_sequentialization'
+  require 'bpl/analysis/backend'
 
   program = timed 'Parsing' do
     BoogieLanguage.new.parse(File.read(ARGV.first))
