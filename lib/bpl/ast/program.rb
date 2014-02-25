@@ -4,6 +4,7 @@ module Bpl
   module AST
     class Program < Node
       children :declarations
+      attr_accessor :source_file
       def print; @declarations.map{|d| yield d} * "\n" end      
       def global_variables; @declarations.select{|d| d.is_a?(VariableDeclaration)} end      
       def name
