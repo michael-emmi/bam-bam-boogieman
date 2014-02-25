@@ -6,6 +6,7 @@ module Bpl
       def prepare_for_backend! verifier
         replace_assertions_with_error_flag! verifier
         add_inline_attributes! if verifier == :boogie_fi
+        add_si_record_procedures!
       end
       
       def replace_assertions_with_error_flag! verifier
@@ -39,6 +40,11 @@ module Bpl
             d.attributes[:inline] = [bpl("1")]
           end
         end
+      end
+
+      def add_si_record_procedures!
+        @declarations << bpl("procedure boogie_si_record_int(x:int);") \
+          if any?{|s| s.is_a?(CallStatement) && s.procedure.name == "boogie_si_record_int"}
       end
 
     end

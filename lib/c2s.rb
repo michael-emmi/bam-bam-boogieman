@@ -16,11 +16,13 @@ rescue LoadError
   end
 end
 
+$warnings = Set.new
+$show_warnings = true
+$verbose = false
+$quiet = false
+$keep = false
+
 module Kernel
-  @@warnings = Set.new
-  @@show_warnings = true
-  @@verbose = false
-  @@quiet = false
   
   alias :old_abort :abort
   
@@ -29,11 +31,11 @@ module Kernel
   end
 
   def warn(*args)
-    return unless @@show_warnings
+    return unless $show_warnings
     args.each do |str|
-      unless @@warnings.include? str
+      unless $warnings.include? str
         $stderr.puts "Warning: #{str}".yellow
-        @@warnings << str
+        $warnings << str
       end
     end
   end
@@ -53,17 +55,12 @@ def timed(desc = nil)
   time = Time.now
   res = yield if block_given?
   time = (Time.now - time).round(2)
-  puts "#{desc} took #{time}s." if @verbose && desc
+  puts "#{desc} took #{time}s." if $verbose && desc
   res
 end
 
 OptionParser.new do |opts|
-  @keep = false
   @output_file = nil
-  
-  verbose = self.class.class_variable_get(:@@verbose)
-  quiet = self.class.class_variable_get(:@@quiet)
-  warnings = self.class.class_variable_get(:@@show_warnings)
   
   @resolution = true
   @type_checking = true
@@ -95,22 +92,22 @@ OptionParser.new do |opts|
     exit
   end
 
-  opts.on("-v", "--[no-]verbose", "Run verbosely? (default #{verbose})") do |v|
-    self.class.class_variable_set(:@@verbose,v)
-    self.class.class_variable_set(:@@quiet,!v)
+  opts.on("-v", "--[no-]verbose", "Run verbosely? (default #{$verbose})") do |v|
+    $verbose = v
+    $quiet = !v
   end
 
-  opts.on("-q", "--[no-]quiet", "Run quietly? (default #{quiet})") do |q|
-    self.class.class_variable_set(:@@quiet,q)
-    self.class.class_variable_set(:@@verbose,!q)
+  opts.on("-q", "--[no-]quiet", "Run quietly? (default #{$quiet})") do |q|
+    $quiet = q
+    $verbose = !q
   end
 
-  opts.on("-w", "--[no-]warnings", "Show warnings? (default #{warnings})") do |w|
-    self.class.class_variable_set(:@@show_warnings,w)
+  opts.on("-w", "--[no-]warnings", "Show warnings? (default #{$warnings})") do |w|
+    $show_warnings = w
   end
 
-  opts.on("-k", "--[no-]keep-files", "Keep intermediate files? (default #{@keep})") do |v|
-    @keep = v
+  opts.on("-k", "--[no-]keep-files", "Keep intermediate files? (default #{$keep})") do |v|
+    $keep = v
   end
   
   opts.on("-o", "--output-file FILENAME") do |f|
@@ -219,15 +216,10 @@ if @inspection
   end
 end
 
-if @output_file
-  timed('Writing to file') {File.write(@output_file,program)}
-  puts "Output written to #{@output_file}."
-elsif @verification
-  timed('Verification') do
-    program.verify verifier: @verifier, unroll: @unroll
-  end
-else
-  warn "without verification or output, my efforts are wasted." unless @quiet
-end
+timed('Writing to file') do
+  File.write(@output_file,program)
+end if @output_file
 
-
+timed('Verification') do
+  program.verify verifier: @verifier, unroll: @unroll
+end if @verification

@@ -6,7 +6,7 @@ module Bpl
       def verify(options = {})
         boogie_opts = []
         
-        src = "#{(source_file || "a.bpl").chomp(".bpl")}.c2s.bpl"
+        src = (source_file || "a.bpl").chomp(".bpl") + ".c2s.bpl"
         File.write(src,self)
 
         # puts "* Boogie: #{src}" unless @@quiet
@@ -23,7 +23,7 @@ module Bpl
           boogie_opts << "/extractLoops"
           boogie_opts << "/recursionBound:#{options[:unroll]}" if options[:unroll]
           boogie_opts << "/weakArrayTheory"
-          boogie_opts << "/siVerbose:1" if @@verbose
+          boogie_opts << "/siVerbose:1" if $verbose
 
         else
           err "invalid back-end: #{options[:verifier]}"
@@ -33,7 +33,7 @@ module Bpl
         boogie_opts << "/errorTrace:2"
 
         cmd = "#{boogie} #{src} #{boogie_opts * " "}"
-        puts cmd.bold if @@verbose
+        puts cmd.bold if $verbose
         t = Time.now
         
         system cmd
