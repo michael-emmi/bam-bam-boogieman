@@ -11,19 +11,19 @@ module Bpl
       def replace_assertions_with_error_flag! verifier
         use_assertions = (verifier != :boogie_si)
         
-        @declarations << "var #e: bool;".parse
+        @declarations << bpl("var #e: bool;")
         @declarations.each do |d|
           next unless d.is_a?(ProcedureDeclaration) && d.body
-          d.specifications << "modifies #e;".parse
-          d.replace do |s|
-            s.is_a?(AssertStatement) ? "#e := #e || !(#{s.expression});".parse : s
+          d.specifications << bpl("modifies #e;")
+          d.body.replace do |s|
+            s.is_a?(AssertStatement) ? bpl("#e := #e || !(#{s.expression});") : s
           end
           if d.is_entrypoint? then
-            d.body.statements.unshift("#e := false;".parse)
+            d.body.statements.unshift bpl("#e := false;")
             d.replace do |s|
               if s.is_a?(ReturnStatement) then
-                 ["assume #e;".parse] + 
-                 (use_assertions ? ["assert false;".parse] : []) + 
+                 [bpl("assume #e;")] + 
+                 (use_assertions ? [bpl("assert false;")] : []) + 
                  [s]
               else
                 s
@@ -35,9 +35,9 @@ module Bpl
       
       def add_inline_attributes!
         @declarations.each do |d|
-          next unless d.is_a?(ProcedureDeclaration) && d.body
-          next if d.is_entrypoint?
-          d.attributes[:inline] = ["1".parse]
+          if d.is_a?(ProcedureDeclaration) && d.body && !d.is_entrypoint?
+            d.attributes[:inline] = [bpl("1")]
+          end
         end
       end
 

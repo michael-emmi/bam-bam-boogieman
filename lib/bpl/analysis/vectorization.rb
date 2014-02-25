@@ -24,9 +24,9 @@ module Bpl
           case decl
           when ProcedureDeclaration
             
-            if !decl.body && !decl.modified_vars.empty?
+            if !decl.body && !decl.modifies.empty?
               decl.parameters << bpl("#k: int")
-              decl.modified_vars.each do |x|
+              decl.modifies.each do |x|
                 decl.specifications << 
                   bpl("ensures (forall k: int :: k != #k ==> #{x}[k] == old(#{x})[k]);")
               end
@@ -44,7 +44,7 @@ module Bpl
               end
             end
 
-            if decl.body then                  
+            if decl.body then
               if decl.is_entrypoint?
                 decl.body.declarations << bpl("var #k: int;")
 
@@ -66,7 +66,7 @@ module Bpl
                   if proc && proc.body
                     elem.arguments << bpl("#k")
                     elem.assignments << bpl("#k")
-                  elsif proc && !proc.modified_vars.empty?
+                  elsif proc && !proc.modifies.empty?
                     elem.arguments << bpl("#k")
                   end
                   next elem

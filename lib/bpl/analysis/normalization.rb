@@ -21,8 +21,8 @@ module Bpl
         
         if eps.empty?
           warn "no entry points found; looking for the usual suspects..."
-          eps = @declarations.select do |d| 
-            d.is_a?(ProcedureDeclaration) && d.name =~ /\b[Mm]ain\b/
+          eps = @declarations.select do |d|
+            d.is_a?(ProcedureDeclaration) && d.name =~ /\bmain\b/i
           end
           eps.each{|d| d.attributes[:entrypoint] = []}
           warn "using entry point#{'s' if eps.count > 1}: #{eps.map(&:name) * ", "}" \
@@ -45,11 +45,11 @@ module Bpl
       def wrap_entrypoint_procedures!
         @declarations.select(&:is_entrypoint?).each do |proc|
           if proc.body then
-            proc.body.statements.unshift( "assume {:startpoint} true;".parse )
-            proc.replace do |elem|
+            proc.body.statements.unshift bpl("assume {:startpoint} true;")
+            proc.body.replace do |elem|
               case elem
               when ReturnStatement
-                [ "assume {:endpoint} true;".parse, "return;".parse ]
+                [ bpl("assume {:endpoint} true;"), bpl("return;") ]
               else
                 elem
               end
@@ -61,11 +61,10 @@ module Bpl
       
       def put_returns_at_the_ends_of_procedures!
         @declarations.each do |d|
-          if d.is_a?(ProcedureDeclaration) &&
-            d.body &&
+          if d.is_a?(ProcedureDeclaration) && d.body &&
             !d.body.statements.last.is_a?(GotoStatement) &&
             !d.body.statements.last.is_a?(ReturnStatement)
-            d.body.statements << "return;".parse
+            d.body.statements << bpl("return;")
           end
         end
       end

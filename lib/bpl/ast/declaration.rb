@@ -85,7 +85,7 @@ module Bpl
     class ProcedureDeclaration < Declaration
       children :name, :type_arguments, :parameters, :returns
       children :specifications, :body
-      def modified_vars
+      def modifies
         specifications.map{|s| s.is_a?(ModifiesClause) ? s.identifiers : []}.flatten
       end
       def fresh_var(type)
