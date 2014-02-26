@@ -184,6 +184,7 @@ require_relative 'bpl/analysis/vectorization'
 require_relative 'bpl/analysis/df_sequentialization'
 require_relative 'bpl/analysis/backend'
 require_relative 'bpl/analysis/verification'
+require_relative 'c2s/violin'
 
 program = timed 'Parsing' do
   BoogieLanguage.new.parse(File.read(ARGV.first))
@@ -199,8 +200,14 @@ timed 'Type-checking' do
   program.type_check
 end if @resolution && @type_checking
 
+timed('Normalization') {program.normalize!}
+
+# timed 'Violin-instrumentation' do
+#   C2S::violin_instrument! program
+#   program.resolve!
+# end
+
 if @sequentialization
-  timed('Normalization') {program.normalize!}
   timed('Vectorization') {program.vectorize!(@rounds || (@delays+1),@delays)}
   program.resolve!
   timed('Sequentialization') {program.df_sequentialize!}
