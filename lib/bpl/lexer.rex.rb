@@ -52,7 +52,7 @@ class BoogieLanguage < Racc::Parser
       case state
       when nil
         case
-        when (text = ss.scan(/\/\*(.|\n)*(?=\*\/)\*\//))
+        when (text = ss.scan(/\/\*((?!\*\/)(.|\n))*\*\//))
           ;
 
         when (text = ss.scan(/\/\/.*(?=\n)/))

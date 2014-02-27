@@ -1,16 +1,17 @@
 class BoogieLanguage
 macro
   BLANK     \s+
-  ML_COM_IN    \/\*
-  ML_COM_OUT   \*\/
-  SL_COM       \/\/
+  MLC_OPEN    \/\*
+  MLC_CLOSE   \*\/
+  SLC         \/\/
   IDENT     [a-zA-Z_.$\#'`~^\\?][\w.$\#'`~^\\?]*
   OPERATOR  <==>|==>|\|\||&&|==|!=|<:|<=|<|>=|>|\+\+|\+|-|\*|\/|{:|:=|::|:
   KEYWORD   \b(assert|assume|axiom|bool|break|bv(\d+)|call|complete|const|else|ensures|exists|false|finite|forall|free|function|goto|havoc|if|implementation|int|invariant|modifies|old|procedure|requires|return|returns|true|type|unique|var|where|while)\b
   
 rule
-          {ML_COM_IN}(.|\n)*(?={ML_COM_OUT}){ML_COM_OUT}
-          {SL_COM}.*(?=\n)
+
+          {MLC_OPEN}((?!{MLC_CLOSE})(.|\n))*{MLC_CLOSE}
+          {SLC}.*(?=\n)
 
           \"[^"]*\"         { [:STRING, text[1..-2]]}
 
