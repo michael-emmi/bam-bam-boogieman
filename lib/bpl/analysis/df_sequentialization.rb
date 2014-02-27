@@ -18,8 +18,10 @@ module Bpl
           case decl
           when ProcedureDeclaration
             next unless decl.body
-            decl.specifications << 
-              bpl("modifies #{(decl.modifies & gs).map{|g| "#{g}.next"} * ", "};")
+
+            mods = decl.modifies & gs
+            decl.specifications << bpl("modifies #{mods.map{|g| "#{g}.next"} * ", "};") \
+              unless mods.empty?
             decl.specifications << bpl("modifies #s;")
 
             if decl.is_entrypoint?

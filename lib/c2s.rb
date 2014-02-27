@@ -51,6 +51,17 @@ module Kernel
   def bpl_type(str) BoogieLanguage.new.parse_type(str) end
 end
 
+class String
+  def to_range
+    case self
+    when /\d+\.\.\d+/
+      split(/\.\./).inject{|i,j| i.to_i..j.to_i}
+    else
+      to_i..to_i
+    end
+  end
+end
+
 def timed(desc = nil)
   time = Time.now
   res = yield if block_given?
@@ -67,6 +78,8 @@ OptionParser.new do |opts|
   @sequentialization = true
   @inspection = false
   @verification = false
+
+  @monitor = nil
 
   @rounds = nil
   @delays = 0
@@ -163,6 +176,14 @@ OptionParser.new do |opts|
   opts.on("-u", "--unroll MAX", Integer, "Loop/recursion bound (default #{@unroll})") do |u|
     @unroll = u
   end
+
+  # TODO is this really a good idea?
+  # opts.separator ""
+  # opts.separator "Miscellaneous options:"
+  #
+  # opts.on("--monitor FILE", "Instrument with monitor FILE?") do |file|
+  #   @monitor = file
+  # end
   
   # opts.on("-g", "--graph-of-trace", "generate a trace graph") do |g|
   #   @graph = g
@@ -172,7 +193,7 @@ end.parse!
 puts "c2s version #{C2S::VERSION}, copyright (c) 2014, Michael Emmi".bold \
   unless @quiet
 
-abort "Must specify a single Boogie source file." unless ARGV.size == 1
+abort "Must specify a single source file." unless ARGV.size == 1
 src = ARGV[0]
 abort "Source file '#{src}' does not exist." unless File.exists?(src)
 
@@ -185,12 +206,17 @@ require_relative 'bpl/analysis/df_sequentialization'
 require_relative 'bpl/analysis/backend'
 require_relative 'bpl/analysis/verification'
 require_relative 'c2s/violin'
+require_relative 'c2s/frontend'
 
-program = timed 'Parsing' do
-  BoogieLanguage.new.parse(File.read(ARGV.first))
+src = timed 'Front-end' do
+  C2S::process_source_file(src)
 end
 
-program.source_file = ARGV.first
+program = timed 'Parsing' do
+  BoogieLanguage.new.parse(File.read(src))
+end
+
+program.source_file = src
 
 timed 'Resolution' do
   program.resolve!
@@ -200,17 +226,25 @@ timed 'Type-checking' do
   program.type_check
 end if @resolution && @type_checking
 
-timed('Normalization') {program.normalize!}
+timed('Normalization') do
+  program.normalize!
+end if @sequentialization || @verification
 
-# timed 'Violin-instrumentation' do
-#   C2S::violin_instrument! program
+# TODO is this really a good idea?
+# timed 'Monitor-instrumentation' do
+#   abort "Monitor file #{@monitor} does not exist." unless File.exists?(@monitor)
+#   C2S::violin_instrument! program, @monitor
 #   program.resolve!
-# end
+# end if @monitor
 
 if @sequentialization
-  timed('Vectorization') {program.vectorize!(@rounds || (@delays+1),@delays)}
-  program.resolve!
-  timed('Sequentialization') {program.df_sequentialize!}
+  if program.any?{|e| e.attributes.include? :async}
+    timed('Vectorization') {program.vectorize!(@rounds || (@delays+1),@delays)}
+    program.resolve!
+    timed('Sequentialization') {program.df_sequentialize!}
+  else
+    warn "Skipping sequentialization as program does not have async calls."
+  end
 end
 
 program.prepare_for_backend! @verifier

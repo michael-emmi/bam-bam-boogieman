@@ -10,6 +10,17 @@ module Bpl
       def name
         "THE PROGRAM W/ NO NAME"
       end
+
+      def fresh_var(prefix,type)
+        taken = global_variables.map{|d| d.names}.flatten
+        var = prefix unless taken.include?(prefix)
+        var ||= (0..Float::INFINITY).each do |i|
+          unless taken.include?(v = "#{prefix}_#{i}"); break v end
+        end
+        @declarations << decl = bpl("var #{var}: #{type};")
+        decl
+      end
+
     end
   end
 end

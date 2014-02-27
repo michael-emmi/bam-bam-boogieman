@@ -42,9 +42,12 @@ module Bpl
         end
       end
 
-      def add_si_record_procedures!
-        @declarations << bpl("procedure boogie_si_record_int(x:int);") \
-          if any?{|s| s.is_a?(CallStatement) && s.procedure.name == "boogie_si_record_int"}
+      def add_si_record_procedures!        
+        ["boogie_si_record_int"].each do |proc|
+          next if any?{|s| s.is_a?(ProcedureDeclaration) && s.name == proc}
+          next unless any?{|s| s.is_a?(CallStatement) && s.procedure.name == proc}
+          @declarations << bpl("procedure boogie_si_record_int(x:int);")
+        end
       end
 
     end

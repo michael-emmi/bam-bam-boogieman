@@ -1,10 +1,13 @@
 module C2S
-  def self.violin_instrument! program
+  def self.violin_instrument! program, monitor
     
     methods = {}
     monitor_vars = []
     specs = []
     inits = []
+
+    program.declarations +=
+      BoogieLanguage.new.parse(File.read(monitor)).declarations
     
     program.declarations.each do |decl|
       if decl.is_a?(AxiomDeclaration) && decl.attributes.include?(:method)

@@ -6,7 +6,9 @@ module Bpl
       def verify(options = {})
         boogie_opts = []
         
-        src = (source_file || "a.bpl").chomp(".bpl") + ".c2s.bpl"
+        orig = source_file || "a.bpl"
+        src = File.basename(orig).chomp(File.extname(orig)) + ".c2s.bpl"
+
         File.write(src,self)
 
         # puts "* Boogie: #{src}" unless @@quiet

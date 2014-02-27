@@ -29,7 +29,7 @@ module Bpl
             unless eps.empty?
         end
 
-        fail "no entry points found." if eps.empty?
+        abort "no entry points found." if eps.empty?
       end
       
       def sanity_check
