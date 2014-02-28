@@ -106,7 +106,9 @@ module Bpl
         when '<==>', '==>', '||', '&&', '==', '!=', '<', '>', '<=', '>=', '<:'
           Type::Boolean
         when '++'
-          @lhs.type
+          l = @lhs.type && l.is_a?(BitvectorType) &&
+          r = @rhs.type && r.is_a?(BitvectorType) &&
+          BitvectorType.new(width: l.width + r.width)
         when '+', '-', '*', '/', '%'
           Type::Integer
         end

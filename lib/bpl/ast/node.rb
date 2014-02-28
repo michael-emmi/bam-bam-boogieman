@@ -63,9 +63,7 @@ module Bpl
               when Array; cc
               when Node; [cc]
               when c.class; [cc]
-              else
-                puts "FOUND SOMEHTING CRAZY -- #{cc} -- FROM -- #{c}"
-                []
+              else []
               end
             end
             instance_variable_set(var,cs)
