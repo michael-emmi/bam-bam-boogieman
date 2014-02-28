@@ -33,42 +33,29 @@ module Bpl
     
     class Identifier < Expression
       attr_accessor :name
-      attr_accessor :kind # :label, :procedure, :storage, :function, 
       attr_accessor :declaration
       def hash; name.hash end
-      def eql?(id) id.is_a?(Identifier) && id.name == @name && id.kind == @kind end
-      def is_storage?; @kind && @kind == :storage end
-      def is_procedure?; @kind && @kind == :procedure end
-      def is_function?; @kind && @kind == :function end
-      def is_label?; @kind && @kind == :label end
-      
-      def is_variable?
-        @declaration && @declaration.is_a?(VariableDeclaration)
-      end
-      def is_constant?
-        @declaration && @declaration.is_a?(ConstantDeclaration)
-      end
-      def is_local?
-        @declaration && @declaration.parent && 
-        @declaration.parent.is_a?(ProcedureDeclaration)
-      end
-      def is_global?
-        @declaration && @declaration.parent && 
-        @declaration.parent.is_a?(Program)
-      end
-
+      def eql?(id) id.is_a?(self.class) && id.name == @name end
       def type
-        if (d = @declaration) && d.methods.include?(:type) then
-          d.type
-        else
-          nil
-        end
+        @declaration.type if @declaration.respond_to? :type
       end
       def print; @name end
       def inspect
         (@declaration ? @name.green : @name.red) + (type ? ":#{type.inspect.yellow}" : "")
       end
     end
+    
+    class StorageIdentifier < Identifier
+      def is_variable?
+        @declaration && @declaration.is_a?(VariableDeclaration)
+      end
+      def is_global?
+        @declaration && @declaration.parent && @declaration.parent.is_a?(Program)
+      end
+    end
+    class ProcedureIdentifier < Identifier; end
+    class FunctionIdentifier < Identifier; end
+    class LabelIdentifier < Identifier; end
     
     class FunctionApplication < Expression
       children :function, :arguments

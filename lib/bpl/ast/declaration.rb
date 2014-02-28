@@ -54,7 +54,7 @@ module Bpl
       end
       def idents
         @names.map do |name|
-          Identifier.new name: name, kind: :storage, declaration: self
+          StorageIdentifier.new(name: name, declaration: self)
         end
       end
     end

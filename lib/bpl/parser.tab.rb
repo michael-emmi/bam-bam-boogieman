@@ -17,7 +17,7 @@ include Bpl::AST
 
 class BoogieLanguage < Racc::Parser
 
-module_eval(<<'...end parser.racc/module_eval...', 'parser.racc', 321)
+module_eval(<<'...end parser.racc/module_eval...', 'parser.racc', 329)
 def parse(input)
   scan_str(input)
 end
@@ -1080,7 +1080,7 @@ module_eval(<<'.,.,', 'parser.racc', 36)
 
 module_eval(<<'.,.,', 'parser.racc', 38)
   def _reduce_11(val, _values)
-     Identifier.new name: val[0] 
+     {name: val[0]} 
   end
 .,.,
 
@@ -1361,15 +1361,15 @@ module_eval(<<'.,.,', 'parser.racc', 96)
 
 module_eval(<<'.,.,', 'parser.racc', 99)
   def _reduce_61(val, _values)
-            val[0].kind = :function
-        FunctionApplication.new function: val[0], arguments: val[2]
+            id = FunctionIdentifier.new val[0]
+        FunctionApplication.new function: id, arguments: val[2]
       
   end
 .,.,
 
 module_eval(<<'.,.,', 'parser.racc', 102)
   def _reduce_62(val, _values)
-     val[0].kind = :storage; val[0] 
+     StorageIdentifier.new val[0] 
   end
 .,.,
 
@@ -1496,19 +1496,21 @@ module_eval(<<'.,.,', 'parser.racc', 130)
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 131)
+module_eval(<<'.,.,', 'parser.racc', 132)
   def _reduce_88(val, _values)
-     val[1].each{|id| id.kind = :storage}; HavocStatement.new identifiers: val[1] 
+          ids = val[1].map{|id| StorageIdentifier.new id}
+      HavocStatement.new identifiers: ids
+    
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 132)
+module_eval(<<'.,.,', 'parser.racc', 135)
   def _reduce_89(val, _values)
      AssignStatement.new lhs: val[0], rhs: val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 134)
+module_eval(<<'.,.,', 'parser.racc', 137)
   def _reduce_90(val, _values)
           CallStatement.new attributes: val[1], assignments: val[2][:rets], 
       procedure: val[2][:name], arguments: val[4]
@@ -1516,116 +1518,117 @@ module_eval(<<'.,.,', 'parser.racc', 134)
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 138)
+module_eval(<<'.,.,', 'parser.racc', 141)
   def _reduce_91(val, _values)
-          val[2].kind = :procedure
-      CallStatement.new attributes: [], assignments: nil, procedure: val[2],
-      arguments: val[4]
+          id = ProcedureIdentifier.new val[2]
+      CallStatement.new assignments: nil, procedure: id, arguments: val[4]
     
   end
 .,.,
 
 # reduce 92 omitted
 
-module_eval(<<'.,.,', 'parser.racc', 144)
+module_eval(<<'.,.,', 'parser.racc', 146)
   def _reduce_93(val, _values)
           WhileStatement.new condition: val[2], invariants: val[4], block: val[5]
     
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 147)
+module_eval(<<'.,.,', 'parser.racc', 149)
   def _reduce_94(val, _values)
-          val[1].each{|id| id.kind = :label}
-      BreakStatement.new identifiers: val[1]
+          ids = val[1].map{|id| LabelIdentifier.new id}
+      BreakStatement.new identifiers: ids
     
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 150)
+module_eval(<<'.,.,', 'parser.racc', 152)
   def _reduce_95(val, _values)
      ReturnStatement.new 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 152)
+module_eval(<<'.,.,', 'parser.racc', 154)
   def _reduce_96(val, _values)
-          val[1].each{|id| id.kind = :label}
-      GotoStatement.new identifiers: val[1]
+          ids = val[1].map{|id| LabelIdentifier.new id}
+      GotoStatement.new identifiers: ids
     
-  end
-.,.,
-
-module_eval(<<'.,.,', 'parser.racc', 157)
-  def _reduce_97(val, _values)
-     val[0].kind = :procedure; {name: val[0], rets: []} 
   end
 .,.,
 
 module_eval(<<'.,.,', 'parser.racc', 159)
+  def _reduce_97(val, _values)
+     {name: ProcedureIdentifier.new(val[0]), rets: []} 
+  end
+.,.,
+
+module_eval(<<'.,.,', 'parser.racc', 161)
   def _reduce_98(val, _values)
-          val[0].each{|id| id.kind = :storage}
-      val[2].kind = :procedure
-      {name: val[2], rets: val[0]}
+          ids = val[0].map{|id| StorageIdentifier.new id}
+      id = ProcedureIdentifier.new val[2]
+      {name: id, rets: ids}
     
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 164)
+module_eval(<<'.,.,', 'parser.racc', 166)
   def _reduce_99(val, _values)
      IfStatement.new condition: val[2], block: val[4], else: val[5] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 165)
+module_eval(<<'.,.,', 'parser.racc', 167)
   def _reduce_100(val, _values)
      nil 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 165)
+module_eval(<<'.,.,', 'parser.racc', 167)
   def _reduce_101(val, _values)
      val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 165)
+module_eval(<<'.,.,', 'parser.racc', 167)
   def _reduce_102(val, _values)
      val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 167)
+module_eval(<<'.,.,', 'parser.racc', 170)
   def _reduce_103(val, _values)
-     val[0].kind = :storage; val[1].empty? ? val[0] : val[1].reduce(val[0]){|m,x| MapSelect.new map: m, indexes: x} 
+        id = StorageIdentifier.new val[0]
+    val[1].reduce(id){|m,x| MapSelect.new map: m, indexes: x}
+  
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 168)
+module_eval(<<'.,.,', 'parser.racc', 173)
   def _reduce_104(val, _values)
      [val[0]] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 168)
+module_eval(<<'.,.,', 'parser.racc', 173)
   def _reduce_105(val, _values)
      [val[0]] + val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 170)
+module_eval(<<'.,.,', 'parser.racc', 175)
   def _reduce_106(val, _values)
      val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 171)
+module_eval(<<'.,.,', 'parser.racc', 176)
   def _reduce_107(val, _values)
      [] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 171)
+module_eval(<<'.,.,', 'parser.racc', 176)
   def _reduce_108(val, _values)
      [val[0]] + val[1] 
   end
@@ -1633,25 +1636,25 @@ module_eval(<<'.,.,', 'parser.racc', 171)
 
 # reduce 109 omitted
 
-module_eval(<<'.,.,', 'parser.racc', 173)
+module_eval(<<'.,.,', 'parser.racc', 178)
   def _reduce_110(val, _values)
      Expression::Wildcard 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 174)
+module_eval(<<'.,.,', 'parser.racc', 179)
   def _reduce_111(val, _values)
      [val[0]] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 174)
+module_eval(<<'.,.,', 'parser.racc', 179)
   def _reduce_112(val, _values)
      [val[0]] + val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 175)
+module_eval(<<'.,.,', 'parser.racc', 180)
   def _reduce_113(val, _values)
      [] 
   end
@@ -1659,55 +1662,55 @@ module_eval(<<'.,.,', 'parser.racc', 175)
 
 # reduce 114 omitted
 
-module_eval(<<'.,.,', 'parser.racc', 177)
+module_eval(<<'.,.,', 'parser.racc', 182)
   def _reduce_115(val, _values)
      LoopInvariant.new free: val[0], expression: val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 178)
+module_eval(<<'.,.,', 'parser.racc', 183)
   def _reduce_116(val, _values)
      [] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 178)
+module_eval(<<'.,.,', 'parser.racc', 183)
   def _reduce_117(val, _values)
      [val[0]] + val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 179)
+module_eval(<<'.,.,', 'parser.racc', 184)
   def _reduce_118(val, _values)
      false 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 179)
+module_eval(<<'.,.,', 'parser.racc', 184)
   def _reduce_119(val, _values)
      true 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 182)
+module_eval(<<'.,.,', 'parser.racc', 187)
   def _reduce_120(val, _values)
      [] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 183)
+module_eval(<<'.,.,', 'parser.racc', 188)
   def _reduce_121(val, _values)
      [val[0]] + val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 184)
+module_eval(<<'.,.,', 'parser.racc', 189)
   def _reduce_122(val, _values)
      [val[0]] + val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 186)
+module_eval(<<'.,.,', 'parser.racc', 191)
   def _reduce_123(val, _values)
      Block.new declarations: [], statements: val[1] 
   end
@@ -1727,19 +1730,19 @@ module_eval(<<'.,.,', 'parser.racc', 186)
 
 # reduce 130 omitted
 
-module_eval(<<'.,.,', 'parser.racc', 196)
+module_eval(<<'.,.,', 'parser.racc', 201)
   def _reduce_131(val, _values)
      [] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 196)
+module_eval(<<'.,.,', 'parser.racc', 201)
   def _reduce_132(val, _values)
      [val[0]] + val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 199)
+module_eval(<<'.,.,', 'parser.racc', 204)
   def _reduce_133(val, _values)
         if val[5] && val[2]
       abort "Illegal declaration of type #{([val[3]] + val[4]) * " "}"
@@ -1750,98 +1753,100 @@ module_eval(<<'.,.,', 'parser.racc', 199)
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 205)
+module_eval(<<'.,.,', 'parser.racc', 210)
   def _reduce_134(val, _values)
      false 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 205)
+module_eval(<<'.,.,', 'parser.racc', 210)
   def _reduce_135(val, _values)
      true 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 206)
+module_eval(<<'.,.,', 'parser.racc', 211)
   def _reduce_136(val, _values)
      [] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 206)
+module_eval(<<'.,.,', 'parser.racc', 211)
   def _reduce_137(val, _values)
      [val[0]] + val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 207)
+module_eval(<<'.,.,', 'parser.racc', 212)
   def _reduce_138(val, _values)
      nil 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 207)
+module_eval(<<'.,.,', 'parser.racc', 212)
   def _reduce_139(val, _values)
      val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 210)
+module_eval(<<'.,.,', 'parser.racc', 215)
   def _reduce_140(val, _values)
         ConstantDeclaration.new(val[3].merge({attributes: val[1], unique: val[2], order_spec: val[4]}))
   
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 212)
+module_eval(<<'.,.,', 'parser.racc', 217)
   def _reduce_141(val, _values)
      false 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 212)
+module_eval(<<'.,.,', 'parser.racc', 217)
   def _reduce_142(val, _values)
      true 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 213)
+module_eval(<<'.,.,', 'parser.racc', 218)
   def _reduce_143(val, _values)
      [val[0],val[1]] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 214)
+module_eval(<<'.,.,', 'parser.racc', 219)
   def _reduce_144(val, _values)
      nil 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 214)
+module_eval(<<'.,.,', 'parser.racc', 219)
   def _reduce_145(val, _values)
      val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 215)
+module_eval(<<'.,.,', 'parser.racc', 221)
   def _reduce_146(val, _values)
-     val[1].kind = :storage; [val[0],val[1]] 
+        id = StorageIdentifier.new val[1]
+    [val[0],id]
+  
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 216)
+module_eval(<<'.,.,', 'parser.racc', 224)
   def _reduce_147(val, _values)
      [val[0]] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 216)
+module_eval(<<'.,.,', 'parser.racc', 224)
   def _reduce_148(val, _values)
      [val[0]] + val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 217)
+module_eval(<<'.,.,', 'parser.racc', 225)
   def _reduce_149(val, _values)
      [] 
   end
@@ -1849,19 +1854,19 @@ module_eval(<<'.,.,', 'parser.racc', 217)
 
 # reduce 150 omitted
 
-module_eval(<<'.,.,', 'parser.racc', 218)
+module_eval(<<'.,.,', 'parser.racc', 226)
   def _reduce_151(val, _values)
      false 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 218)
+module_eval(<<'.,.,', 'parser.racc', 226)
   def _reduce_152(val, _values)
      true 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 221)
+module_eval(<<'.,.,', 'parser.racc', 229)
   def _reduce_153(val, _values)
         FunctionDeclaration.new attributes: val[1], name: val[2],
       type_arguments: val[3], arguments: val[5], return: val[9], body: val[11]
@@ -1869,25 +1874,25 @@ module_eval(<<'.,.,', 'parser.racc', 221)
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 226)
+module_eval(<<'.,.,', 'parser.racc', 234)
   def _reduce_154(val, _values)
      NameDeclaration.new val[0] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 227)
+module_eval(<<'.,.,', 'parser.racc', 235)
   def _reduce_155(val, _values)
      NameDeclaration.new(names: [], type: val[0]) 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 230)
+module_eval(<<'.,.,', 'parser.racc', 238)
   def _reduce_156(val, _values)
      [{names: [], type: val[0]}] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 232)
+module_eval(<<'.,.,', 'parser.racc', 240)
   def _reduce_157(val, _values)
           if val[2].first[:names].empty?
         [{names: [], type: val[0]}] + val[2]
@@ -1899,7 +1904,7 @@ module_eval(<<'.,.,', 'parser.racc', 232)
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 240)
+module_eval(<<'.,.,', 'parser.racc', 248)
   def _reduce_158(val, _values)
           # assert val[2].first[:names].empty?
 
@@ -1917,13 +1922,13 @@ module_eval(<<'.,.,', 'parser.racc', 240)
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 254)
+module_eval(<<'.,.,', 'parser.racc', 262)
   def _reduce_159(val, _values)
      [] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 256)
+module_eval(<<'.,.,', 'parser.racc', 264)
   def _reduce_160(val, _values)
           val[0].map do |x|
         x[:names].map!{|t| t.name}
@@ -1933,69 +1938,69 @@ module_eval(<<'.,.,', 'parser.racc', 256)
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 261)
+module_eval(<<'.,.,', 'parser.racc', 269)
   def _reduce_161(val, _values)
      nil 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 261)
+module_eval(<<'.,.,', 'parser.racc', 269)
   def _reduce_162(val, _values)
      val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 264)
+module_eval(<<'.,.,', 'parser.racc', 272)
   def _reduce_163(val, _values)
         AxiomDeclaration.new attributes: val[1], expression: val[2]
   
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 268)
+module_eval(<<'.,.,', 'parser.racc', 276)
   def _reduce_164(val, _values)
         VariableDeclaration.new(val[2].merge({attributes: val[1]}))
   
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 270)
+module_eval(<<'.,.,', 'parser.racc', 278)
   def _reduce_165(val, _values)
      {names: val[0], type: val[2]} 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 271)
+module_eval(<<'.,.,', 'parser.racc', 279)
   def _reduce_166(val, _values)
      val[0].merge(val[1]) 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 272)
+module_eval(<<'.,.,', 'parser.racc', 280)
   def _reduce_167(val, _values)
      [] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 272)
+module_eval(<<'.,.,', 'parser.racc', 280)
   def _reduce_168(val, _values)
      [val[0]] + val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 273)
+module_eval(<<'.,.,', 'parser.racc', 281)
   def _reduce_169(val, _values)
      {} 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 273)
+module_eval(<<'.,.,', 'parser.racc', 281)
   def _reduce_170(val, _values)
      {where: val[1]} 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 277)
+module_eval(<<'.,.,', 'parser.racc', 285)
   def _reduce_171(val, _values)
           ProcedureDeclaration.new attributes: val[1], name: val[2], 
         type_arguments: val[3], parameters: val[5], returns: val[7], 
@@ -2004,67 +2009,67 @@ module_eval(<<'.,.,', 'parser.racc', 277)
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 281)
+module_eval(<<'.,.,', 'parser.racc', 289)
   def _reduce_172(val, _values)
      [] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 281)
+module_eval(<<'.,.,', 'parser.racc', 289)
   def _reduce_173(val, _values)
      val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 282)
+module_eval(<<'.,.,', 'parser.racc', 290)
   def _reduce_174(val, _values)
      {specs: val[1], body: nil} 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 282)
+module_eval(<<'.,.,', 'parser.racc', 290)
   def _reduce_175(val, _values)
      {specs: val[0], body: val[1]} 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 283)
+module_eval(<<'.,.,', 'parser.racc', 291)
   def _reduce_176(val, _values)
      Block.new declarations: val[1], statements: val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 284)
+module_eval(<<'.,.,', 'parser.racc', 292)
   def _reduce_177(val, _values)
      [val[0]] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 284)
+module_eval(<<'.,.,', 'parser.racc', 292)
   def _reduce_178(val, _values)
      [val[0]] + val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 286)
+module_eval(<<'.,.,', 'parser.racc', 294)
   def _reduce_179(val, _values)
      NameDeclaration.new val[0] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 287)
+module_eval(<<'.,.,', 'parser.racc', 295)
   def _reduce_180(val, _values)
      [val[0]] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 287)
+module_eval(<<'.,.,', 'parser.racc', 295)
   def _reduce_181(val, _values)
      [val[0]] + val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 288)
+module_eval(<<'.,.,', 'parser.racc', 296)
   def _reduce_182(val, _values)
      [] 
   end
@@ -2072,39 +2077,39 @@ module_eval(<<'.,.,', 'parser.racc', 288)
 
 # reduce 183 omitted
 
-module_eval(<<'.,.,', 'parser.racc', 291)
+module_eval(<<'.,.,', 'parser.racc', 299)
   def _reduce_184(val, _values)
      RequiresClause.new free: val[0], expression: val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 293)
+module_eval(<<'.,.,', 'parser.racc', 301)
   def _reduce_185(val, _values)
-          val[2].each{|id| id.kind = :storage}
-      ModifiesClause.new free: val[0], identifiers: val[2]
+          ids = val[2].map{|id| StorageIdentifier.new id}
+      ModifiesClause.new free: val[0], identifiers: ids
     
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 296)
+module_eval(<<'.,.,', 'parser.racc', 304)
   def _reduce_186(val, _values)
      EnsuresClause.new free: val[0], expression: val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 297)
+module_eval(<<'.,.,', 'parser.racc', 305)
   def _reduce_187(val, _values)
      [] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 297)
+module_eval(<<'.,.,', 'parser.racc', 305)
   def _reduce_188(val, _values)
      [val[0]] + val[1] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 301)
+module_eval(<<'.,.,', 'parser.racc', 309)
   def _reduce_189(val, _values)
           ImplementationDeclaration.new attributes: val[1], name: val[2],
         type_arguments: val[3], parameters: val[5], returns: val[7],
@@ -2113,7 +2118,7 @@ module_eval(<<'.,.,', 'parser.racc', 301)
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.racc', 306)
+module_eval(<<'.,.,', 'parser.racc', 314)
   def _reduce_190(val, _values)
      Program.new declarations: val[0] 
   end

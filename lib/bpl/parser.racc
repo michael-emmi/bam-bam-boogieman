@@ -36,7 +36,7 @@ rule
   name: IDENTIFIER { val[0] }
   names: name { [val[0]] } | name ',' names { [val[0]] + val[2] }
       
-  ident: IDENTIFIER { Identifier.new name: val[0] }
+  ident: IDENTIFIER { {name: val[0]} }
   idents: ident { [val[0]] } | ident ',' idents { [val[0]] + val[2] }
   idents_opt: { [] } | idents
       
@@ -96,11 +96,11 @@ rule
       | expr '[' exprs ':=' expr ']' { MapUpdate.new map: val[0], indexes: val[2], value: val[4] }
       | expr '[' NUMBER ':' NUMBER ']' { BitvectorExtract.new bitvector: val[0], msb: val[2], lsb: val[4] }
       | literal       
-      | ident '(' exprs_opt ')' { 
-        val[0].kind = :function
-        FunctionApplication.new function: val[0], arguments: val[2]
+      | ident '(' exprs_opt ')' {
+        id = FunctionIdentifier.new val[0]
+        FunctionApplication.new function: id, arguments: val[2]
       }
-      | ident { val[0].kind = :storage; val[0] }
+      | ident { StorageIdentifier.new val[0] }
       | 'old' '(' expr ')' { OldExpression.new expression: val[2] }
       | '(' quantifier type_args param_decls '::' ants expr ')' { 
         QuantifiedExpression.new quantifier: val[1], type_arguments: val[2], 
@@ -129,43 +129,48 @@ rule
   stmt:
     'assert' attrs expr ';' { AssertStatement.new attributes: val[1], expression: val[2] }
     | 'assume' attrs expr ';' { AssumeStatement.new attributes: val[1], expression: val[2] }
-    | 'havoc' idents ';' { val[1].each{|id| id.kind = :storage}; HavocStatement.new identifiers: val[1] }
+    | 'havoc' idents ';' { 
+      ids = val[1].map{|id| StorageIdentifier.new id}
+      HavocStatement.new identifiers: ids
+    }
     | lhss ':=' exprs ';' { AssignStatement.new lhs: val[0], rhs: val[2] }
     | 'call' attrs call_lhs '(' exprs_opt ')' ';' { 
       CallStatement.new attributes: val[1], assignments: val[2][:rets], 
       procedure: val[2][:name], arguments: val[4]
     }
     | 'call' 'forall' ident '(' wc_exprs_opt ')' ';' { 
-      val[2].kind = :procedure
-      CallStatement.new attributes: [], assignments: nil, procedure: val[2],
-      arguments: val[4]
+      id = ProcedureIdentifier.new val[2]
+      CallStatement.new assignments: nil, procedure: id, arguments: val[4]
     }
     | if_stmt
     | 'while' '(' wc_expr ')' loop_invs block { 
       WhileStatement.new condition: val[2], invariants: val[4], block: val[5]
     }
     | 'break' idents_opt ';' { 
-      val[1].each{|id| id.kind = :label}
-      BreakStatement.new identifiers: val[1]
+      ids = val[1].map{|id| LabelIdentifier.new id}
+      BreakStatement.new identifiers: ids
     }
     | 'return' ';' { ReturnStatement.new }
-    | 'goto' idents ';' { 
-      val[1].each{|id| id.kind = :label}
-      GotoStatement.new identifiers: val[1]
+    | 'goto' idents ';' {
+      ids = val[1].map{|id| LabelIdentifier.new id}
+      GotoStatement.new identifiers: ids
     }
     
   call_lhs: 
-    ident { val[0].kind = :procedure; {name: val[0], rets: []} } 
+    ident { {name: ProcedureIdentifier.new(val[0]), rets: []} }
     | idents ':=' ident {
-      val[0].each{|id| id.kind = :storage}
-      val[2].kind = :procedure
-      {name: val[2], rets: val[0]}
+      ids = val[0].map{|id| StorageIdentifier.new id}
+      id = ProcedureIdentifier.new val[2]
+      {name: id, rets: ids}
     }
   
   if_stmt: 'if' '(' wc_expr ')' block else_stmt { IfStatement.new condition: val[2], block: val[4], else: val[5] }
   else_stmt: { nil } | 'else' block { val[1] } | 'else' if_stmt { val[1] }
 
-  lhs: ident selects { val[0].kind = :storage; val[1].empty? ? val[0] : val[1].reduce(val[0]){|m,x| MapSelect.new map: m, indexes: x} }
+  lhs: ident selects {
+    id = StorageIdentifier.new val[0]
+    val[1].reduce(id){|m,x| MapSelect.new map: m, indexes: x}
+  }
   lhss: lhs { [val[0]] } | lhs ',' lhss { [val[0]] + val[2] }
 
   select: '[' exprs ']' { val[1] }
@@ -213,7 +218,10 @@ rule
   unique_opt: { false } | 'unique' { true }
   order_spec: parent_info complete_opt { [val[0],val[1]] }
   parent_info: { nil } | '<:' parent_edges_opt { val[1] }
-  parent_edge: unique_opt ident { val[1].kind = :storage; [val[0],val[1]] }
+  parent_edge: unique_opt ident {
+    id = StorageIdentifier.new val[1]
+    [val[0],id]
+  }
   parent_edges: parent_edge { [val[0]] } | parent_edge ',' parent_edges { [val[0]] + val[2] }
   parent_edges_opt: { [] } | parent_edges
   complete_opt: { false } | 'complete' { true }
@@ -291,8 +299,8 @@ rule
   spec: 
     free_opt 'requires' expr ';' { RequiresClause.new free: val[0], expression: val[2] }
     | free_opt 'modifies' idents ';' {
-      val[2].each{|id| id.kind = :storage}
-      ModifiesClause.new free: val[0], identifiers: val[2]
+      ids = val[2].map{|id| StorageIdentifier.new id}
+      ModifiesClause.new free: val[0], identifiers: ids
     }
     | free_opt 'ensures' expr ';' { EnsuresClause.new free: val[0], expression: val[2] }
   specs: { [] } | spec specs { [val[0]] + val[1] }

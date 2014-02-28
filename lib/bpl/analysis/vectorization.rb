@@ -35,7 +35,7 @@ module Bpl
                 when EnsuresClause, RequiresClause
                   spec.replace do |elem|
                     
-                    if elem.is_a?(Identifier) && elem.is_variable? && elem.is_global? then
+                    if elem.is_a?(StorageIdentifier) && elem.is_variable? && elem.is_global? then
                       next bpl("#{elem}[#k]")
                     end
                     elem
@@ -71,7 +71,7 @@ module Bpl
                   end
                   next elem
 
-                when Identifier
+                when StorageIdentifier
                   if elem.is_variable? && elem.is_global? then
                     next bpl("#{elem}[#k]")
                   end

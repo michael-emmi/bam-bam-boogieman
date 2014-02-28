@@ -39,16 +39,18 @@ module Bpl
     class Program
       def resolve(id)
         case id
-        when Identifier
-          @declarations.find do |decl|
-            id.is_storage? && decl.is_a?(NameDeclaration) && decl.names.include?(id.name) ||
-            id.is_function? && decl.is_a?(FunctionDeclaration) && decl.name == id.name ||
-            id.is_procedure? && decl.is_a?(ProcedureDeclaration) && decl.name == id.name
-          end
+        when StorageIdentifier
+          @declarations.find{|d| d.is_a?(NameDeclaration) && d.names.include?(id.name)}
+
+        when FunctionIdentifier
+          @declarations.find{|d| d.is_a?(FunctionDeclaration) && d.name == id.name}
+
+        when ProcedureIdentifier
+          @declarations.find{|d| d.is_a?(ProcedureDeclaration) && d.name == id.name}
+
         when Type
-          @declarations.find do |decl|
-            decl.is_a?(TypeDeclaration) && decl.name == id.name
-          end
+          @declarations.find{|d| d.is_a?(TypeDeclaration) && d.name == id.name}
+
         else
           nil
         end
@@ -57,14 +59,17 @@ module Bpl
     
     class ProcedureDeclaration
       def resolve(id)
-        if id.is_storage? then
+        case id
+        when StorageIdentifier
           @parameters.find{|decl| decl.names.include? id.name} ||
           @returns.find{|decl| decl.names.include? id.name} ||
           @body && @body.declarations.find{|decl| decl.names.include? id.name}
-        elsif id.is_label? && @body then
-          ls = @body.statements.find{|label| label == id.name}
+
+        when LabelIdentifier
+          ls = @body && @body.statements.find{|label| label == id.name}
           def ls.signature; "label" end if ls
           ls
+
         else
           nil
         end
@@ -73,13 +78,13 @@ module Bpl
     
     class FunctionDeclaration
       def resolve(id)
-        id.is_storage? && @arguments.find{|decl| decl.names.include? id.name}
+        id.is_a?(StorageIdentifier) && @arguments.find{|d| d.names.include? id.name}
       end
     end
     
     class QuantifiedExpression
       def resolve(id)
-        id.is_storage? && @variables.find{|decl| decl.names.include? id.name}
+        id.is_a?(StorageIdentifier) && @variables.find{|d| d.names.include? id.name}
       end
     end
     
