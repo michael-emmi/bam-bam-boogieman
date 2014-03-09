@@ -45,7 +45,9 @@ module Bpl
       def wrap_entrypoint_procedures!
         @declarations.select(&:is_entrypoint?).each do |proc|
           if proc.body then
-            proc.body.statements.unshift bpl("assume {:startpoint} true;")
+            proc.body.statements.unshift bpl("assume {:startpoint} true;") \
+              unless proc.body.any?{|e| e.attributes.include? :startpoint}
+
             proc.body.replace do |elem|
               case elem
               when ReturnStatement
@@ -53,7 +55,8 @@ module Bpl
               else
                 elem
               end
-            end
+            end unless proc.body.any?{|e| e.attributes.include? :endpoint}
+
           end
         end
 
