@@ -115,7 +115,7 @@ OptionParser.new do |opts|
     $verbose = !q
   end
 
-  opts.on("-w", "--[no-]warnings", "Show warnings? (default #{$warnings})") do |w|
+  opts.on("-w", "--[no-]warnings", "Show warnings? (default #{$show_warnings})") do |w|
     $show_warnings = w
   end
 
@@ -158,7 +158,7 @@ OptionParser.new do |opts|
   end
 
   opts.on("-d", "--delays MAX", Integer, "The delay bound (default #{@delays})") do |d|
-    @delays = d 
+    @delays = d
   end
   
   opts.separator ""
@@ -169,21 +169,21 @@ OptionParser.new do |opts|
     @verifier = v
   end
 
-  opts.on("-t", "--timeout TIME", Integer, "Verifier timeout (default #{@timeout})") do |t|
+  opts.on("-t", "--timeout TIME", Integer, "Verifier timeout (default #{@timeout || "-"})") do |t|
     @boogie_opts << "/timeLimit:#{t}"
   end
 
-  opts.on("-u", "--unroll MAX", Integer, "Loop/recursion bound (default #{@unroll})") do |u|
+  opts.on("-u", "--unroll MAX", Integer, "Loop/recursion bound (default #{@unroll || "-"})") do |u|
     @unroll = u
   end
 
   # TODO is this really a good idea?
-  # opts.separator ""
-  # opts.separator "Miscellaneous options:"
-  #
-  # opts.on("--monitor FILE", "Instrument with monitor FILE?") do |file|
-  #   @monitor = file
-  # end
+  opts.separator ""
+  opts.separator "Miscellaneous options:"
+  
+  opts.on("--monitor FILE", "Instrument with monitor FILE?") do |file|
+    @monitor = file
+  end
   
   # opts.on("-g", "--graph-of-trace", "generate a trace graph") do |g|
   #   @graph = g
@@ -229,13 +229,15 @@ end if @resolution && @type_checking
 timed('Normalization') do
   program.normalize!
 end if @sequentialization || @verification
-
+ 
 # TODO is this really a good idea?
-# timed 'Monitor-instrumentation' do
-#   abort "Monitor file #{@monitor} does not exist." unless File.exists?(@monitor)
-#   C2S::violin_instrument! program, @monitor
-#   program.resolve!
-# end if @monitor
+timed 'Monitor-instrumentation' do
+  abort "Monitor file #{@monitor} does not exist." unless File.exists?(@monitor)
+  C2S::violin_instrument! program, @monitor
+  program.resolve!
+  program.type_check
+  program.normalize!
+end if @monitor
 
 if @sequentialization
   if program.any?{|e| e.attributes.include? :async}
