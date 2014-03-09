@@ -8,6 +8,8 @@ module Bpl
         
         orig = source_file || "a.bpl"
         src = File.basename(orig).chomp(File.extname(orig)) + ".c2s.bpl"
+        model = src.chomp('.bpl') + '.model'
+        trace = src.chomp('.bpl') + '.trace'
 
         File.write(src,self)
 
@@ -33,12 +35,26 @@ module Bpl
        
         boogie_opts << "/errorLimit:1"
         boogie_opts << "/errorTrace:2"
+        boogie_opts << "/printModel:2"
+        boogie_opts << "/printModelToFile:#{model}"
+        boogie_opts << "/removeEmptyBlocks:0" # XXX
+        boogie_opts << "/coalesceBlocks:0"    # XXX
 
-        cmd = "#{boogie} #{src} #{boogie_opts * " "}"
+        cmd = "#{boogie} #{src} #{boogie_opts * " "} 1> #{trace}"
         puts cmd.bold if $verbose
         t = Time.now
         
         system cmd
+        
+        File.read(trace).lines.last.
+        match(/Boogie .* finished with (\d+) verified, (\d+) error/) do |m|
+          if m[2].to_i > 0
+            puts "Got a trace..."
+          else
+            puts "All #{m[1]} entry points verified."
+          end
+        end
+
 
         # output = `#{cmd}`
 
