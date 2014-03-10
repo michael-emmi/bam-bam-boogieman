@@ -215,6 +215,7 @@ require_relative 'bpl/analysis/vectorization'
 require_relative 'bpl/analysis/df_sequentialization'
 require_relative 'bpl/analysis/backend'
 require_relative 'bpl/analysis/verification'
+require_relative 'bpl/analysis/trace'
 require_relative 'c2s/violin'
 require_relative 'c2s/frontend'
 
