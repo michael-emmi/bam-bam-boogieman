@@ -77,7 +77,7 @@ OptionParser.new do |opts|
   @type_checking = true
   @sequentialization = true
   @inspection = false
-  @verification = false
+  @verification = true
 
   @monitor = nil
 

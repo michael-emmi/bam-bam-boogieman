@@ -15,10 +15,12 @@ module Bpl
       end
 
       def verify_one_shot(options = {})
+        unroll = options[:unroll]
+        delays = options[:delays]
         if vvvvv(options)
           puts "Got a trace..." unless $quiet
         else
-          puts "Verified w/ depth #{options[:unroll]} and #{options[:delays]} delays." unless $quiet
+          puts "Verified w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
         end
       end
 
