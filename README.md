@@ -11,9 +11,26 @@ read [this research paper][db] for more information.
 [db]: http://dl.acm.org/citation.cfm?id=1926432
 [pb]: http://link.springer.com/article/10.1007%2Fs10009-013-0276-z
 
+*Note: the old Ocaml version of c2s can be found [here][old].*
+
+[old]: https://github.com/michael-emmi/c2s-ocaml
+
 ## Requirements
 
-A recent version of [Ruby](https://www.ruby-lang.org) -- I'm using 2.1.0.
+A recent version of [Ruby](https://www.ruby-lang.org) -- I'm using 2.1.0 and
+I'm guessing you'll need at least 1.9.
+
+Optionally, you may also fancy:
+
++ [SMACK][smack], if you want the enable the C/LLVM frontend.
++ [Boogie][boogie], if you want to enable verification.
++ the [`eventmachine`][em] gem, if you want to enable parallelism.
++ the [`colorize`][color] gem, if you want pretty console output.
+
+[color]: https://github.com/fazibear/colorize
+[em]: http://rubyeventmachine.com
+[boogie]: http://boogie.codeplex.com
+[smack]: https://github.com/smackers/smack
 
 ## Installation
 
