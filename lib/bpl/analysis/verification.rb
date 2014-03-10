@@ -5,7 +5,9 @@ module Bpl
     class Program
 
       def verify(options = {})
-        if options[:incremental]
+        if options[:incremental] && options[:parallel]
+          verify_incremental_in_parallel1 options
+        elsif options[:incremental]
           verify_incremental options
         else
           verify_one_shot options
@@ -30,6 +32,102 @@ module Bpl
               true
             else
               puts "all #{m[1]} entry points verified."
+            end
+          end
+        end
+      end
+
+      def got_trace(trace)
+        File.read(trace).lines.last.match(/(\d+) error/){|m| m[1].to_i > 0}
+      end
+
+      def verify_incremental_in_parallel1(options = {})
+        unroll_bound = options[:unroll] || Float::INFINITY
+        delay_bound = options[:delays] || Float::INFINITY
+
+        done = 0
+
+        unroll_lower = 0
+        delay_lower = 0
+
+        EventMachine.run do
+          EventMachine.add_periodic_timer(0.1) do
+            Kernel::print "Verifying in parallel w/ depth #{unroll_lower} and #{delay_lower} delays.\r"
+          end
+
+          (1..2).each do |i|
+            EventMachine.defer do
+              while true
+                unroll = unroll_lower
+                delays = delay_lower
+                _, trace = vvvvv(options.merge(unroll: unroll, delays: delays))
+                if got_trace(trace) then
+                  EventMachine.stop
+                  puts
+                  puts "Got a trace..."
+                  break
+                end
+
+                case i
+                when 1
+                  if unroll_lower < unroll_bound
+                    unroll_lower += 1
+                  else
+                    break
+                  end
+                else
+                  if delay_lower < delay_bound
+                    delay_lower += 1
+                  else
+                    break
+                  end
+                end
+
+              end
+              if (done += 1) >= 2
+                EventMachine.stop
+                puts
+              end
+            end
+          end
+        end
+      end
+
+      def verify_incremental_in_parallel2(options = {})
+        unroll_bound = options[:unroll] || Float::INFINITY
+        delay_bound = options[:delays] || Float::INFINITY
+
+        done = 0
+
+        covered = []
+        worklist = [{unroll: 0, delays: 0}, {unroll: 1, delays: 0}]
+
+        # EventMachine.threadpool_size = 2
+        EventMachine.run do
+          (1..2).each do
+            EventMachine.defer do
+              while true
+                work = worklist.shift
+                break unless work
+                unroll = work[:unroll]
+                delays = work[:delays]
+                break if covered.any?{|w| w[:unroll] >= unroll && w[:delays] >= delays}
+                covered.reject!{|w| w[:unroll] <= unroll && w[:delays] <= delays}
+                covered << work
+
+                puts "Verifying w/ #{unroll} unroll and #{delays} delays."
+                _, trace = vvvvv(options.merge(unroll: unroll, delays: delays))
+                if got_trace(trace) then
+                  EventMachine.stop
+                  puts "Got a trace..."
+                  break
+                else
+                  worklist.reject!{|w| w[:unroll] <= unroll && w[:delays] <= delays}
+                  worklist << {unroll: unroll+1, delays: delays} if unroll < unroll_bound
+                  worklist << {unroll: unroll, delays: delays+1} if delays < delay_bound
+                end
+              end
+              EventMachine.stop if (done += 1) >= 2
             end
           end
         end
@@ -88,7 +186,8 @@ module Bpl
         boogie_opts = []
 
         orig = source_file || "a.bpl"
-        src = File.basename(orig).chomp(File.extname(orig)) + ".c2s.bpl"
+        base = File.basename(orig).chomp(File.extname(orig))
+        src = "#{base}.c2s.#{Time.now.to_f}.bpl"
         model = src.chomp('.bpl') + '.model'
         trace = src.chomp('.bpl') + '.trace'
 

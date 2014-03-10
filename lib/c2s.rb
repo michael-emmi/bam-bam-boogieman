@@ -86,6 +86,7 @@ OptionParser.new do |opts|
 
   @verifier = :boogie_si
   @incremental = false
+  @parallel = false
   @boogie_opts = []
   @timeout = nil
   @unroll = nil
@@ -174,6 +175,10 @@ OptionParser.new do |opts|
     @incremental = i
   end
 
+  opts.on("-p", "--parallel", "Parallel verification? (default #{@parallel})") do |p|
+    @parallel = p
+  end
+
   opts.on("-t", "--timeout TIME", Integer, "Verifier timeout (default #{@timeout || "-"})") do |t|
     @boogie_opts << "/timeLimit:#{t}"
   end
@@ -212,6 +217,13 @@ require_relative 'bpl/analysis/backend'
 require_relative 'bpl/analysis/verification'
 require_relative 'c2s/violin'
 require_relative 'c2s/frontend'
+
+begin
+  require 'eventmachine'
+rescue LoadError
+  warn "Parallel verification requires the eventmachine gem; disabling."
+  @parallel = false
+end if @parallel
 
 src = timed 'Front-end' do
   C2S::process_source_file(src)
@@ -270,5 +282,6 @@ end if @output_file
 
 timed('Verification') do
   program.verify verifier: @verifier, \
-    unroll: @unroll, rounds: (@rounds || @delays+1), delays: @delays, incremental: @incremental
+    unroll: @unroll, rounds: (@rounds || @delays+1), delays: @delays, \
+    incremental: @incremental, parallel: @parallel
 end if @verification
