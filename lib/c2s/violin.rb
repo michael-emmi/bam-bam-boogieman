@@ -29,24 +29,13 @@ module C2S
       case decl
       when ProcedureDeclaration
         
+        next unless decl.body
         
-        if decl.body
-          new_mods = monitor_vars - decl.modifies
-          decl.specifications << bpl("modifies #{new_mods * ", "};") \
-            unless new_mods.empty?
-
-          decl.body.replace do |elem|
-            if elem.attributes.include? :startpoint
-              next [elem] +
-              inits.reverse.map do |init|
-                bpl("call #{init.name}();")
-              end
-            end
-            elem
-          end
+        unless (new_mods = monitor_vars - decl.modifies).empty?
+          decl.specifications << bpl("modifies #{new_mods * ", "};")
         end
 
-        if methods.include?(decl.name) && decl.body
+        if methods.include?(decl.name)
           
           params = decl.parameters.map{|p| p.names}.flatten
           rets = ["$myop"] + decl.returns.map{|r| r.names}.flatten
@@ -67,6 +56,10 @@ module C2S
         
         decl.body.replace do |elem|
           case elem
+          when AssumeStatement
+            if elem.attributes.include? :startpoint
+              next [elem] + inits.reverse.map{|init| bpl("call #{init.name}();")}
+            end
           when AssertStatement
             if elem.attributes.include?(:spec) &&
               (ax = elem.attributes[:spec]) && !ax.empty? &&
@@ -76,7 +69,7 @@ module C2S
             end
           end
           elem
-        end if decl.body
+        end
         
       end
     end
