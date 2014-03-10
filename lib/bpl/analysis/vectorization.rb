@@ -4,15 +4,15 @@ module Bpl
         
     class Program
 
-      def vectorize!(rounds,delays)
+      def vectorize! # (rounds,delays)
         
         gs = global_variables.map{|d| d.idents}.flatten        
         return if gs.empty?
         
         @declarations << bpl("const #ROUNDS: int;")
         @declarations << bpl("const #DELAYS: int;")
-        @declarations << bpl("axiom #ROUNDS == #{rounds};")
-        @declarations << bpl("axiom #DELAYS == #{delays};")
+        # @declarations << bpl("axiom #ROUNDS == #{rounds};")
+        # @declarations << bpl("axiom #DELAYS == #{delays};")
         @declarations += global_variables.map do |decl|
           type = decl.type
           decl.type = bpl_type("[int] #{type}")
@@ -103,10 +103,22 @@ module Bpl
 
                   elsif elem.attributes.include? :endpoint
 
+                    # NEW VERSION -- independent of rounds bound.
                     next [elem] +
-                      (1..rounds).map do |i|
-                        gs.map{|g| bpl("assume #{g}[#{i-1}] == #{g}.0[#{i}];")}
-                      end.flatten
+                      gs.map do |g|
+                        bpl(<<-end
+                        assume (forall i: int ::
+                          {#{g}.0[i]} {#{g}[i-1]}
+                          i > 0 && i <= #ROUNDS ==> #{g}[i-1] == #{g}.0[i]
+                        );
+                      end
+                      ) end
+
+                    # PREVIOUS VERSION -- needs to know rounds bound.
+                    # next [elem] +
+                    #   (1..rounds).map do |i|
+                    #     gs.map{|g| bpl("assume #{g}[#{i-1}] == #{g}.0[#{i}];")}
+                    #   end.flatten
 
                   end
                 end

@@ -85,6 +85,7 @@ OptionParser.new do |opts|
   @delays = 0
 
   @verifier = :boogie_si
+  @incremental = false
   @boogie_opts = []
   @timeout = nil
   @unroll = nil
@@ -144,7 +145,7 @@ OptionParser.new do |opts|
   
   opts.on("--[no-]verify", "Do verification? (default #{@verification})") do |v|
     @verification = v
-  end    
+  end
   
   opts.on("--[no-]inspect", "Inspect program? (default #{@inspection})") do |i|
     @inspection = i
@@ -167,6 +168,10 @@ OptionParser.new do |opts|
   opts.on("--verifier NAME", [:boogie_si, :boogie_fi], 
           "Select verifier (default #{@verifier})") do |v|
     @verifier = v
+  end
+
+  opts.on("-i", "--incremental", "Incremental verification? (default #{@incremental})") do |i|
+    @incremental = i
   end
 
   opts.on("-t", "--timeout TIME", Integer, "Verifier timeout (default #{@timeout || "-"})") do |t|
@@ -241,7 +246,7 @@ end if @monitor
 
 if @sequentialization
   if program.any?{|e| e.attributes.include? :async}
-    timed('Vectorization') {program.vectorize!(@rounds || (@delays+1),@delays)}
+    timed('Vectorization') {program.vectorize!}
     program.resolve!
     timed('Sequentialization') {program.df_sequentialize!}
   else
@@ -264,5 +269,6 @@ timed('Writing to file') do
 end if @output_file
 
 timed('Verification') do
-  program.verify verifier: @verifier, unroll: @unroll
+  program.verify verifier: @verifier, \
+    unroll: @unroll, rounds: (@rounds || @delays+1), delays: @delays, incremental: @incremental
 end if @verification
