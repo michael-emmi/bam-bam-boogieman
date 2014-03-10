@@ -1,4 +1,4 @@
-# c2s -- concurrent-to-sequential code translation
+# c2s -- concurrent-to-sequential translations
 
 A code-to-code translator for the [Boogie][bpl] language implementing
 concurrent to sequential transformations -- so-called "sequentializations",
@@ -41,7 +41,7 @@ Then you can always uninstall with the command
 
 See the list of possible options with
 
-    c2s-ruby --help
+    c2s --help
 
 ## Author
 
