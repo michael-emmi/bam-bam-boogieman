@@ -40,12 +40,20 @@ module Kernel
     end
   end
 
+  def smack
+    abort "'smackgen.py' missing from executable path.\n" \
+      "The C/LLVM front end requires SMACK; please install it." \
+    if `which smackgen.py`.empty?
+    'smackgen.py'
+  end
+
   def boogie
     ['Boogie','boogie','Boogie.exe','boogie.exe'].each do |b|
       return "#{b}" if not `which #{b}`.empty?
     end
-    err "cannot find 'Boogie' in executable path."
-  end  
+    abort "'Boogie' missing from executable path.\n" \
+      "Verification requires Boogie; please install it."
+  end
   
   def bpl(str) BoogieLanguage.new.parse_str(str) end
   def bpl_type(str) BoogieLanguage.new.parse_type(str) end

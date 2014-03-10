@@ -5,7 +5,7 @@ module C2S
     when '.c', '.o', '.bc', '.ll'
       orig = src
       src = File.basename(orig).chomp(File.extname(orig)) + ".bpl"
-      cmd = "smackgen.py #{orig} -o #{src}"
+      cmd = "#{smack} #{orig} -o #{src}"
       puts cmd.bold if $verbose
       abort "Failed to process LLVM bitcode" unless system cmd
 
