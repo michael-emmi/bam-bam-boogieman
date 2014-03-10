@@ -29,13 +29,20 @@ module C2S
       case decl
       when ProcedureDeclaration
         
-        new_mods = monitor_vars - decl.modifies
-        decl.specifications << bpl("modifies #{new_mods * ", "};") \
-          unless new_mods.empty?
         
-        if decl.is_entrypoint? && decl.body
-          inits.reverse.each do |init|
-            decl.body.statements.unshift bpl("call #{init.name}();")
+        if decl.body
+          new_mods = monitor_vars - decl.modifies
+          decl.specifications << bpl("modifies #{new_mods * ", "};") \
+            unless new_mods.empty?
+
+          decl.body.replace do |elem|
+            if elem.attributes.include? :startpoint
+              next [elem] +
+              inits.reverse.map do |init|
+                bpl("call #{init.name}();")
+              end
+            end
+            elem
           end
         end
 
