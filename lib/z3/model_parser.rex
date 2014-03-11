@@ -1,4 +1,5 @@
-class Z3Model
+module Z3
+class ModelParser
 macro
   BLANK     \s+
   SL_COM    \*\*\*
@@ -34,11 +35,12 @@ rule
           {KEYWORD}         { [text, text] }
           
           \%lbl\%(@|\+)\d+  { [:LABEL, {id: text[/(\d+)/,1]} ] }
-          call\d+formal@{IDENT}@\d+ { [:FORMAL, {call_id: text[/call(\d+)/,1], parameter_name: text[/@(.*)@/,1], sequence_number: text[/@(\d+)/,1]}] }
+          call\d+formal@{IDENT}@\d+ { [:FORMAL, {call_id: text[/call(\d+)/,1], parameter_name: text[/@(.*)@/,1], sequence_number: text[/@(\d+)/,1].to_i}] }
 
           T@U!val!\d+       { [:VALUE, {id: text[/(\d+)/,1].to_i}] }
           T@T!val!\d+       { [:TYPE, {id: text[/(\d+)/,1].to_i}] }
-          {IDENT}@\d+       { [:VARIABLE, {name: text[/(.*)@/,1], sequence_number: text[/@(\d+)/,1]}] }
+          {IDENT}@\d+       { [:VARIABLE, {name: text[/(.*)@/,1], sequence_number: text[/@(\d+)/,1].to_i}] }
+          {IDENT}@{IDENT}   { [:WEIRD, nil] }
           {IDENT}(@@\d+)?   { [:CONSTANT, {name: text}] }
 
           \[2\]             { [:MAP2, {name: 'Map/2'}] }
@@ -47,4 +49,5 @@ rule
 
           {IDENT}           { [:IDENTIFIER, text.to_sym] }
           .                 { [text, text] }
+end
 end

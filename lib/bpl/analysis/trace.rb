@@ -4,7 +4,8 @@ module Bpl
       attr_accessor :src_file
       attr_accessor :steps
       
-      def initialize(trace_file)
+      def initialize(trace_file, model)
+        @model = model
         @steps = []
 
         lines = File.read(trace_file).lines
@@ -31,6 +32,21 @@ module Bpl
         end        
       end
       
+      def to_s
+        @model.constants * "\n" + "\n" +
+        @model.functions * "\n" + "\n" +
+        ("-" * 80) + "\n" +
+        @steps.map.with_index do |step,i|
+          vars = @model.variables(i)
+          if !vars.empty?
+            "step #{i} @ line #{step[:line]} label #{step[:label]}\n" +
+            ("-" * 80) + "\n" +
+            "#{vars.map{|v| "  var #{v.name} = #{v.value}"} * "\n"}" + "\n" +
+            ("-" * 80)
+          end
+        end.compact * "\n"
+      end
+
       def print
         puts "*" * 80
         puts "A TRACE FOLLOWS"

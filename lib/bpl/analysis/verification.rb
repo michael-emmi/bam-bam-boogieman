@@ -5,20 +5,26 @@ module Bpl
     class Program
 
       def verify(options = {})
-        if options[:incremental] && options[:parallel]
-          verify_incremental_in_parallel options
-        elsif options[:incremental]
-          verify_incremental options
-        else
-          verify_one_shot options
+        trace = 
+          if options[:incremental] && options[:parallel]
+            verify_incremental_in_parallel options
+          elsif options[:incremental]
+            verify_incremental options
+          else
+            verify_one_shot options
+          end
+          
+        if trace then
+          puts "Found an error model..." unless $quiet
+          puts trace unless $quiet
         end
       end
 
       def verify_one_shot(options = {})
         unroll = options[:unroll]
         delays = options[:delays]
-        if vvvvv(options)
-          puts "Got a trace..." unless $quiet
+        if trace = vvvvv(options)
+          return trace
         else
           puts "Verified w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
         end
@@ -41,10 +47,8 @@ module Bpl
           Kernel::print "Verifying w/ depth #{unroll} and #{delays} delays..." unless $quiet
           Kernel::print "\r" unless $quiet
 
-          if vvvvv(options.merge(unroll: unroll, delays: delays))
-            puts unless $quiet
-            puts "Got a trace..." unless $quiet
-            break
+          if trace = vvvvv(options.merge(unroll: unroll, delays: delays))
+            return trace
           end
 
           if (delays < delay_bound && delays < unroll) || unroll >= unroll_bound
@@ -64,6 +68,7 @@ module Bpl
         delay_lower = 0
 
         times = [Time.now, Time.now]
+        trace = nil
 
         EventMachine.run do
           EventMachine.add_periodic_timer(1) do
@@ -78,10 +83,9 @@ module Bpl
                 unroll = unroll_lower
                 delays = delay_lower
                 times[i] = Time.now
-                if vvvvv(options.merge(unroll: unroll, delays: delays)) then
+                if trace = vvvvv(options.merge(unroll: unroll, delays: delays)) then
                   EventMachine.stop
                   puts unless $quiet
-                  puts "Got a trace..." unless $quiet
                   break
                 end
 
@@ -109,6 +113,7 @@ module Bpl
             end
           end
         end
+        return trace
       end
 
       # def verify_incremental_in_parallel(options = {})
@@ -156,8 +161,8 @@ module Bpl
         orig = source_file || "a.bpl"
         base = File.basename(orig).chomp(File.extname(orig))
         src = "#{base}.c2s.#{Time.now.to_f}.bpl"
-        model = src.chomp('.bpl') + '.model'
-        trace = src.chomp('.bpl') + '.trace'
+        model_file = src.chomp('.bpl') + '.model'
+        trace_file = src.chomp('.bpl') + '.trace'
 
         warn "without specifying an unroll bound, Boogie may not terminate" \
           unless options[:unroll]
@@ -180,7 +185,7 @@ module Bpl
         boogie_opts << "/errorLimit:1"
         boogie_opts << "/errorTrace:2"
         boogie_opts << "/printModel:2"
-        boogie_opts << "/printModelToFile:#{model}"
+        boogie_opts << "/printModelToFile:#{model_file}"
         boogie_opts << "/removeEmptyBlocks:0" # XXX
         boogie_opts << "/coalesceBlocks:0"    # XXX
 
@@ -194,23 +199,26 @@ module Bpl
           @declarations.pop
         end
 
-        cmd = "#{boogie} #{src} #{boogie_opts * " "} 1> #{trace}"
+        cmd = "#{boogie} #{src} #{boogie_opts * " "} 1> #{trace_file}"
         puts cmd.bold if $verbose
         t = Time.now
 
         system cmd
+        
+        has_errors = File.read(trace_file).lines.last.match(/(\d+) error/){|m| m[1].to_i > 0}
 
-        if File.read(trace).lines.last.match(/(\d+) error/){|m| m[1].to_i > 0}
-          err_trace = Trace.new(trace)
+        if has_errors
+          model = Z3::Model.new(model_file)
+          trace = Trace.new(trace_file, model)
         else
-          err_trace = nil
+          trace = nil
         end
 
         File.unlink(src) unless $keep
-        File.unlink(trace) unless $keep
-        File.unlink(model) unless $keep || !File.exists?(model)
+        File.unlink(trace_file) unless $keep || !File.exists?(trace_file)
+        File.unlink(model_file) unless $keep || !File.exists?(model_file)
 
-        return err_trace
+        return trace
 
         # output = `#{cmd}`
 

@@ -1,4 +1,4 @@
-class Z3Model
+class ModelParser
   
   options no_result_var
 
@@ -8,8 +8,8 @@ rule
   target: model
 
   model:
-    { Model.new }
-    | definition model { m = val[1]; m << val[0]; m }
+    { [] }
+    | definition model { [val[0]] + val[1] }
     
   definition:
     VARIABLE '->' rhs { Variable.new val[0].merge(value: val[2]) }
@@ -36,18 +36,18 @@ rule
 
   value: VALUE { Value.new val[0] } | TYPE { Type.new val[0] } | literal | WEIRD
   literal: '(' '-' NUMBER ')' { -val[2] } | NUMBER | BOOLEAN
-  end
+
+end
 
 ---- header
-require_relative 'lexer.rex'
+require_relative 'model_parser.rex'
 require_relative 'values'
-include Z3
+module Z3
 
 ---- inner
 def parse(input)
-  model = scan_str(input)
-  model.resolve!
-  model
+  scan_str(input)
 end
 
 ---- footer
+end
