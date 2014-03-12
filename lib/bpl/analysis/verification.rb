@@ -5,18 +5,12 @@ module Bpl
     class Program
 
       def verify(options = {})
-        trace = 
-          if options[:incremental] && options[:parallel]
-            verify_incremental_in_parallel options
-          elsif options[:incremental]
-            verify_incremental options
-          else
-            verify_one_shot options
-          end
-          
-        if trace then
-          puts "Found an error model..." unless $quiet
-          puts trace unless $quiet
+        if options[:incremental] && options[:parallel]
+          verify_incremental_in_parallel options
+        elsif options[:incremental]
+          verify_incremental options
+        else
+          verify_one_shot options
         end
       end
 
@@ -24,6 +18,7 @@ module Bpl
         unroll = options[:unroll]
         delays = options[:delays]
         if trace = vvvvv(options)
+          puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
           return trace
         else
           puts "Verified w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
@@ -48,6 +43,7 @@ module Bpl
           Kernel::print "\r" unless $quiet
 
           if trace = vvvvv(options.merge(unroll: unroll, delays: delays))
+            puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
             return trace
           end
 
@@ -68,13 +64,18 @@ module Bpl
         delay_lower = 0
 
         times = [Time.now, Time.now]
+        tasks = [nil, nil]
+        start = Time.now
         trace = nil
 
         EventMachine.run do
-          EventMachine.add_periodic_timer(1) do
-            Kernel::print "Verifying in parallel w/ depth #{unroll_lower} and #{delay_lower} delays" unless $quiet
-            Kernel::print " / time #{times.map{|t| "#{(Time.now - t).round}s" } * ", "}" unless $quiet
-            Kernel::print "\r" unless $quiet
+          EventMachine.add_periodic_timer(0.5) do
+            Kernel::print \
+              "Verifying in parallel w/ unroll/delays " \
+              "#{tasks[0] * "/"} (#{(Time.now - times[0]).round}s) and " \
+              "#{tasks[1] * "/"} (#{(Time.now - times[1]).round}s) " \
+              "total #{(Time.now - start).round}s" \
+              "\r" unless $quiet
           end
 
           (0..1).each do |i|
@@ -83,9 +84,11 @@ module Bpl
                 unroll = unroll_lower
                 delays = delay_lower
                 times[i] = Time.now
+                tasks[i] = [unroll, delays]
                 if trace = vvvvv(options.merge(unroll: unroll, delays: delays)) then
                   EventMachine.stop
                   puts unless $quiet
+                  puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
                   break
                 end
 

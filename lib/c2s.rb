@@ -80,6 +80,7 @@ end
 
 OptionParser.new do |opts|
   @output_file = nil
+  @trace_file = nil
   
   @resolution = true
   @type_checking = true
@@ -133,8 +134,12 @@ OptionParser.new do |opts|
     $keep = v
   end
   
-  opts.on("-o", "--output-file FILENAME") do |f|
+  opts.on("-o", "--dump FILENAME") do |f|
     @output_file = f
+  end
+
+  opts.on("-t", "--trace FILENAME") do |f|
+    @trace_file = f
   end
 
   opts.separator ""
@@ -151,14 +156,14 @@ OptionParser.new do |opts|
   opts.on("--[no-]sequentialize", "Do sequentialization? (default #{@sequentialization})") do |s|
     @sequentialization = s
   end
-  
+
+  opts.on("--[no-]inspect", "Inspect program? (default #{@inspection})") do |i|
+    @inspection = i
+  end
+
   opts.on("--[no-]verify", "Do verification? (default #{@verification})") do |v|
     @verification = v
   end
-  
-  opts.on("--[no-]inspect", "Inspect program? (default #{@inspection})") do |i|
-    @inspection = i
-  end    
 
   opts.separator ""
   opts.separator "Sequentialization options:"
@@ -187,7 +192,7 @@ OptionParser.new do |opts|
     @parallel = p
   end
 
-  opts.on("-t", "--timeout TIME", Integer, "Verifier timeout (default #{@timeout || "-"})") do |t|
+  opts.on("-z", "--timeout TIME", Integer, "Verifier timeout (default #{@timeout || "-"})") do |t|
     @boogie_opts << "/timeLimit:#{t}"
   end
 
@@ -209,7 +214,7 @@ OptionParser.new do |opts|
 end.parse!
 
 puts "c2s version #{C2S::VERSION}, copyright (c) 2014, Michael Emmi".bold \
-  unless @quiet
+  unless $quiet
 
 abort "Must specify a single source file." unless ARGV.size == 1
 src = ARGV[0]
@@ -244,6 +249,7 @@ program = timed 'Parsing' do
 end
 
 program.source_file = src
+trace = nil
 
 timed 'Resolution' do
   program.resolve!
@@ -261,9 +267,9 @@ end if @sequentialization || @verification
 timed 'Monitor-instrumentation' do
   abort "Monitor file #{@monitor} does not exist." unless File.exists?(@monitor)
   C2S::violin_instrument! program, @monitor
-  program.resolve!
-  program.type_check
-  program.normalize!
+  program.resolve! if @resolution
+  program.type_check if @resolution && @type_checking
+  program.normalize! if @sequentialization || @verification
 end if @monitor
 
 if @sequentialization
@@ -280,18 +286,26 @@ program.prepare_for_backend! @verifier
 
 if @inspection
   timed 'Inspection' do
-    program.resolve!
+    program.resolve! if @resolution
     puts program.inspect
-    program.type_check
+    program.type_check if @resolution && @type_checking
   end
 end
 
-timed('Writing to file') do
+timed('Dumping sequentialized program') do
   File.write(@output_file,program)
 end if @output_file
 
 timed('Verification') do
-  program.verify verifier: @verifier, \
+  trace = program.verify verifier: @verifier, \
     unroll: @unroll, rounds: (@rounds || @delays+1), delays: @delays, \
     incremental: @incremental, parallel: @parallel
 end if @verification
+
+if trace && @trace_file
+  if @trace_file == '-'
+    puts trace
+  else
+    File.write(@trace_file,trace)
+  end
+end
