@@ -60,10 +60,10 @@ module Bpl
         delay_bound = options[:delays] || Float::INFINITY
 
         done = 0
+
         unroll_lower = 0
         delay_lower = 0
 
-        times = [Time.now, Time.now]
         tasks = [nil, nil]
         start = Time.now
         trace = nil
@@ -72,10 +72,10 @@ module Bpl
           EventMachine.add_periodic_timer(0.5) do
             Kernel::print \
               "Verifying in parallel w/ unroll/delays " \
-              "#{tasks[0] ? tasks[0] * "/" : "-/-"} " \
-                "(#{tasks[0] ? (Time.now - times[0]).round : "-"}s) and " \
-              "#{tasks[1] ? tasks[1] * "/" : "-/-"} " \
-                "(#{tasks[1] ? (Time.now - times[1]).round : "-"}s) " \
+              "#{tasks[0] ? tasks[0].drop(1) * "/" : "-/-"} " \
+                "(#{tasks[0] ? (Time.now - tasks[0].first).round : "-"}s) and " \
+              "#{tasks[1] ? tasks[1].drop(1) * "/" : "-/-"} " \
+                "(#{tasks[1] ? (Time.now - tasks[1].first).round : "-"}s) " \
               "total #{(Time.now - start).round}s" \
               "\r" unless $quiet
           end
@@ -85,32 +85,21 @@ module Bpl
               while true
                 unroll = unroll_lower
                 delays = delay_lower
-                times[i] = Time.now
-                tasks[i] = [unroll, delays]
+                unroll += 1 if i == 0
+                delays += 1 if i == 1
+                if unroll > unroll_bound || delays > delay_bound
+                  tasks[i] = nil
+                  break
+                end
+                tasks[i] = [Time.now, unroll, delays]
                 if trace = vvvvv(options.merge(unroll: unroll, delays: delays)) then
                   EventMachine.stop
                   puts unless $quiet
                   puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
                   break
                 end
-
-                case i
-                when 0
-                  if unroll_lower < unroll_bound
-                    unroll_lower += 1
-                  else
-                    tasks[i] = nil
-                    break
-                  end
-                else
-                  if delay_lower < delay_bound
-                    delay_lower += 1
-                  else
-                    tasks[i] = nil
-                    break
-                  end
-                end
-
+                unroll_lower += 1 if i == 0
+                delay_lower += 1 if i == 1
               end
               if (done += 1) >= 2
                 EventMachine.stop
@@ -170,9 +159,9 @@ module Bpl
 
         orig = source_file || "a.bpl"
         base = File.basename(orig).chomp(File.extname(orig))
-        src = "#{base}.c2s.#{Time.now.to_f}.bpl"
-        model_file = src.chomp('.bpl') + '.model'
-        trace_file = src.chomp('.bpl') + '.trace'
+        $temp << src = "#{base}.c2s.#{Time.now.to_f}.bpl"
+        $temp << model_file = src.chomp('.bpl') + '.model'
+        $temp << trace_file = src.chomp('.bpl') + '.trace'
 
         unless options[:unroll]
           case options[:verifier]
@@ -237,10 +226,6 @@ module Bpl
         else
           trace = nil
         end
-
-        File.unlink(src) unless $keep
-        File.unlink(trace_file) unless $keep || !File.exists?(trace_file)
-        File.unlink(model_file) unless $keep || !File.exists?(model_file)
 
         return trace
 

@@ -21,6 +21,7 @@ $show_warnings = true
 $verbose = false
 $quiet = false
 $keep = false
+$temp = Set.new
 
 module Kernel
   
@@ -200,90 +201,95 @@ OptionParser.new do |opts|
 
 end.parse!
 
-puts "c2s version #{C2S::VERSION}, copyright (c) 2014, Michael Emmi".bold \
-  unless $quiet
-
-abort "Must specify a single source file." unless ARGV.size == 1
-src = ARGV[0]
-abort "Source file '#{src}' does not exist." unless File.exists?(src)
-
-require_relative 'bpl/parser.tab'
-require_relative 'bpl/analysis/resolution'
-require_relative 'bpl/analysis/type_checking'
-require_relative 'bpl/analysis/normalization'
-require_relative 'bpl/analysis/vectorization'
-require_relative 'bpl/analysis/df_sequentialization'
-require_relative 'bpl/analysis/backend'
-require_relative 'bpl/analysis/verification'
-require_relative 'bpl/analysis/trace'
-require_relative 'z3/model'
-require_relative 'c2s/violin'
-require_relative 'c2s/frontend'
-
 begin
-  require 'eventmachine'
-rescue LoadError
-  warn "Parallel verification requires the eventmachine gem; disabling."
-  @parallel = false
-end if @parallel
+  puts "c2s version #{C2S::VERSION}, copyright (c) 2014, Michael Emmi".bold \
+    unless $quiet
 
-src = timed 'Front-end' do
-  C2S::process_source_file(src)
-end
+  abort "Must specify a single source file." unless ARGV.size == 1
+  src = ARGV[0]
+  abort "Source file '#{src}' does not exist." unless File.exists?(src)
 
-program = timed 'Parsing' do
-  BoogieLanguage.new.parse(File.read(src))
-end
+  require_relative 'bpl/parser.tab'
+  require_relative 'bpl/analysis/resolution'
+  require_relative 'bpl/analysis/type_checking'
+  require_relative 'bpl/analysis/normalization'
+  require_relative 'bpl/analysis/vectorization'
+  require_relative 'bpl/analysis/df_sequentialization'
+  require_relative 'bpl/analysis/backend'
+  require_relative 'bpl/analysis/verification'
+  require_relative 'bpl/analysis/trace'
+  require_relative 'z3/model'
+  require_relative 'c2s/violin'
+  require_relative 'c2s/frontend'
 
-program.source_file = src
-trace = nil
+  begin
+    require 'eventmachine'
+  rescue LoadError
+    warn "Parallel verification requires the eventmachine gem; disabling."
+    @parallel = false
+  end if @parallel
 
-timed 'Resolution' do
-  program.resolve!
-end if @resolution
+  src = timed 'Front-end' do
+    C2S::process_source_file(src)
+  end
 
-timed 'Type-checking' do
-  program.type_check
-end if @resolution && @type_checking
+  program = timed 'Parsing' do
+    BoogieLanguage.new.parse(File.read(src))
+  end
 
-timed('Normalization') do
-  program.normalize!
-end if @sequentialization || @verification
+  program.source_file = src
+  trace = nil
 
-if @sequentialization
-  if program.any?{|e| e.attributes.include? :async}
-    timed('Vectorization') {program.vectorize!}
+  timed 'Resolution' do
     program.resolve!
-    timed('Sequentialization') {program.df_sequentialize!}
-  else
-    warn "Skipping sequentialization as program does not have async calls."
+  end if @resolution
+
+  timed 'Type-checking' do
+    program.type_check
+  end if @resolution && @type_checking
+
+  timed('Normalization') do
+    program.normalize!
+  end if @sequentialization || @verification
+
+  if @sequentialization
+    if program.any?{|e| e.attributes.include? :async}
+      timed('Vectorization') {program.vectorize!}
+      program.resolve!
+      timed('Sequentialization') {program.df_sequentialize!}
+    else
+      warn "Skipping sequentialization as program does not have async calls."
+    end
   end
-end
 
-program.prepare_for_backend! @verifier
+  program.prepare_for_backend! @verifier
 
-if @inspection
-  timed 'Inspection' do
-    program.resolve! if @resolution
-    puts program.inspect
-    program.type_check if @resolution && @type_checking
+  if @inspection
+    timed 'Inspection' do
+      program.resolve! if @resolution
+      puts program.inspect
+      program.type_check if @resolution && @type_checking
+    end
   end
-end
 
-timed('Dumping sequentialized program') do
-  File.write(@output_file,program)
-end if @output_file
+  timed('Dumping sequentialized program') do
+    File.write(@output_file,program)
+  end if @output_file
 
-timed('Verification') do
-  trace = program.verify verifier: @verifier, \
-    unroll: @unroll, rounds: (@rounds || @delays+1), delays: @delays, \
-    incremental: @incremental, parallel: @parallel
-end if @verification
+  timed('Verification') do
+    trace = program.verify verifier: @verifier, \
+      unroll: @unroll, rounds: (@rounds || @delays+1), delays: @delays, \
+      incremental: @incremental, parallel: @parallel
+  end if @verification
 
-if trace && @trace_file
-  if @trace_file == '-'
-    puts trace
-  else
-    File.write(@trace_file,trace)
+  if trace && @trace_file
+    if @trace_file == '-'
+      puts trace
+    else
+      File.write(@trace_file,trace)
+    end
   end
+
+ensure
+  $temp.each{|f| File.unlink(f) if File.exists?(f)} unless $keep
 end
