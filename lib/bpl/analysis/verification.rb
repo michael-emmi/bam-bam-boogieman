@@ -23,8 +23,8 @@ module Bpl
 
         EventMachine.run do
           EventMachine.add_periodic_timer(1) do
-            Kernel::print (" " * 80 + "\r")
-            Kernel::print \
+            print (" " * 80 + "\r")
+            print \
               "Verifying w/ depth #{unroll} and #{delays} delays " \
               "(#{(Time.now - start).round}s)" \
               "\r" unless $quiet
@@ -56,8 +56,8 @@ module Bpl
 
         EventMachine.run do
           EventMachine.add_periodic_timer(1) do
-            Kernel::print (" " * 80 + "\r")
-            Kernel::print \
+            print (" " * 80 + "\r")
+            print \
               "Verifying w/ depth #{unroll} and #{delays} delays " \
               "(#{(Time.now - last).round}s) total #{(Time.now - start).round}s" \
               "\r" unless $quiet
@@ -104,8 +104,8 @@ module Bpl
 
         EventMachine.run do
           EventMachine.add_periodic_timer(0.5) do
-            Kernel::print (" " * 80 + "\r")
-            Kernel::print \
+            print (" " * 80 + "\r")
+            print \
               "Verifying in parallel w/ unroll/delays " \
               "#{tasks[0] ? "#{tasks[0][:unroll]}/#{tasks[0][:delays]}" : "-/-"} " \
                 "(#{tasks[0] ? (Time.now - tasks[0][:time]).round : "-"}s) and " \
@@ -168,8 +168,8 @@ module Bpl
         # EventMachine.threadpool_size = 2
         EventMachine.run do
           EventMachine.add_periodic_timer(0.5) do
-            Kernel::print (" " * 80 + "\r")
-            Kernel::print \
+            print (" " * 80 + "\r")
+            print \
               "Verifying in parallel w/ unroll/delays " \
               "#{tasks[0] ? "#{tasks[0][:unroll]}/#{tasks[0][:delays]}" : "-/-"} " \
                 "(#{tasks[0] ? (Time.now - tasks[0][:time]).round : "-"}s) and " \

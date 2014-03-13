@@ -9,10 +9,10 @@ module Bpl
       children :name, :arguments
       children :finite, :type
       def signature; "type #{@name}" end
-      def print(&blk)
+      def show(&blk)
         args = @arguments.map{|a| yield a} * " "
         type = @type ? " = #{yield @type}" : ""
-        "type #{print_attrs(&blk)} #{'finite' if @finite} #{@name} #{args} #{type};".fmt
+        "type #{show_attrs(&blk)} #{'finite' if @finite} #{@name} #{args} #{type};".fmt
       end
     end
     
@@ -22,26 +22,26 @@ module Bpl
         args = @arguments.map(&:flatten).flatten.map{|x|x.type} * ","
         "#{@name}(#{args}): #{@return.type}".gsub(/\s/,'')
       end
-      def print(&blk)
+      def show(&blk)
         args = @arguments.map{|a| yield a} * ", "
         ret = yield @return
         body = @body ? " { #{yield @body} }" : ";"
-        "function #{print_attrs(&blk)} #{@name}(#{args}) returns (#{ret})#{body}".fmt
+        "function #{show_attrs(&blk)} #{@name}(#{args}) returns (#{ret})#{body}".fmt
       end
     end
     
     class AxiomDeclaration < Declaration
       children :expression
-      def print(&blk) "axiom #{print_attrs(&blk)} #{yield @expression};".fmt end
+      def show(&blk) "axiom #{show_attrs(&blk)} #{yield @expression};".fmt end
     end
     
     class NameDeclaration < Declaration
       children :names, :type, :where
       def signature; "#{@names * ", "}: #{@type}" end      
-      def print(&blk)
+      def show(&blk)
         names = @names.empty? ? "" : (@names * ", " + ":")
         where = @where ? "where #{@where}" : ""
-        "#{print_attrs(&blk)} #{names} #{yield @type} #{where}".fmt
+        "#{show_attrs(&blk)} #{names} #{yield @type} #{where}".fmt
       end
       def flatten
         if @names.empty?
@@ -61,13 +61,13 @@ module Bpl
     
     class VariableDeclaration < NameDeclaration
       def signature; "var #{@names * ", "}: #{@type}" end
-      def print; "var #{super};" end
+      def show; "var #{super};" end
     end
     
     class ConstantDeclaration < NameDeclaration
       children :unique, :order_spec
       def signature; "const #{@names * ", "}: #{@type}" end
-      def print(&blk)
+      def show(&blk)
         names = @names.empty? ? "" : (@names * ", " + ":")
         ord = ""
         if @order_spec && @order_spec[0]
@@ -77,7 +77,7 @@ module Bpl
           end
         end
         ord << ' complete' if @order_spec && @order_spec[1]
-        "const #{print_attrs(&blk)} #{'unique' if @unique} #{names} #{yield @type}#{ord};".fmt
+        "const #{show_attrs(&blk)} #{'unique' if @unique} #{names} #{yield @type}#{ord};".fmt
       end
     end
     
@@ -97,13 +97,13 @@ module Bpl
       def sig(&blk)
         params = @parameters.map{|a| yield a} * ", "
         rets = @returns.empty? ? "" : "returns (#{@returns.map{|a| yield a} * ", "})"
-        "#{print_attrs(&blk)} #{@name}(#{params}) #{rets}".fmt
+        "#{show_attrs(&blk)} #{@name}(#{params}) #{rets}".fmt
       end
       def signature
         "#{@name}(#{@parameters.map(&:type) * ","})" +
         (@returns.empty? ? "" : ":#{@returns.map(&:type) * ","}")
       end
-      def print(&block)
+      def show(&block)
         specs = @specifications.empty? ? "" : "\n"
         specs << @specifications.map{|a| yield a} * "\n"
         if @body
@@ -115,7 +115,7 @@ module Bpl
     end
     
     class ImplementationDeclaration < ProcedureDeclaration
-      def print; "implementation #{sig(&block)}\n#{yield @body}" end
+      def show; "implementation #{sig(&block)}\n#{yield @body}" end
     end
   end
 end

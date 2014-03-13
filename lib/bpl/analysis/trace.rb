@@ -47,7 +47,7 @@ module Bpl
         end.compact * "\n"
       end
 
-      def print
+      def show
         puts "*" * 80
         puts "A TRACE FOLLOWS"
         @steps.each_with_index do |step,i|

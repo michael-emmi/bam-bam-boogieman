@@ -5,8 +5,8 @@ module Bpl
     class Type < Node
       Boolean = Type.new
       Integer = Type.new
-      def Boolean.print; "bool" end
-      def Integer.print; "int" end
+      def Boolean.show; "bool" end
+      def Integer.show; "int" end
       alias :old_eql? :eql?
       def eql?(ty) old_eql?(ty.is_a?(CustomType) ? ty.base : ty) end
 
@@ -16,7 +16,7 @@ module Bpl
     
     class BitvectorType < Type
       attr_accessor :width
-      def print; "bv#{@width}" end
+      def show; "bv#{@width}" end
     end
     
     class CustomType < Type
@@ -36,7 +36,7 @@ module Bpl
         else !base.is_a?(CustomType) && base.eql?(ty)
         end
       end
-      def print; "#{@name} #{@arguments.map{|a| yield a} * " "}".fmt end
+      def show; "#{@name} #{@arguments.map{|a| yield a} * " "}".fmt end
     end
     
     class MapType < Type
@@ -47,7 +47,7 @@ module Bpl
         ty.domain.zip(@domain).all?{|t1,t2| t1.eql?(t2)} &&
         ty.range.eql?(@range)
       end
-      def print
+      def show
         args = @arguments.empty? ? "" : "<#{@arguments.map{|a| yield a} * ","}>"
         "#{args} [#{@domain.map{|a| yield a} * ","}] #{yield @range}".fmt
       end
