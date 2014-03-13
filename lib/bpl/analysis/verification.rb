@@ -72,10 +72,10 @@ module Bpl
           EventMachine.add_periodic_timer(0.5) do
             Kernel::print \
               "Verifying in parallel w/ unroll/delays " \
-              "#{tasks[0] ? tasks[0].drop(1) * "/" : "-/-"} " \
-                "(#{tasks[0] ? (Time.now - tasks[0].first).round : "-"}s) and " \
-              "#{tasks[1] ? tasks[1].drop(1) * "/" : "-/-"} " \
-                "(#{tasks[1] ? (Time.now - tasks[1].first).round : "-"}s) " \
+              "#{tasks[0] ? "#{tasks[0][:unroll]}/#{tasks[0][:delays]}" : "-/-"} " \
+                "(#{tasks[0] ? (Time.now - tasks[0][:time]).round : "-"}s) and " \
+              "#{tasks[1] ? "#{tasks[1][:unroll]}/#{tasks[1][:delays]}" : "-/-"} " \
+                "(#{tasks[1] ? (Time.now - tasks[1][:time]).round : "-"}s) " \
               "total #{(Time.now - start).round}s" \
               "\r" unless $quiet
           end
@@ -85,13 +85,17 @@ module Bpl
               while true
                 unroll = unroll_lower
                 delays = delay_lower
-                unroll += 1 if i == 0
-                delays += 1 if i == 1
+                mode = tasks[i] ? tasks[i][:mode] : (i == 0 && :unroll || i == 1 && :delay)
+                mode = :unroll if delays == delay_bound
+                mode = :delay if unroll == unroll_bound
+                unroll += 1 if mode == :unroll
+                delays += 1 if mode == :delay
                 if unroll > unroll_bound || delays > delay_bound
                   tasks[i] = nil
                   break
                 end
-                tasks[i] = [Time.now, unroll, delays]
+                tasks[i] = {mode: mode, time: Time.now, unroll: unroll, delays: delays}
+
                 if trace = vvvvv(options.merge(unroll: unroll, delays: delays)) then
                   EventMachine.stop
                   puts unless $quiet
