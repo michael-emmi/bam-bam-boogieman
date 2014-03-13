@@ -18,11 +18,11 @@ module Bpl
         unroll = options[:unroll]
         delays = options[:delays]
         if trace = vvvvv(options)
-          puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
-          return trace
+          puts "Got a trace w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
         else
           puts "Verified w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
         end
+        return trace
       end
 
       def verify_incremental(options = {})
@@ -33,19 +33,11 @@ module Bpl
         delays = 0
 
         while true
-          if delays > delay_bound
-            puts unless $quiet
-            puts "Verified up to depth #{unroll} w/ #{delays-1} delays." unless $quiet
-            break
-          end
-
           Kernel::print "Verifying w/ depth #{unroll} and #{delays} delays..." unless $quiet
           Kernel::print "\r" unless $quiet
 
-          if trace = vvvvv(options.merge(unroll: unroll, delays: delays))
-            puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
-            return trace
-          end
+          break if trace = vvvvv(options.merge(unroll: unroll, delays: delays))
+          break if delays >= delay_bound && unroll >= unroll_bound
 
           if (delays < delay_bound && delays < unroll) || unroll >= unroll_bound
             delays += 1
@@ -53,6 +45,14 @@ module Bpl
             unroll += 1
           end
         end
+
+        if trace
+          puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
+        else
+          puts "Verified up to depth #{unroll} w/ #{delays} delays." unless $quiet
+        end
+
+        return trace
       end
 
       def verify_incremental_in_parallel(options = {})
@@ -72,8 +72,10 @@ module Bpl
           EventMachine.add_periodic_timer(0.5) do
             Kernel::print \
               "Verifying in parallel w/ unroll/delays " \
-              "#{tasks[0] * "/"} (#{(Time.now - times[0]).round}s) and " \
-              "#{tasks[1] * "/"} (#{(Time.now - times[1]).round}s) " \
+              "#{tasks[0] ? tasks[0] * "/" : "-/-"} " \
+                "(#{tasks[0] ? (Time.now - times[0]).round : "-"}s) and " \
+              "#{tasks[1] ? tasks[1] * "/" : "-/-"} " \
+                "(#{tasks[1] ? (Time.now - times[1]).round : "-"}s) " \
               "total #{(Time.now - start).round}s" \
               "\r" unless $quiet
           end
@@ -97,12 +99,14 @@ module Bpl
                   if unroll_lower < unroll_bound
                     unroll_lower += 1
                   else
+                    tasks[i] = nil
                     break
                   end
                 else
                   if delay_lower < delay_bound
                     delay_lower += 1
                   else
+                    tasks[i] = nil
                     break
                   end
                 end
@@ -111,11 +115,14 @@ module Bpl
               if (done += 1) >= 2
                 EventMachine.stop
                 puts unless $quiet
-                puts "Verified up to depth #{unroll} w/ #{delays} delays." unless $quiet
               end
             end
           end
         end
+
+        puts "Verified up to depth #{unroll_bound} w/ #{delay_bound} delays." \
+          unless trace || $quiet
+
         return trace
       end
 
@@ -167,8 +174,14 @@ module Bpl
         model_file = src.chomp('.bpl') + '.model'
         trace_file = src.chomp('.bpl') + '.trace'
 
-        warn "without specifying an unroll bound, Boogie may not terminate" \
-          unless options[:unroll]
+        unless options[:unroll]
+          case options[:verifier]
+          when :boogie_fi
+            warn "without loop unrolling, Boogie may be imprecise"
+          else
+            warn "without specifying an unroll bound, Boogie may not terminate"
+          end
+        end
 
         case options[:verifier]
         when :boogie_fi, nil
@@ -207,8 +220,16 @@ module Bpl
         t = Time.now
 
         system cmd
+        output = File.read(trace_file).lines
+
+        if output.grep(/Boogie program verifier finished/).empty?
+          abort begin
+            "there was a problem running Boogie." +
+            ($verbose ? "\n" + output.drop(1) * "\n" : "")
+          end
+        end
         
-        has_errors = File.read(trace_file).lines.last.match(/(\d+) error/){|m| m[1].to_i > 0}
+        has_errors = output.last.match(/(\d+) error/){|m| m[1].to_i > 0}
 
         if has_errors
           model = Z3::Model.new(model_file)
