@@ -225,9 +225,9 @@ begin
   begin
     require 'eventmachine'
   rescue LoadError
-    warn "Parallel verification requires the eventmachine gem; disabling."
+    warn "Parallel verification requires the eventmachine gem; disabling." if @parallel
     @parallel = false
-  end if @parallel
+  end
 
   src = timed 'Front-end' do
     C2S::process_source_file(src)

@@ -17,7 +17,26 @@ module Bpl
       def verify_one_shot(options = {})
         unroll = options[:unroll]
         delays = options[:delays]
-        if trace = vvvvv(options)
+
+        trace = nil
+        start = Time.now
+
+        EventMachine.run do
+          EventMachine.add_periodic_timer(1) do
+            Kernel::print (" " * 80 + "\r")
+            Kernel::print \
+              "Verifying w/ depth #{unroll} and #{delays} delays " \
+              "(#{(Time.now - start).round}s)" \
+              "\r" unless $quiet
+          end
+          EventMachine.defer do
+            trace = vvvvv(options)
+            EventMachine.stop
+            puts unless $quiet
+          end
+        end
+
+        if trace
           puts "Got a trace w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
         else
           puts "Verified w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
@@ -32,17 +51,32 @@ module Bpl
         unroll = 0
         delays = 0
 
-        while true
-          Kernel::print "Verifying w/ depth #{unroll} and #{delays} delays..." unless $quiet
-          Kernel::print "\r" unless $quiet
+        trace = nil
+        last = start = Time.now
 
-          break if trace = vvvvv(options.merge(unroll: unroll, delays: delays))
-          break if delays >= delay_bound && unroll >= unroll_bound
+        EventMachine.run do
+          EventMachine.add_periodic_timer(1) do
+            Kernel::print (" " * 80 + "\r")
+            Kernel::print \
+              "Verifying w/ depth #{unroll} and #{delays} delays " \
+              "(#{(Time.now - last).round}s) total #{(Time.now - start).round}s" \
+              "\r" unless $quiet
+          end
 
-          if (delays < delay_bound && delays < unroll) || unroll >= unroll_bound
-            delays += 1
-          else
-            unroll += 1
+          EventMachine.defer do
+            while true
+              last = Time.now
+              break if trace = vvvvv(options.merge(unroll: unroll, delays: delays))
+              break if delays >= delay_bound && unroll >= unroll_bound
+
+              if (delays < delay_bound && delays < unroll) || unroll >= unroll_bound
+                delays += 1
+              else
+                unroll += 1
+              end
+            end
+            EventMachine.stop
+            puts unless $quiet
           end
         end
 
@@ -70,6 +104,7 @@ module Bpl
 
         EventMachine.run do
           EventMachine.add_periodic_timer(0.5) do
+            Kernel::print (" " * 80 + "\r")
             Kernel::print \
               "Verifying in parallel w/ unroll/delays " \
               "#{tasks[0] ? "#{tasks[0][:unroll]}/#{tasks[0][:delays]}" : "-/-"} " \
@@ -133,6 +168,7 @@ module Bpl
         # EventMachine.threadpool_size = 2
         EventMachine.run do
           EventMachine.add_periodic_timer(0.5) do
+            Kernel::print (" " * 80 + "\r")
             Kernel::print \
               "Verifying in parallel w/ unroll/delays " \
               "#{tasks[0] ? "#{tasks[0][:unroll]}/#{tasks[0][:delays]}" : "-/-"} " \
