@@ -6,7 +6,7 @@ module Bpl
 
       def verify(options = {})
         if options[:incremental] && options[:parallel]
-          verify_incremental_in_parallel options
+          verify_parallel_accelerated options
         elsif options[:incremental]
           verify_incremental options
         else
@@ -55,7 +55,7 @@ module Bpl
         return trace
       end
 
-      def verify_incremental_in_parallel(options = {})
+      def verify_parallel_accelerated(options = {})
         unroll_bound = options[:unroll] || Float::INFINITY
         delay_bound = options[:delays] || Float::INFINITY
 
@@ -119,44 +119,64 @@ module Bpl
         return trace
       end
 
-      # def verify_incremental_in_parallel(options = {})
-      #   unroll_bound = options[:unroll] || Float::INFINITY
-      #   delay_bound = options[:delays] || Float::INFINITY
-      # 
-      #   done = 0
-      # 
-      #   covered = []
-      #   worklist = [{unroll: 0, delays: 0}, {unroll: 1, delays: 0}]
-      # 
-      #   # EventMachine.threadpool_size = 2
-      #   EventMachine.run do
-      #     (1..2).each do
-      #       EventMachine.defer do
-      #         while true
-      #           work = worklist.shift
-      #           break unless work
-      #           unroll = work[:unroll]
-      #           delays = work[:delays]
-      #           break if covered.any?{|w| w[:unroll] >= unroll && w[:delays] >= delays}
-      #           covered.reject!{|w| w[:unroll] <= unroll && w[:delays] <= delays}
-      #           covered << work
-      # 
-      #           puts "Verifying w/ #{unroll} unroll and #{delays} delays." unless $quiet
-      #           if vvvvv(options.merge(unroll: unroll, delays: delays)) then
-      #             EventMachine.stop
-      #             puts "Got a trace..." unless $quiet
-      #             break
-      #           else
-      #             worklist.reject!{|w| w[:unroll] <= unroll && w[:delays] <= delays}
-      #             worklist << {unroll: unroll+1, delays: delays} if unroll < unroll_bound
-      #             worklist << {unroll: unroll, delays: delays+1} if delays < delay_bound
-      #           end
-      #         end
-      #         EventMachine.stop if (done += 1) >= 2
-      #       end
-      #     end
-      #   end
-      # end
+      def verify_parallel_worklist(options = {})
+        unroll_bound = options[:unroll] || Float::INFINITY
+        delay_bound = options[:delays] || Float::INFINITY
+
+        covered = []
+        worklist = [{unroll: 0, delays: 0}, {unroll: 1, delays: 0}]
+        tasks = [nil, nil]
+        start = Time.now
+        trace = nil
+        idle = 0
+
+        # EventMachine.threadpool_size = 2
+        EventMachine.run do
+          EventMachine.add_periodic_timer(0.5) do
+            Kernel::print \
+              "Verifying in parallel w/ unroll/delays " \
+              "#{tasks[0] ? "#{tasks[0][:unroll]}/#{tasks[0][:delays]}" : "-/-"} " \
+                "(#{tasks[0] ? (Time.now - tasks[0][:time]).round : "-"}s) and " \
+              "#{tasks[1] ? "#{tasks[1][:unroll]}/#{tasks[1][:delays]}" : "-/-"} " \
+                "(#{tasks[1] ? (Time.now - tasks[1][:time]).round : "-"}s) " \
+              "total #{(Time.now - start).round}s" \
+              "\r" unless $quiet
+          end
+
+          (0..1).each do |i|
+            EventMachine.defer do
+              while true
+                work = worklist.shift
+                break unless work
+                unroll = work[:unroll]
+                delays = work[:delays]
+                next if covered.any?{|w| w[:unroll] >= unroll && w[:delays] >= delays}
+                covered.reject!{|w| w[:unroll] <= unroll && w[:delays] <= delays}
+                covered << work
+
+                tasks[i] = {time: Time.now, unroll: unroll, delays: delays}
+
+                if trace = vvvvv(options.merge(unroll: unroll, delays: delays)) then
+                  EventMachine.stop
+                  puts unless $quiet
+                  puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
+                  break
+                else
+                  worklist.reject!{|w| w[:unroll] <= unroll && w[:delays] <= delays}
+                  worklist << {unroll: unroll+1, delays: delays} if unroll < unroll_bound
+                  worklist << {unroll: unroll, delays: delays+1} if delays < delay_bound
+                end
+              end
+              tasks[i] = nil
+              EventMachine.stop if (idle += 1) >= 2
+            end
+          end
+        end
+
+        puts "Verified up to depth #{unroll_bound} w/ #{delay_bound} delays." \
+          unless trace || $quiet
+        return trace
+      end
 
       def vvvvv(options = {})
         boogie_opts = []
