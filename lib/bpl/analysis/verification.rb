@@ -18,23 +18,25 @@ module Bpl
         unroll = options[:unroll]
         delays = options[:delays]
 
+        done = false
         trace = nil
         start = Time.now
 
-        EventMachine.run do
-          EventMachine.add_periodic_timer(1) do
+        printer = Thread.new do
+          until done do
             print (" " * 80 + "\r")
             print \
               "Verifying w/ depth #{unroll} and #{delays} delays " \
               "(#{(Time.now - start).round}s)" \
               "\r" unless $quiet
-          end
-          EventMachine.defer do
-            trace = vvvvv(options)
-            EventMachine.stop
-            puts unless $quiet
+            sleep 1
           end
         end
+
+        trace = vvvvv(options)
+        done = true
+        printer.join
+        puts unless $quiet
 
         if trace
           puts "Got a trace w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
@@ -51,34 +53,35 @@ module Bpl
         unroll = 0
         delays = 0
 
+        done = false
         trace = nil
         last = start = Time.now
 
-        EventMachine.run do
-          EventMachine.add_periodic_timer(1) do
+        printer = Thread.new do
+          until done do
             print (" " * 80 + "\r")
             print \
               "Verifying w/ depth #{unroll} and #{delays} delays " \
               "(#{(Time.now - last).round}s) total #{(Time.now - start).round}s" \
               "\r" unless $quiet
-          end
-
-          EventMachine.defer do
-            while true
-              last = Time.now
-              break if trace = vvvvv(options.merge(unroll: unroll, delays: delays))
-              break if delays >= delay_bound && unroll >= unroll_bound
-
-              if (delays < delay_bound && delays < unroll) || unroll >= unroll_bound
-                delays += 1
-              else
-                unroll += 1
-              end
-            end
-            EventMachine.stop
-            puts unless $quiet
+            sleep 1
           end
         end
+
+        while true
+          last = Time.now
+          break if trace = vvvvv(options.merge(unroll: unroll, delays: delays))
+          break if delays >= delay_bound && unroll >= unroll_bound
+
+          if (delays < delay_bound && delays < unroll) || unroll >= unroll_bound
+            delays += 1
+          else
+            unroll += 1
+          end
+        end
+        done = true
+        printer.join
+        puts unless $quiet
 
         if trace
           puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
