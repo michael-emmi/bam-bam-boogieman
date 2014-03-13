@@ -46,13 +46,13 @@ module Bpl
                 if elem.attributes.include? :startpoint
                   next [bpl("#s := 0;")] +
                     [bpl("#s.self := 0;")] +
-                    gs.map{|g| bpl("#{g}.next := #{g}.start;")} +
+                    mods.map{|g| bpl("#{g}.next := #{g}.start;")} +
                     [elem]
 
                 elsif elem.attributes.include? :endpoint
                   next [elem] +
-                    gs.map{|g| bpl("assume #{g} == #{g}.start;")} +
-                    gs.map{|g| bpl("#{g} := #{g}.next;")}
+                    mods.map{|g| bpl("assume #{g} == #{g}.start;")} +
+                    mods.map{|g| bpl("#{g} := #{g}.next;")}
                   elem
                 end
 
@@ -75,15 +75,17 @@ module Bpl
                     end
                   end
 
+                  call_mods = proc ? proc.modifies & gs : gs
+
                   # some async-simulating guessing magic
-                  next gs.map{|g| bpl("#{g}.save := #{g};")} +
-                    gs.map{|g| bpl("#{g} := #{g}.next;")} +
-                    gs.map{|g| bpl("havoc #{g}.guess;")} +
-                    gs.map{|g| bpl("#{g}.next := #{g}.guess;")} +
+                  next call_mods.map{|g| bpl("#{g}.save := #{g};")} +
+                    call_mods.map{|g| bpl("#{g} := #{g}.next;")} +
+                    call_mods.map{|g| bpl("havoc #{g}.guess;")} +
+                    call_mods.map{|g| bpl("#{g}.next := #{g}.guess;")} +
                     [ bpl("#s := #s + 1;") ] +
                     [ elem ] +
-                    gs.map{|g| bpl("assume #{g} == #{g}.guess;")} +
-                    gs.map{|g| bpl("#{g} := #{g}.save;")}
+                    call_mods.map{|g| bpl("assume #{g} == #{g}.guess;")} +
+                    call_mods.map{|g| bpl("#{g} := #{g}.save;")}
 
                 else # a synchronous procedure call
                   elem.arguments << bpl("#s.self") if proc && proc.body
