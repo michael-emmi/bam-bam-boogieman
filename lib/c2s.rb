@@ -88,8 +88,6 @@ OptionParser.new do |opts|
   @inspection = false
   @verification = true
 
-  @monitor = nil
-
   @rounds = nil
   @delays = 0
 
@@ -200,17 +198,6 @@ OptionParser.new do |opts|
     @unroll = u
   end
 
-  # TODO is this really a good idea?
-  opts.separator ""
-  opts.separator "Miscellaneous options:"
-  
-  opts.on("--monitor FILE", "Instrument with monitor FILE?") do |file|
-    @monitor = file
-  end
-  
-  # opts.on("-g", "--graph-of-trace", "generate a trace graph") do |g|
-  #   @graph = g
-  # end
 end.parse!
 
 puts "c2s version #{C2S::VERSION}, copyright (c) 2014, Michael Emmi".bold \
@@ -262,15 +249,6 @@ end if @resolution && @type_checking
 timed('Normalization') do
   program.normalize!
 end if @sequentialization || @verification
- 
-# TODO is this really a good idea?
-timed 'Monitor-instrumentation' do
-  abort "Monitor file #{@monitor} does not exist." unless File.exists?(@monitor)
-  C2S::violin_instrument! program, @monitor
-  program.resolve! if @resolution
-  program.type_check if @resolution && @type_checking
-  program.normalize! if @sequentialization || @verification
-end if @monitor
 
 if @sequentialization
   if program.any?{|e| e.attributes.include? :async}
