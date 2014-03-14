@@ -117,6 +117,7 @@ module Bpl
     
     class MapSelect < Expression
       children :map, :indexes
+      def name; @map.name end
       def eql?(ms)
         ms.is_a?(MapSelect) &&
         ms.map.eql?(@map) && ms.indexes.eql?(@indexes)

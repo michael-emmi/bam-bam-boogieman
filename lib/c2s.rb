@@ -213,6 +213,7 @@ begin
   require_relative 'bpl/analysis/resolution'
   require_relative 'bpl/analysis/type_checking'
   require_relative 'bpl/analysis/normalization'
+  require_relative 'bpl/analysis/modifies_correction'
   require_relative 'bpl/analysis/vectorization'
   require_relative 'bpl/analysis/df_sequentialization'
   require_relative 'bpl/analysis/static_segments'
@@ -253,6 +254,10 @@ begin
     program.normalize!
   end if @sequentialization || @verification
 
+  timed 'Modifies-correction' do
+    program.correct_modifies!
+  end
+
   if @sequentialization
     if program.any?{|e| e.attributes.include? :static_threads}
       # && program.any?{|e| e.attributes.include? :async}
@@ -278,7 +283,8 @@ begin
   end
 
   timed('Dumping sequentialized program') do
-    File.write(@output_file,program)
+    $temp.delete @output_file
+    File.write(@output_file, program)
   end if @output_file
 
   timed('Verification') do

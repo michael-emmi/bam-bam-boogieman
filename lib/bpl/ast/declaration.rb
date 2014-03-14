@@ -84,6 +84,11 @@ module Bpl
     class ProcedureDeclaration < Declaration
       children :name, :type_arguments, :parameters, :returns
       children :specifications, :body
+      attr_accessor :callers
+      def initialize(opts = {})
+        super(opts)
+        @callers = Set.new
+      end
       def modifies
         specifications.map{|s| s.is_a?(ModifiesClause) ? s.identifiers : []}.flatten
       end

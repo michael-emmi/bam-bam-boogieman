@@ -59,6 +59,8 @@ module Bpl
               decl.body.declarations << bpl("var #j: int;") \
                 if decl.body.any?{|e| e.attributes.include? :yield}
                   
+              mods = decl.modifies & gs
+
               decl.body.replace do |elem|
                 case elem            
                 when CallStatement
@@ -84,9 +86,11 @@ module Bpl
                         havoc #j;
                         assume #j >= 1;
                         assume #k + #j < #ROUNDS;
-                        assume #d + #j <= #DELAYS;
+                        // assume #d + #j <= #DELAYS;
+                        assume #d + 1 <= #DELAYS;
                         #k := #k + #j;
-                        #d := #d + #j;
+                        // #d := #d + #j;
+                        #d := #d + 1;
                         call boogie_si_record_int(#k);
                       }
                     end
@@ -98,14 +102,14 @@ module Bpl
                       bpl("#k := 0;"),
                       bpl("call boogie_si_record_int(#ROUNDS);"),
                       bpl("call boogie_si_record_int(#DELAYS);") ] +
-                      gs.map{|g| bpl("#{g} := #{g}.0;")} +
+                      mods.map{|g| bpl("#{g} := #{g}.0;")} +
                       [elem]
 
                   elsif elem.attributes.include? :endpoint
 
                     # NEW VERSION -- independent of rounds bound.
                     next [elem] +
-                      gs.map do |g|
+                      mods.map do |g|
                         bpl(<<-end
                         assume (forall i: int ::
                           {#{g}.0[i]} {#{g}[i-1]}
@@ -117,7 +121,7 @@ module Bpl
                     # PREVIOUS VERSION -- needs to know rounds bound.
                     # next [elem] +
                     #   (1..rounds).map do |i|
-                    #     gs.map{|g| bpl("assume #{g}[#{i-1}] == #{g}.0[#{i}];")}
+                    #     mods.map{|g| bpl("assume #{g}[#{i-1}] == #{g}.0[#{i}];")}
                     #   end.flatten
 
                   end
