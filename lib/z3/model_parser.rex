@@ -24,6 +24,7 @@ rule
           distinct-aux-f!!\d+ { [:WEIRD, nil] }
           {IDENT}@@\d+!\d+!\d+ { [:WEIRD, nil] }
           {IDENT}'!\d+!\d+  { [:WEIRD, nil] }
+          {IDENT}!\d+       { [:WEIRD, nil] }
 
           {OPERATOR}        { [text, text] }
 

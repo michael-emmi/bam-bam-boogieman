@@ -14,6 +14,7 @@ module Bpl
         sanity_check
         put_returns_at_the_ends_of_procedures!
         wrap_entrypoint_procedures!
+        # add_exits!
       end
       
       def locate_entrypoints!
@@ -62,6 +63,24 @@ module Bpl
 
       end
       
+      def add_exits!
+        @declarations.each do |proc|
+          next unless proc.is_a?(ProcedureDeclaration) && proc.body
+
+          proc.returns << bpl("$exit: bool")
+          proc.body.statements.unshift bpl("$exit := false;")
+          proc.body.statements << "$exit"
+          proc.body.statements << bpl("return;")
+          proc.body.replace do |call|
+            next call unless call.is_a?(CallStatement) && \
+              (called = call.declaration) && called.body
+
+            call.assignments << bpl("$exit")
+            [call, bpl("if ($exit) { goto $exit; }")]
+          end
+        end
+      end
+
       def put_returns_at_the_ends_of_procedures!
         @declarations.each do |d|
           if d.is_a?(ProcedureDeclaration) && d.body &&

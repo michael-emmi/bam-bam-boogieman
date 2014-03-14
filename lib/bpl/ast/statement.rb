@@ -28,6 +28,7 @@ module Bpl
     class CallStatement < Statement
       children :procedure, :arguments, :assignments
       def forall?; @assignments.nil? end
+      def declaration; @procedure.declaration end
       def show(&blk)
         if @assignments
           rets = @assignments.map{|a| yield a} * ", " + (@assignments.empty? ? '' : ' := ')

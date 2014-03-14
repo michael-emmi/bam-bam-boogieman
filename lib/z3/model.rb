@@ -104,7 +104,7 @@ module Z3
         val = lookup_value val, false
         @map_table[keys[0]] ||= MapValue.new
         @map_table[keys[0]][keys[1]] = val
-      end
+      end if @entries.include? @@map2
     end
 
     def resolve!

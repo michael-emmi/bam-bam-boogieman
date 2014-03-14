@@ -215,6 +215,7 @@ begin
   require_relative 'bpl/analysis/normalization'
   require_relative 'bpl/analysis/vectorization'
   require_relative 'bpl/analysis/df_sequentialization'
+  require_relative 'bpl/analysis/static_segments'
   require_relative 'bpl/analysis/backend'
   require_relative 'bpl/analysis/verification'
   require_relative 'bpl/analysis/trace'
@@ -253,7 +254,11 @@ begin
   end if @sequentialization || @verification
 
   if @sequentialization
-    if program.any?{|e| e.attributes.include? :async}
+    if program.any?{|e| e.attributes.include? :static_threads}
+      # && program.any?{|e| e.attributes.include? :async}
+      timed('Sequentialization') { program.static_segments_sequentialize! }
+
+    elsif program.any?{|e| e.attributes.include? :async}
       timed('Vectorization') {program.vectorize!}
       program.resolve!
       timed('Sequentialization') {program.df_sequentialize!}
@@ -282,12 +287,10 @@ begin
       incremental: @incremental, parallel: @parallel
   end if @verification
 
-  if trace && @trace_file
-    if @trace_file == '-'
-      puts trace
-    else
-      File.write(@trace_file,trace)
-    end
+  case @trace_file
+  when nil
+  when '-'; puts trace if trace
+  else File.write(@trace_file, trace || " ")
   end
 
 ensure
