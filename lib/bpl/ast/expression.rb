@@ -35,6 +35,7 @@ module Bpl
       attr_accessor :name
       attr_accessor :declaration
       def hash; name.hash end
+      def <=>(id)  @name <=> id.name end
       def eql?(id) id.is_a?(self.class) && id.name == @name end
       def type
         @declaration.type if @declaration.respond_to? :type

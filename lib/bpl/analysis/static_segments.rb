@@ -64,9 +64,9 @@ module Bpl
                       seq_number = call.attributes[:async].first
                       call.attributes.delete :async
                       bpl(<<-end
-                        if (#{seq_number ? "true" : "*"}) {
+                        if (true) {
                           #s := #s + 1;
-                          assume $pos(#s) == #{seq_number || (i+1)};
+                          assume $pos(#s) == #{seq_number || "#s-#d"};
                           #{gs.map{|g| bpl("#{g} := $S.#{g}[$pos(#s)];")} * "\n"}
                           #{call}
                           #{gs.map{|g| bpl("assume #{g} == $S.#{g}[$pos(#s)+1];")} * "\n"}

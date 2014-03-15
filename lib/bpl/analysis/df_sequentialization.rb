@@ -19,9 +19,14 @@ module Bpl
           when ProcedureDeclaration
             next unless decl.body
 
-            mods = decl.modifies & gs
+            mods = (decl.modifies & gs).sort
+
             decl.specifications << bpl("modifies #{mods.map{|g| "#{g}.next"} * ", "};") \
               unless mods.empty?
+                
+            decl.add_modifies! (gs-mods) \
+              if decl.body.any?{|s| s.attributes.include? :async}
+
             decl.specifications << bpl("modifies #s;")
 
             if decl.is_entrypoint?
@@ -75,17 +80,17 @@ module Bpl
                     end
                   end
 
-                  call_mods = proc ? proc.modifies & gs : gs
+                  call_mods = (proc ? proc.modifies & gs : gs).sort
 
                   # some async-simulating guessing magic
-                  next call_mods.map{|g| bpl("#{g}.save := #{g};")} +
-                    call_mods.map{|g| bpl("#{g} := #{g}.next;")} +
+                  next gs.map{|g| bpl("#{g}.save := #{g};")} +
+                    gs.map{|g| bpl("#{g} := #{g}.next;")} +
                     call_mods.map{|g| bpl("havoc #{g}.guess;")} +
                     call_mods.map{|g| bpl("#{g}.next := #{g}.guess;")} +
                     [ bpl("#s := #s + 1;") ] +
                     [ elem ] +
                     call_mods.map{|g| bpl("assume #{g} == #{g}.guess;")} +
-                    call_mods.map{|g| bpl("#{g} := #{g}.save;")}
+                    gs.map{|g| bpl("#{g} := #{g}.save;")}
 
                 else # a synchronous procedure call
                   elem.arguments << bpl("#s.self") if proc && proc.body

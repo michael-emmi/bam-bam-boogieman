@@ -59,7 +59,7 @@ module Bpl
               decl.body.declarations << bpl("var #j: int;") \
                 if decl.body.any?{|e| e.attributes.include? :yield}
                   
-              mods = decl.modifies & gs
+              mods = (decl.modifies & gs).sort
 
               decl.body.replace do |elem|
                 case elem            
