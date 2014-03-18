@@ -214,7 +214,6 @@ begin
   require_relative 'bpl/analysis/type_checking'
   require_relative 'bpl/analysis/normalization'
   require_relative 'bpl/analysis/modifies_correction'
-  require_relative 'bpl/analysis/vectorization'
   require_relative 'bpl/analysis/df_sequentialization'
   require_relative 'bpl/analysis/static_segments'
   require_relative 'bpl/analysis/backend'
