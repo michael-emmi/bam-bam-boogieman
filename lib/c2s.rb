@@ -264,9 +264,7 @@ begin
       timed('Sequentialization') { program.static_segments_sequentialize! }
 
     elsif program.any?{|e| e.attributes.include? :async}
-      timed('Vectorization') {program.vectorize!}
-      program.resolve!
-      timed('Sequentialization') {program.df_sequentialize!}
+      timed('Sequentialization') { program.df_sequentialize! }
     else
       warn "Skipping sequentialization as program does not have async calls."
     end

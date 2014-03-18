@@ -12,23 +12,36 @@ module Bpl
       def replace_assertions_with_error_flag! verifier
         use_assertions = (verifier != :boogie_si)
         
-        @declarations << bpl("var #e: bool;")
+        @declarations << bpl("var $e: bool;")
         @declarations.each do |d|
           next unless d.is_a?(ProcedureDeclaration) && d.body
-          d.specifications << bpl("modifies #e;")
+          d.specifications << bpl("modifies $e;")
           d.body.replace do |s|
-            s.is_a?(AssertStatement) ? bpl("#e := #e || !(#{s.expression});") : s
+            case s
+            when AssertStatement
+              next bpl(<<-end
+                if (!#{s.expression}) {
+                  $e := true;
+                  goto $exit;
+                }
+              end
+              )
+            when CallStatement
+              next s unless (called = s.declaration) && called.body
+              next [ s, bpl("if ($e) { goto $exit; }") ]
+            else
+              next s
+            end
           end
           if d.is_entrypoint? then
-            d.body.statements.unshift bpl("#e := false;")
+            d.body.statements.unshift bpl("$e := false;")
             d.replace do |s|
-              if s.is_a?(ReturnStatement) then
-                 [bpl("assume #e;")] + 
-                 (use_assertions ? [bpl("assert false;")] : []) + 
-                 [s]
-              else
+              next s unless s.is_a?(ReturnStatement)
+              next [
+                bpl("assume $e;"),
+                (bpl("assert false;") if use_assertions),
                 s
-              end
+              ].compact
             end
           end
         end
