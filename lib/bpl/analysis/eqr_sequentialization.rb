@@ -226,16 +226,17 @@ module Bpl
                 end
 
                 call_mods = (proc ? proc.modifies & gs : gs).sort
+                call_accs = (proc ? proc.accesses & gs : gs).sort
 
                 # some async-simulating guessing magic
-                next gs.map{|g| bpl("#{g}.save := #{g};")} +
-                  gs.map{|g| bpl("#{g} := #{g}.next;")} +
+                next call_accs.map{|g| bpl("#{g}.save := #{g};")} +
+                  call_accs.map{|g| bpl("#{g} := #{g}.next;")} +
                   call_mods.map{|g| bpl("havoc #{g}.guess;")} +
                   call_mods.map{|g| bpl("#{g}.next := #{g}.guess;")} +
                   [ bpl("#s := #s + 1;") ] +
                   [ elem ] +
                   call_mods.map{|g| bpl("assume #{g} == #{g}.guess;")} +
-                  gs.map{|g| bpl("#{g} := #{g}.save;")}
+                  call_accs.map{|g| bpl("#{g} := #{g}.save;")}
 
               else # a synchronous procedure call
                 elem.arguments << bpl("#s.self") if proc && proc.body

@@ -1,38 +1,48 @@
 module Bpl
+  module AST
+    class ProcedureDeclaration
+      attr_accessor :accesses
+    end
+  end
 
   module Analysis
+
     def self.correct_modifies! program
       globals = program.global_variables.map(&:names).flatten
       work_list = []
       program.declarations.each do |proc|
         next unless proc.is_a?(ProcedureDeclaration)
         work_list << proc
-        next unless proc.body
-        proc.specifications.reject!{|sp| sp.is_a?(ModifiesClause)}
+        proc.specifications.reject!{|sp| sp.is_a?(ModifiesClause)} if proc.body
         mods = Set.new
-        proc.body.each do |stmt|
-          case stmt
+        accs = Set.new
+        proc.each do |elem|
+          case elem
+          when StorageIdentifier
+            accs << elem if globals.include?(elem.name)
           when HavocStatement
-            mods += stmt.identifiers.map(&:name) & globals
+            mods += elem.identifiers.map(&:name) & globals
           when AssignStatement
-            mods += stmt.lhs.map(&:name) & globals
+            mods += elem.lhs.map(&:name) & globals
           when CallStatement
-            mods += stmt.assignments.map(&:name) & globals
-            stmt.declaration.callers << proc
+            mods += elem.assignments.map(&:name) & globals
+            elem.declaration.callers << proc
           end
         end
         proc.specifications << bpl("modifies #{mods.to_a * ", "};") \
           unless mods.empty?
+        proc.accesses = accs.to_a
       end
 
       until work_list.empty?
         proc = work_list.shift
         proc.callers.each do |caller|
           mods = proc.modifies - caller.modifies
-          unless mods.empty?
-            caller.specifications << bpl("modifies #{mods.to_a * ", "};")
-            work_list << caller unless work_list.include?(caller)
-          end
+          accs = proc.accesses - caller.accesses
+          caller.specifications << bpl("modifies #{mods.to_a * ", "};") unless mods.empty?
+          caller.accesses |= accs
+          next if mods.empty? || accs.empty?
+          work_list << caller unless work_list.include?(caller)
         end
       end
     end
