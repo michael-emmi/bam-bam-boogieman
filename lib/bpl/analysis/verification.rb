@@ -24,7 +24,7 @@ module Bpl
         until done do
           print (" " * 80 + "\r")
           print \
-            "Verifying w/ depth #{unroll} and #{delays} delays " \
+            "Verifying w/ depth #{unroll || "inf."} and #{delays} delays " \
             "(#{(Time.now - start).round}s)" \
             "\r" unless $quiet
           sleep 1

@@ -34,7 +34,7 @@ module Kernel
 
   def info(*args)
     args.each do |str|
-      puts "Info: #{str}".light_black
+      puts "Info: #{str}".light_black unless $quiet
     end
   end
 
@@ -264,7 +264,7 @@ begin
 
   timed 'Modifies-correction' do
     Bpl::Analysis::correct_modifies! program
-  end
+  end if @sequentialization
 
   timed('Sequentialization') do
     if program.any?{|e| e.attributes.include? :static_threads}
