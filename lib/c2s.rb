@@ -99,7 +99,7 @@ OptionParser.new do |opts|
   @rounds = nil
   @delays = 0
 
-  @verifier = :boogie_si
+  @verifier = :boogie_fi
   @incremental = false
   @parallel = false
   @boogie_opts = []

@@ -4,7 +4,8 @@ module Bpl
       attr_accessor :src_file
       attr_accessor :steps
       
-      def initialize(trace_file, model)
+      def initialize(trace_file, program, model)
+        @program = program
         @model = model
         @steps = []
 
@@ -25,53 +26,48 @@ module Bpl
             when /Entry/, /Return/
             else
               block = get_block(src_file,line-1)
-              vals = get_vals(src_file.chomp('.bpl') + '.model', @steps.count)              
-              @steps << {file: src_file, line: line, col: col, label: label, block: block, vals: vals}
+              proc = get_proc(src_file,line-1)
+              @steps << {file: src_file, line: line, col: col, proc: proc, label: label, block: block}
             end
           end
         end        
       end
       
       def to_s
+        gs = @program.global_variables.map{|g| g.names}.flatten
+        num_steps_shown = 0
+
+        ("-" * 80) +
         @model.constants * "\n" + "\n" +
         @model.functions * "\n" + "\n" +
         ("-" * 80) + "\n" +
-        @steps.map.with_index do |step,i|
-          vars = @model.variables(i)
-          if !vars.empty?
-            "step #{i} @ line #{step[:line]} label #{step[:label]}\n" +
-            ("-" * 80) + "\n" +
-            "#{vars.map{|v| "  var #{v.name} = #{v.value}"} * "\n"}" + "\n" +
-            ("-" * 80)
-          end
-        end.compact * "\n"
+        steps = @steps.map.with_index do |step,i|
+          vars = @model.variables(i).select{|v| gs.include?(v.name)}
+          next if vars.empty?
+          num_steps_shown += 1
+          "step #{i} / line #{step[:line]} / proc #{step[:proc]} / label #{step[:label]}\n" +
+          ("-" * 80) + "\n" +
+          "#{vars.map{|v| "  var #{v.name} = #{v.value}"} * "\n"}" + "\n" +
+          "\n" +
+          step[:block].first(10).join +
+          (step[:block].count > 10 ? "  ...\n" : "") +
+          ("-" * 80)
+        end.compact * "\n" +
+        "(#{@steps.count - num_steps_shown} steps omitted)"
       end
 
-      def show
-        puts "*" * 80
-        puts "A TRACE FOLLOWS"
-        @steps.each_with_index do |step,i|
-          puts "*" * 80
-          puts "#{i+1}. FILE #{step[:file]} LINE #{step[:line]} COL #{step[:col]} LABEL #{step[:label]}"
-          if step[:block]
-            puts "*" * 80
-            puts (step[:block].count > 10 ? step[:block].take(5) + [" ... (truncated) ..."] + step[:block][-4..-1] : step[:block])
-          end
-          puts "VALS : #{step[:vals] * "\n"}"
-        end
-      end
-      
       def svg_craziness
       end
     end
   end
 end
 
+def get_proc(file, line)
+  File.read(file).lines.take(line).grep(/\bprocedure\b/).last.sub(/[^\(\)]*\s+([^ \(\){}:]+)\s*\(.*/,'\1').strip
+end
+
 def get_block(file, line)
-  File.read(file).lines.drop(line).take_while{|l| l !~ /\b(goto|return)\b/}
+  lines = File.read(file).lines.drop(line)
+  lines.take_while{|l| l !~ /^  (goto|return)/} +
+  [lines.detect{|l| l =~ /^  (goto|return)/}]
 end
-
-def get_vals(file, step)
-  File.read(file).lines.grep(/@#{step}/)
-end
-

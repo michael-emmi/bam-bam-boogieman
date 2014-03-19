@@ -252,7 +252,7 @@ module Bpl
 
       boogie_opts << "/errorLimit:1"
       boogie_opts << "/errorTrace:2"
-      boogie_opts << "/printModel:2"
+      boogie_opts << "/printModel:4"
       boogie_opts << "/printModelToFile:#{model_file}"
       boogie_opts << "/removeEmptyBlocks:0" # XXX
       boogie_opts << "/coalesceBlocks:0"    # XXX
@@ -285,7 +285,7 @@ module Bpl
 
       if has_errors
         model = Z3::Model.new(model_file)
-        trace = Trace.new(trace_file, model)
+        trace = Trace.new(trace_file, program, model)
       else
         trace = nil
       end
