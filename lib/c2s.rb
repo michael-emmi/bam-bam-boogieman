@@ -12,6 +12,7 @@ rescue LoadError
     def red; self end
     def green; self end
     def blue; self end
+    def light_black; self end
     def bold; self end
   end
 end
@@ -31,6 +32,12 @@ module Kernel
     old_abort("Error: #{str}".red)
   end
 
+  def info(*args)
+    args.each do |str|
+      puts "Info: #{str}".light_black
+    end
+  end
+
   def warn(*args)
     return unless $show_warnings
     args.each do |str|
@@ -45,7 +52,7 @@ module Kernel
     abort "'smackgen.py' missing from executable path.\n" \
       "The C/LLVM front end requires SMACK; please install it." \
     if `which smackgen.py`.empty?
-    'smackgen.py'
+    'smackgen.py --verifier=boogie-plain'
   end
 
   def boogie
@@ -214,9 +221,8 @@ begin
   require_relative 'bpl/analysis/type_checking'
   require_relative 'bpl/analysis/normalization'
   require_relative 'bpl/analysis/modifies_correction'
-  require_relative 'bpl/analysis/df_sequentialization'
+  require_relative 'bpl/analysis/eqr_sequentialization'
   require_relative 'bpl/analysis/static_segments'
-  require_relative 'bpl/analysis/backend'
   require_relative 'bpl/analysis/verification'
   require_relative 'bpl/analysis/trace'
   require_relative 'z3/model'
@@ -230,6 +236,9 @@ begin
     @parallel = false
   end
 
+  @type_checking = false unless @resolution
+  @sequentialization = false unless @resolution
+
   src = timed 'Front-end' do
     C2S::process_source_file(src)
   end
@@ -242,42 +251,33 @@ begin
   trace = nil
 
   timed 'Resolution' do
-    program.resolve!
+    Bpl::Analysis::resolve! program
   end if @resolution
 
   timed 'Type-checking' do
-    program.type_check
-  end if @resolution && @type_checking
+    Bpl::Analysis::type_check program
+  end if @type_checking
 
   timed('Normalization') do
-    program.normalize!
+    Bpl::Analysis::normalize! program
   end if @sequentialization || @verification
 
   timed 'Modifies-correction' do
-    program.correct_modifies!
+    Bpl::Analysis::correct_modifies! program
   end
 
-  if @sequentialization
+  timed('Sequentialization') do
     if program.any?{|e| e.attributes.include? :static_threads}
-      # && program.any?{|e| e.attributes.include? :async}
-      timed('Sequentialization') { program.static_segments_sequentialize! }
-
-    elsif program.any?{|e| e.attributes.include? :async}
-      timed('Sequentialization') { program.df_sequentialize! }
+      Bpl::Analysis::static_segments_sequentialize! program
     else
-      warn "Skipping sequentialization as program does not have async calls."
+      Bpl::Analysis::eqr_sequentialize! program
     end
-  end
+  end if @sequentialization
 
-  program.prepare_for_backend! @verifier
-
-  if @inspection
-    timed 'Inspection' do
-      program.resolve! if @resolution
-      puts program.inspect
-      program.type_check if @resolution && @type_checking
-    end
-  end
+  timed 'Inspection' do
+    puts program.inspect
+    Bpl::Analysis::type_check program if @type_checking
+  end if @inspection
 
   timed('Dumping sequentialized program') do
     $temp.delete @output_file
@@ -285,7 +285,7 @@ begin
   end if @output_file
 
   timed('Verification') do
-    trace = program.verify verifier: @verifier, \
+    trace = Bpl::Analysis::verify program, verifier: @verifier, \
       unroll: @unroll, rounds: (@rounds || @delays+1), delays: @delays, \
       incremental: @incremental, parallel: @parallel
   end if @verification

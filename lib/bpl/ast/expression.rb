@@ -42,7 +42,8 @@ module Bpl
       end
       def show; @name end
       def inspect
-        (@declaration ? @name.green : @name.red) + (type ? ":#{type.inspect.yellow}" : "")
+        (@declaration ? @name.green : @name.red) +
+        (type ? ":#{type.inspect.yellow}" : "")
       end
     end
     

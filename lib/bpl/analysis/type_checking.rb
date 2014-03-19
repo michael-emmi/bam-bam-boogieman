@@ -1,6 +1,10 @@
 module Bpl
+  module Analysis
+    def self.type_check program
+      program.type_check
+    end
+  end
   module AST
-    
     class Program
       def type_check
         each {|e| e.type_check if e.respond_to? :type_check unless e == self}
