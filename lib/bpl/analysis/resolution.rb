@@ -1,41 +1,41 @@
 module Bpl
-  module AST
     
-    class Program
-      def resolve!
-        @declarations.each do |d| d.parent = self end
-        scope = [self]
-        traverse do |elem,turn|
-          case elem
-          when ProcedureDeclaration, FunctionDeclaration, QuantifiedExpression
-            case turn
-            when :pre then scope.unshift elem
-            else scope.shift
-            end
-          when Identifier
-            case turn
-            when :pre
-              if s = scope.find {|s| s.resolve elem} then
-                elem.declaration = s.resolve elem
-              else
-                warn "could not resolve identifier #{elem}"
-              end
-            end
-          when CustomType
-            case turn
-            when :pre
-              elem.declaration = scope.last.resolve(elem)
-              warn "could not resolve type #{elem}"  unless elem.declaration
-
-            end
-          when Statement
-            elem.parent = scope.first
+  module Analysis
+    def self.resolve! program
+      program.declarations.each do |d| d.parent = program end
+      scope = [program]
+      program.traverse do |elem,turn|
+        case elem
+        when ProcedureDeclaration, FunctionDeclaration, QuantifiedExpression
+          case turn
+          when :pre then scope.unshift elem
+          else scope.shift
           end
-          elem
+        when Identifier
+          case turn
+          when :pre
+            if s = scope.find {|s| s.resolve elem} then
+              elem.declaration = s.resolve elem
+            else
+              warn "could not resolve identifier #{elem}"
+            end
+          end
+        when CustomType
+          case turn
+          when :pre
+            elem.declaration = scope.last.resolve(elem)
+            warn "could not resolve type #{elem}"  unless elem.declaration
+
+          end
+        when Statement
+          elem.parent = scope.first
         end
-      end      
+        elem
+      end
     end
-    
+  end
+
+  module AST
     class Program
       def resolve(id)
         case id

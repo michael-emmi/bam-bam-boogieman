@@ -17,7 +17,8 @@ module Z3
       /MapType\d+Type/, /MapType\d+TypeInv\d+/,
       /inline\$/,
       /call\d+formal/,
-      /%lbl%/
+      /%lbl%/,
+      /si_control_var/
     ]
 
     attr_accessor :entries
@@ -25,18 +26,22 @@ module Z3
     
     def initialize(file)
       @entries = {}
-      ModelParser.new.parse(File.read(file)).each do |entry|
-        @entries[entry.name] = entry if entry
+      lines = File.read(file).lines
+      start = lines.rindex{|l| l =~ /\*\*\* MODEL/}
+      return unless start
+      lines.drop(start)
+      ModelParser.new.parse(lines.join).each do |entry|
+        @entries[entry.key] = entry if entry
       end
       resolve!
     end
     
-    def []=(i,j) @entries[i] = j end
-    def [](i) @entries[i] end
+    # def []=(i,j) @entries[i] = j end
+    # def [](i) @entries[i] end
       
     def visible_entries
-      @entries.select do |name,_|
-        !blacklisted(name) && name !~ /\b[A-Za-z]+Type\b/
+      @entries.select do |key,_|
+        !blacklisted(key) && key !~ /\b[A-Za-z]+Type\b/
       end
     end
       
@@ -54,15 +59,15 @@ module Z3
 
     def lookup_value(value, use_map_table = true)
       return value if value.nil?
-      return @entries[@@u2b][value] unless @entries[@@u2b][value].nil?
-      return @entries[@@u2i][value] unless @entries[@@u2i][value].nil?
+      return @entries[@@u2b][value] unless @entries[@@u2b].nil? || @entries[@@u2b][value].nil?
+      return @entries[@@u2i][value] unless @entries[@@u2i].nil? || @entries[@@u2i][value].nil?
       return @map_table[value] unless !use_map_table || @map_table[value].nil?
       return value
     end
     
-    def blacklisted(name)
+    def blacklisted(key)
       @@blacklist.any? do |pattern|
-        pattern === name
+        pattern === key
       end
     end
 
@@ -80,7 +85,7 @@ module Z3
     end
     
     def resolve_values!
-      @entries.reject{|name| blacklisted(name) || name =~ /Map\/\d/}.each do |_,entry|
+      @entries.reject{|key| blacklisted(key) || key =~ /Map\/\d/}.each do |_,entry|
         case entry
         when Function
           entry.values = entry.values.map do |keys,val|
@@ -104,7 +109,7 @@ module Z3
         val = lookup_value val, false
         @map_table[keys[0]] ||= MapValue.new
         @map_table[keys[0]][keys[1]] = val
-      end
+      end if @entries.include? @@map2
     end
 
     def resolve!

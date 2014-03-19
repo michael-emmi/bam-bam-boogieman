@@ -7,28 +7,29 @@ module Bpl
     
     class AssertStatement < Statement
       children :expression
-      def print(&blk) "assert #{print_attrs(&blk)} #{yield @expression};".fmt end
+      def show(&blk) "assert #{show_attrs(&blk)} #{yield @expression};".fmt end
     end
     
     class AssumeStatement < Statement
       children :expression
-      def print(&blk) "assume #{print_attrs(&blk)} #{yield @expression};".fmt end
+      def show(&blk) "assume #{show_attrs(&blk)} #{yield @expression};".fmt end
     end
     
     class HavocStatement < Statement
       children :identifiers
-      def print; "havoc #{@identifiers.map{|a| yield a} * ", "};" end
+      def show; "havoc #{@identifiers.map{|a| yield a} * ", "};" end
     end
     
     class AssignStatement < Statement
       children :lhs, :rhs
-      def print; "#{@lhs.map{|a| yield a} * ", "} := #{@rhs.map{|a| yield a} * ", "};" end
+      def show; "#{@lhs.map{|a| yield a} * ", "} := #{@rhs.map{|a| yield a} * ", "};" end
     end
     
     class CallStatement < Statement
       children :procedure, :arguments, :assignments
       def forall?; @assignments.nil? end
-      def print(&blk)
+      def declaration; @procedure.declaration end
+      def show(&blk)
         if @assignments
           rets = @assignments.map{|a| yield a} * ", " + (@assignments.empty? ? '' : ' := ')
         else
@@ -36,13 +37,13 @@ module Bpl
         end
         proc = yield @procedure
         args = @arguments.map{|a| yield a} * ", "
-        "call #{print_attrs(&blk)} #{rets} #{proc}(#{args});".fmt
+        "call #{show_attrs(&blk)} #{rets} #{proc}(#{args});".fmt
       end
     end
     
     class IfStatement < Statement
       children :condition, :block, :else
-      def print
+      def show
         cond = yield @condition
         block = yield @block
         els_ = @else ? " else #{yield @else}" : ""
@@ -52,7 +53,7 @@ module Bpl
     
     class WhileStatement < Statement
       children :condition, :invariants, :block
-      def print
+      def show
         invs = @invariants.empty? ? " " : "\n" + @invariants.map{|a| yield a} * "\n" + "\n"
         "while (#{yield @condition})#{invs}#{yield @block}"
       end
@@ -60,21 +61,21 @@ module Bpl
     
     class BreakStatement < Statement
       children :identifiers
-      def print; "break #{@identifiers.map{|a| yield a} * ", "};" end
+      def show; "break #{@identifiers.map{|a| yield a} * ", "};" end
     end
     
     class GotoStatement < Statement
       children :identifiers
-      def print; "goto #{@identifiers.map{|a| yield a} * ", "};" end
+      def show; "goto #{@identifiers.map{|a| yield a} * ", "};" end
     end
     
     class ReturnStatement < Statement
-      def print; "return;" end
+      def show; "return;" end
     end
     
     class Block < Statement
       children :declarations, :statements
-      def print
+      def show
         str = "\n"
         str << @declarations.map{|d| yield d} * "\n" + "\n\n" unless @declarations.empty?
         str << @statements.map{|s| s.is_a?(String) ? "#{s}:" : yield(s)} * "\n"

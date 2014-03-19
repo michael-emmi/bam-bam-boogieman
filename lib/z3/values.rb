@@ -9,6 +9,7 @@ module Z3
 
   class Constant < Node
     attr_accessor :name, :value
+    def key; name end
     def <=>(node)
       case node
       when Constant; @name <=> node.name
@@ -23,6 +24,7 @@ module Z3
   
   class Variable < Node
     attr_accessor :name, :sequence_number, :value
+    def key; "#{@name}/#{@sequence_number}" end
     def <=>(node)
       case node
       when Variable; @name <=> node.name
@@ -36,6 +38,7 @@ module Z3
   
   class Function < Node
     attr_accessor :name, :values
+    def key; name end
     def []=(i,j) @values[i] = j end
     def [](i) @values[i] end
     def <=>(node)
@@ -74,6 +77,7 @@ module Z3
   class Type < Value
     attr_accessor :id
     attr_accessor :name
+    def key; z3_name end
     def eql?(t) t.is_a?(Type) && t.id == @id end
     def hash; @id.hash end
     def z3_name; "T@T!val!#{@id}" end
@@ -82,14 +86,14 @@ module Z3
 
   class Label < Node
     attr_accessor :id, :value
-    def name; "%lbl%+#{@id}" end
-    def to_s; "#{name} = #{@value}" end
+    def key; "%lbl%+#{@id}" end
+    def to_s; "#{key} = #{@value}" end
   end
   
   class Formal < Node
     attr_accessor :call_id, :parameter_name, :sequence_number, :value
-    def name; "call#{@call_id}formal@#{@parameter_name}@#{@sequence_number}" end
-    def to_s; "#{name} = #{@value}" end
+    def key; "call#{@call_id}formal@#{@parameter_name}@#{@sequence_number}" end
+    def to_s; "#{key} = #{@value}" end
   end
 
 end

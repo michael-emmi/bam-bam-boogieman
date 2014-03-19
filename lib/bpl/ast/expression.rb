@@ -5,7 +5,7 @@ module Bpl
   module AST
     class Expression < Node
       Wildcard = Expression.new
-      def Wildcard.print; "*" end
+      def Wildcard.show; "*" end
     end
     
     class Literal < Expression
@@ -14,20 +14,20 @@ module Bpl
 
     class BooleanLiteral < Literal
       def eql?(bool) bool.is_a?(BooleanLiteral) && bool.value == @value end
-      def print; @value ? "true" : "false" end
+      def show; @value ? "true" : "false" end
       def type; Type::Boolean end
     end
 
     class IntegerLiteral < Literal
       def eql?(int) int.is_a?(IntegerLiteral) && int.value == @value end
-      def print; "#{@value}" end
+      def show; "#{@value}" end
       def type; Type::Integer end
     end
 
     class BitvectorLiteral < Literal
       attr_accessor :base
       def eql?(bv) bv.is_a?(BitvectorLiteral) && bv.base == @base && bv.value == value end
-      def print; "#{@value}bv#{@base}" end
+      def show; "#{@value}bv#{@base}" end
       def type; BitvectorType.new @base end
     end
     
@@ -35,13 +35,15 @@ module Bpl
       attr_accessor :name
       attr_accessor :declaration
       def hash; name.hash end
+      def <=>(id)  @name <=> id.name end
       def eql?(id) id.is_a?(self.class) && id.name == @name end
       def type
         @declaration.type if @declaration.respond_to? :type
       end
-      def print; @name end
+      def show; @name end
       def inspect
-        (@declaration ? @name.green : @name.red) + (type ? ":#{type.inspect.yellow}" : "")
+        (@declaration ? @name.green : @name.red) +
+        (type ? ":#{type.inspect.yellow}" : "")
       end
     end
     
@@ -64,7 +66,7 @@ module Bpl
         fa.function.eql?(@function) &&
         fa.arguments.eql?(@arguments)
       end
-      def print; "#{yield @function}(#{@arguments.map{|a| yield a} * ","})" end
+      def show; "#{yield @function}(#{@arguments.map{|a| yield a} * ","})" end
       def inspect
         "#{@function.inspect}(#{@arguments.map(&:inspect) * ", "})" +
         (type ? ":#{type.inspect.yellow}" : "")
@@ -80,17 +82,17 @@ module Bpl
     end
     
     class OldExpression < UnaryExpression
-      def print; "old(#{yield @expression})" end
+      def show; "old(#{yield @expression})" end
       def type; @expression.type end
     end    
     
     class LogicalNegation < UnaryExpression
-      def print; "!#{yield @expression}" end
+      def show; "!#{yield @expression}" end
       def type; Type::Boolean end
     end
     
     class ArithmeticNegation < UnaryExpression
-      def print; "-#{yield @expression}" end
+      def show; "-#{yield @expression}" end
       def type; Type::Integer end
     end
     
@@ -100,7 +102,7 @@ module Bpl
         be.is_a?(BinaryExpression) &&
         be.lhs.eql?(@lhs) && be.op == @op && be.rhs.eql?(@rhs)
       end
-      def print; "(#{yield @lhs} #{@op} #{yield @rhs})" end
+      def show; "(#{yield @lhs} #{@op} #{yield @rhs})" end
       def type
         case @op
         when '<==>', '==>', '||', '&&', '==', '!=', '<', '>', '<=', '>=', '<:'
@@ -117,11 +119,12 @@ module Bpl
     
     class MapSelect < Expression
       children :map, :indexes
+      def name; @map.name end
       def eql?(ms)
         ms.is_a?(MapSelect) &&
         ms.map.eql?(@map) && ms.indexes.eql?(@indexes)
       end
-      def print; "#{yield @map}[#{@indexes.map{|a| yield a} * ","}]" end
+      def show; "#{yield @map}[#{@indexes.map{|a| yield a} * ","}]" end
       def type; @map.type.is_a?(MapType) && @map.type.range end
     end
     
@@ -131,7 +134,7 @@ module Bpl
         ms.is_a?(MapSelect) &&
         ms.map.eql?(@map) && ms.indexes.eql?(@indexes) && ms.value.eql?(@value)
       end
-      def print; "#{yield @map}[#{@indexes.map{|a| yield a} * ","} := #{yield @value}]" end
+      def show; "#{yield @map}[#{@indexes.map{|a| yield a} * ","} := #{yield @value}]" end
       def type; @map.type end
     end
     
@@ -141,7 +144,7 @@ module Bpl
         bve.is_a?(BitvectorExtract) &&
         bve.bitvector.eql?(@bitvector) && bve.msb == @msb && bve.lsb == @lsb
       end
-      def print; "#{yield @bitvector}[#{@msb}:#{@lsb}]" end
+      def show; "#{yield @bitvector}[#{@msb}:#{@lsb}]" end
       def type; BitvectorType.new width: (@msb - @lsb) end
     end
     
@@ -155,14 +158,14 @@ module Bpl
         qe.expression.eql?(@expression) &&
         qe.triggers.eql?(@triggers)
       end
-      def print(&block)
+      def show(&block)
         if @type_arguments.empty?
           tvs = ""
         else
           tvs = "<#{@type_arguments.map{|a| yield a} * ", "}>"
         end
         vs = @variables.map{|a| yield a} * ", "
-        as = print_attrs(&block)
+        as = show_attrs(&block)
         ts = @triggers.map{|t| yield t} * " "
         "(#{@quantifier} #{tvs} #{vs} :: #{as} #{ts} #{yield @expression})".fmt
       end
@@ -172,7 +175,7 @@ module Bpl
     class Trigger < Expression
       children :expressions
       def eql?(t) t.is_a?(Trigger) && t.expressions.eql(@expressions) end
-      def print(&block) "{#{@expressions.map{|e| yield e} * ", "}}" end
+      def show(&block) "{#{@expressions.map{|e| yield e} * ", "}}" end
     end
   end
 end

@@ -20,10 +20,13 @@ rule
           {BLANK}
           
           unique-value!\d+  { [:WEIRD, nil] }
+          as-array\[k!\d+\]   { [:WEIRD, nil] }
           distinct-elems!\d+!val!\d+ { [:WEIRD, nil] }
           distinct-aux-f!!\d+ { [:WEIRD, nil] }
           {IDENT}@@\d+!\d+!\d+ { [:WEIRD, nil] }
           {IDENT}'!\d+!\d+  { [:WEIRD, nil] }
+          {IDENT}!\d+       { [:WEIRD, nil] }
+          {IDENT}@\d*_si_\d+ { [:WEIRD, nil] }
 
           {OPERATOR}        { [text, text] }
 
@@ -35,9 +38,13 @@ rule
           {KEYWORD}         { [text, text] }
           
           \%lbl\%(@|\+)\d+  { [:LABEL, {id: text[/(\d+)/,1]} ] }
+          \%lbl\%\+si_fcall_\d+  { [:LABEL, {id: text[/(\d+)/,1]} ] }
+          call\d+formal@{IDENT}@\d*_si_\d+ { [:FORMAL, {call_id: text[/call(\d+)/,1], parameter_name: text[/@(.*)@/,1], sequence_number: text[/@(\d+)/,1].to_i}] }
           call\d+formal@{IDENT}@\d+ { [:FORMAL, {call_id: text[/call(\d+)/,1], parameter_name: text[/@(.*)@/,1], sequence_number: text[/@(\d+)/,1].to_i}] }
 
           T@U!val!\d+       { [:VALUE, {id: text[/(\d+)/,1].to_i}] }
+          T@{IDENT}!val!\d+ { [:WEIRD, nil] }
+          k!\d+             { [:CONSTANT, {name: text}] }
           T@T!val!\d+       { [:TYPE, {id: text[/(\d+)/,1].to_i}] }
           {IDENT}@\d+       { [:VARIABLE, {name: text[/(.*)@/,1], sequence_number: text[/@(\d+)/,1].to_i}] }
           {IDENT}@{IDENT}   { [:WEIRD, nil] }

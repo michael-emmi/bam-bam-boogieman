@@ -33,15 +33,15 @@ module Bpl
         end
       end
 
-      def print_attrs
+      def show_attrs
         @attributes.map do |k,vs|
           vals = vs.map{|e| case e when String; "\"#{e}\"" else yield e end} * ", "
           "{:#{k}#{vals.empty? ? "" : " #{vals}"}}"
         end * " "
       end
   
-      def inspect; print &:inspect end
-      def to_s; print {|a| a} end
+      def inspect; show &:inspect end
+      def to_s; show {|a| a} end
       
       def +(n) [self] + case n when Array; n else [n] end end
   
