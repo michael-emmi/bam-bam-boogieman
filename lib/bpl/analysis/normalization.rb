@@ -69,6 +69,16 @@ module Bpl
           proc.body.statements << bpl("return;")
         end
 
+        exit_block = [
+          "$exit",
+          if proc.is_entrypoint? then [
+            bpl("assume {:endpoint} true;"),
+            bpl("assume $e;"),
+            bpl("assert false;")
+          ] end,
+          bpl("return;")
+        ].compact.flatten
+
         already_got_a_return = false
         proc.body.replace do |s|
           case s
@@ -82,20 +92,12 @@ module Bpl
           when ReturnStatement
             next bpl("goto $exit;") if already_got_a_return
             already_got_a_return = true
-            next [
-              "$exit",
-              if proc.is_entrypoint? then [
-                bpl("assume {:endpoint} true;"),
-                bpl("assume $e;"),
-                bpl("assert false;")
-              ]
-              end,
-              bpl("return;"),
-            ].compact.flatten
+            next exit_block
           else
             next s
           end
         end
+        proc.body.statements += exit_block unless already_got_a_return
       end
     end
   end
