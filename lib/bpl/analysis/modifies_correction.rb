@@ -48,20 +48,20 @@ module Bpl
     end
   end
 
-  module AST
-    class ProcedureDeclaration
-      def add_modifies!(mods)
-        work_list = [self]
-        until work_list.empty?
-          proc = work_list.shift
-          new_mods = mods - proc.modifies
-          unless new_mods.empty?
-            proc.specifications << bpl("modifies #{new_mods.to_a * ", "};")
-            work_list += proc.callers.to_a - work_list
-          end
-        end
-      end
-    end
-  end
+  # module AST
+  #   class ProcedureDeclaration
+  #     def add_modifies!(mods)
+  #       work_list = [self]
+  #       until work_list.empty?
+  #         proc = work_list.shift
+  #         new_mods = mods - proc.modifies
+  #         unless new_mods.empty?
+  #           proc.specifications << bpl("modifies #{new_mods.to_a * ", "};")
+  #           work_list += proc.callers.to_a - work_list
+  #         end
+  #       end
+  #     end
+  #   end
+  # end
 
 end
