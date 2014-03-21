@@ -169,8 +169,9 @@ module Bpl
           decl.specifications << bpl("modifies #{mods.map{|g| "#{g}.next"} * ", "};") \
             unless mods.empty?
 
-          decl.add_modifies! (gs-mods) \
-            if decl.body.any?{|s| s.attributes.include? :async}
+          # TODO why did I write this?!
+          # decl.add_modifies! (gs-mods) \
+          #   if decl.body.any?{|s| s.attributes.include? :async}
 
           decl.specifications << bpl("modifies #s;")
 

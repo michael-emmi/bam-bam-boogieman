@@ -19,7 +19,7 @@ module Bpl
         proc.each do |elem|
           case elem
           when StorageIdentifier
-            accs << elem if globals.include?(elem.name)
+            accs << elem if elem.is_variable? && elem.is_global?
           when HavocStatement
             mods += elem.identifiers.map(&:name) & globals
           when AssignStatement
@@ -41,27 +41,27 @@ module Bpl
           accs = proc.accesses - caller.accesses
           caller.specifications << bpl("modifies #{mods.to_a * ", "};") unless mods.empty?
           caller.accesses |= accs
-          next if mods.empty? || accs.empty?
-          work_list << caller unless work_list.include?(caller)
+          work_list << caller \
+            unless mods.empty? && accs.empty? || work_list.include?(caller)
         end
       end
     end
   end
 
-  module AST
-    class ProcedureDeclaration
-      def add_modifies!(mods)
-        work_list = [self]
-        until work_list.empty?
-          proc = work_list.shift
-          new_mods = mods - proc.modifies
-          unless new_mods.empty?
-            proc.specifications << bpl("modifies #{new_mods.to_a * ", "};")
-            work_list += proc.callers.to_a - work_list
-          end
-        end
-      end
-    end
-  end
+  # module AST
+  #   class ProcedureDeclaration
+  #     def add_modifies!(mods)
+  #       work_list = [self]
+  #       until work_list.empty?
+  #         proc = work_list.shift
+  #         new_mods = mods - proc.modifies
+  #         unless new_mods.empty?
+  #           proc.specifications << bpl("modifies #{new_mods.to_a * ", "};")
+  #           work_list += proc.callers.to_a - work_list
+  #         end
+  #       end
+  #     end
+  #   end
+  # end
 
 end
