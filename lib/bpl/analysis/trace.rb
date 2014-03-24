@@ -30,24 +30,47 @@ module Bpl
               @steps << {file: src_file, line: line, col: col, proc: proc, label: label, block: block}
             end
           end
-        end        
+        end
       end
-      
+
+      def value_to_s value
+        if value.is_a?(Hash) && value.include?(:map)
+          "[" + value.reject{|k,_| k == :map}.map do |k,v|
+            "#{k || "*"}:#{value_to_s(v)}"
+          end * ", " + "]"
+
+        elsif value.is_a?(Hash)
+          "\n  " + value.map do |ks,v|
+            case ks
+            when nil; "else"
+            when Array; "(#{ks.map(&:to_s) * ","})"
+            else ks.to_s
+            end + " -> #{value_to_s(v)}"
+          end * "\n  "
+
+        elsif value.to_s =~ /T@U!val!\d+/
+          id = value.to_s.match(/T@U!val!(\d+)/)[1]
+          "unknown/#{id}"
+
+        else value.to_s
+        end
+      end
+
       def to_s
         gs = @program.global_variables.map{|g| g.names}.flatten
         num_steps_shown = 0
 
         ("-" * 80) +
-        @model.constants * "\n" + "\n" +
-        @model.functions * "\n" + "\n" +
+        @model.constants.map{|c,v| "const #{c} = #{value_to_s(v)}"} * "\n" + "\n" +
+        @model.functions.map{|f,v| "function #{f} #{value_to_s(v)}"} * "\n" + "\n" +
         ("-" * 80) + "\n" +
         steps = @steps.map.with_index do |step,i|
-          vars = @model.variables(i).select{|v| gs.include?(v.name)}
+          vars = @model.variables(i).select{|v,_| gs.include?(v)}
           next if vars.empty?
           num_steps_shown += 1
           "step #{i} / line #{step[:line]} / proc #{step[:proc]} / label #{step[:label]}\n" +
           ("-" * 80) + "\n" +
-          "#{vars.map{|v| "  var #{v.name} = #{v.value}"} * "\n"}" + "\n" +
+          "#{vars.map{|x,v| "  var #{x} = #{value_to_s(v)}"} * "\n"}" + "\n" +
           "\n" +
           step[:block].first(10).join +
           (step[:block].count > 10 ? "  ...\n" : "") +

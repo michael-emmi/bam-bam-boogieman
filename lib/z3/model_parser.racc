@@ -2,46 +2,35 @@ class ModelParser
   
   options no_result_var
 
-  token VARIABLE CONSTANT VALUE TYPE NUMBER BOOLEAN LABEL FORMAL MAP2 MAP3 WEIRD
+  token NUMBER BOOLEAN SYMBOL
   
 rule 
   target: model
 
   model:
-    { [] }
-    | definition model { [val[0]] + val[1] }
-    
+    { {} }
+    | definition model { val[0].merge val[1] }
+
   definition:
-    VARIABLE '->' rhs { Variable.new val[0].merge(value: val[2]) }
-    | constant '->' rhs { 
-      case val[2]
-      when Hash
-        Function.new val[0].merge(values: val[2])
-      else
-        Constant.new val[0].merge(value: val[2])
-      end
-    }
-    | FORMAL '->' rhs { Formal.new val[0].merge(value: val[2]) }
-    | LABEL '->' rhs { Label.new val[0].merge(value: val[2]) }
-    | WEIRD '->' rhs { }
-  
-  constant: CONSTANT | MAP2 | MAP3
+    SYMBOL '->' rhs { {val[0] => val[2]} }
+
   rhs: value | '{' fmappings '}' { val[1] }
-  
+
   fmappings:
     'else' '->' value { {nil => val[2]} }
-    | values '->' value fmappings { val[3].merge({val[0] => val[2]}) }
-    
-  values: value { val[0] } | value values { vs = val[1]; [val[0]] + (vs.is_a?(Array) ? vs : [vs]) }
+    | values '->' value fmappings { {val[0] => val[2]}.merge(val[3]) }
 
-  value: VALUE { Value.new val[0] } | TYPE { Type.new val[0] } | literal | WEIRD
-  literal: '(' '-' NUMBER ')' { -val[2] } | NUMBER | BOOLEAN
+  values:
+    value { val[0] }
+    | value values { vs = val[1]; [val[0]] + (vs.is_a?(Array) ? vs : [vs]) }
+
+  value:
+    '(' '-' NUMBER ')' { -val[2] } | NUMBER | BOOLEAN | SYMBOL
 
 end
 
 ---- header
 require_relative 'model_parser.rex'
-require_relative 'values'
 module Z3
 
 ---- inner
