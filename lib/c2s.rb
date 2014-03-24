@@ -226,7 +226,6 @@ begin
   require_relative 'bpl/analysis/verification'
   require_relative 'bpl/analysis/trace'
   require_relative 'z3/model'
-  require_relative 'c2s/violin'
   require_relative 'c2s/frontend'
 
   begin
