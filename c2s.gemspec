@@ -4,7 +4,7 @@ require "c2s/version"
 
 Gem::Specification.new do |s|
   s.name        = "c2s"
-  s.version     = C2S::VERSION
+  s.version     = C2S::VERSION.sub(/-.*-/,'-').sub('++','')
   s.licenses    = ['MIT']
   s.authors     = ['Michael Emmi']
   s.email       = 'michael.emmi@gmail.com'
