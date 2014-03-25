@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+
+root = `git rev-parse --show-toplevel`.chomp
+branch = `git rev-parse --abbrev-ref HEAD`.chomp
+release = `git describe --abbrev=0`.chomp
+revision = `git rev-parse --short HEAD`.chomp
+
+version_file = File.join(root,'lib/c2s/version.rb')
+
+current =
+  File.read(version_file).lines.grep(/VERSION/).first[/= (.*)/,1].gsub('"','')
+
+abort "Invalid version number; please update #{version_file}." \
+  if branch == 'master' && current !~ /^\d+(\.\d+)*$/
+
+version =
+  case branch
+  when 'master'; current
+  else "#{release}-#{branch}-#{revision}++"
+  end
+
+File.write(version_file, <<-eee)
+module C2S
+  VERSION = "#{version}"
+end
+eee
+
+`git add #{version_file}`
