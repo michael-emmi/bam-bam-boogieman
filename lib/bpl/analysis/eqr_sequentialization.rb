@@ -13,7 +13,7 @@ module Bpl
       resolve! program
     end
 
-    def self.excluded_variables; ['$e', '#d'] end
+    def self.excluded_variables; ['#d'] end
     def self.included_variables program
       program.global_variables.select{|d| (d.names & excluded_variables).empty?}
     end
@@ -106,6 +106,9 @@ module Bpl
                       // #d := #d + #j;
                       #d := #d + 1;
                       // call boogie_si_record_int(#k);
+                      if ($e[#k]) {
+                        goto $exit;
+                      }
                     }
                   end
                   )

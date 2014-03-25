@@ -59,8 +59,8 @@ module Bpl
         proc.specifications << bpl("modifies $e;")
 
         if proc.is_entrypoint?
-          proc.body.statements.unshift bpl("assume {:startpoint} true;")
           proc.body.statements.unshift bpl("$e := false;")
+          proc.body.statements.unshift bpl("assume {:startpoint} true;")
         end
 
         case proc.body.statements.last
