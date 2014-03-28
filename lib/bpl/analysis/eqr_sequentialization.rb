@@ -13,7 +13,7 @@ module Bpl
       resolve! program
     end
 
-    def self.excluded_variables; ['$e', '#d'] end
+    def self.excluded_variables; ['#d'] end
     def self.included_variables program
       program.global_variables.select{|d| (d.names & excluded_variables).empty?}
     end
@@ -64,7 +64,6 @@ module Bpl
             else
               decl.parameters << bpl("#k.0: int")
               decl.returns << bpl("#k: int")
-              # decl.body.statements.unshift bpl("call boogie_si_record_int(#k);")
               decl.body.statements.unshift bpl("#k := #k.0;")
             end
 
@@ -105,18 +104,13 @@ module Bpl
                       #k := #k + #j;
                       // #d := #d + #j;
                       #d := #d + 1;
-                      // call boogie_si_record_int(#k);
                     }
                   end
                   )
 
                 elsif elem.attributes.include? :startpoint
 
-                  next [ bpl("#d := 0;"),
-                    bpl("#k := 0;"),
-                    # bpl("call boogie_si_record_int(#ROUNDS);"),
-                    # bpl("call boogie_si_record_int(#DELAYS);")
-                    ] +
+                  next [ bpl("#d := 0;"), bpl("#k := 0;") ] +
                     mods.map{|g| bpl("#{g} := #{g}.0;")} +
                     [elem]
 
@@ -164,10 +158,13 @@ module Bpl
         when ProcedureDeclaration
           next unless decl.body
 
-          mods = (decl.modifies & gs).sort
+          accs = (decl.accesses & gs).sort
+          mods = accs - decl.modifies
 
-          decl.specifications << bpl("modifies #{mods.map{|g| "#{g}.next"} * ", "};") \
+          decl.specifications << bpl("modifies #{mods * ", "};") \
             unless mods.empty?
+          decl.specifications << bpl("modifies #{accs.map{|g| "#{g}.next"} * ", "};") \
+            unless accs.empty?
 
           # TODO why did I write this?!
           # decl.add_modifies! (gs-mods) \
@@ -182,7 +179,6 @@ module Bpl
             end
           else
             decl.parameters << bpl("#s.self: int")
-            # decl.body.statements.unshift bpl("call boogie_si_record_int(#s.self);")
           end
 
           if decl.body.any?{|elem| elem.attributes.include?(:async)}
@@ -197,13 +193,13 @@ module Bpl
               if elem.attributes.include? :startpoint
                 next [bpl("#s := 0;")] +
                   [bpl("#s.self := 0;")] +
-                  mods.map{|g| bpl("#{g}.next := #{g}.start;")} +
+                  accs.map{|g| bpl("#{g}.next := #{g}.start;")} +
                   [elem]
 
               elsif elem.attributes.include? :endpoint
                 next [elem] +
-                  mods.map{|g| bpl("assume #{g} == #{g}.start;")} +
-                  mods.map{|g| bpl("#{g} := #{g}.next;")}
+                  accs.map{|g| bpl("assume #{g} == #{g}.start;")} +
+                  accs.map{|g| bpl("#{g} := #{g}.next;")}
                 elem
               end
 
