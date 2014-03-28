@@ -64,7 +64,6 @@ module Bpl
             else
               decl.parameters << bpl("#k.0: int")
               decl.returns << bpl("#k: int")
-              # decl.body.statements.unshift bpl("call boogie_si_record_int(#k);")
               decl.body.statements.unshift bpl("#k := #k.0;")
             end
 
@@ -105,21 +104,13 @@ module Bpl
                       #k := #k + #j;
                       // #d := #d + #j;
                       #d := #d + 1;
-                      // call boogie_si_record_int(#k);
-                      if ($e[#k]) {
-                        goto $exit;
-                      }
                     }
                   end
                   )
 
                 elsif elem.attributes.include? :startpoint
 
-                  next [ bpl("#d := 0;"),
-                    bpl("#k := 0;"),
-                    # bpl("call boogie_si_record_int(#ROUNDS);"),
-                    # bpl("call boogie_si_record_int(#DELAYS);")
-                    ] +
+                  next [ bpl("#d := 0;"), bpl("#k := 0;") ] +
                     mods.map{|g| bpl("#{g} := #{g}.0;")} +
                     [elem]
 
@@ -185,7 +176,6 @@ module Bpl
             end
           else
             decl.parameters << bpl("#s.self: int")
-            # decl.body.statements.unshift bpl("call boogie_si_record_int(#s.self);")
           end
 
           if decl.body.any?{|elem| elem.attributes.include?(:async)}

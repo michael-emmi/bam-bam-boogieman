@@ -89,6 +89,10 @@ module Bpl
             next s unless (called = s.declaration) && called.body
             next [ s, bpl("if ($e) { goto $exit; }") ]
 
+          when AssumeStatement
+            next s unless s.attributes.include? :yield
+            next [ s, bpl("if ($e) { goto $exit; }") ]
+
           when ReturnStatement
             next bpl("goto $exit;") if already_got_a_return
             already_got_a_return = true
