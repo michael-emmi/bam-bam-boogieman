@@ -61,6 +61,8 @@ module Bpl
         if proc.is_entrypoint?
           proc.body.statements.unshift bpl("$e := false;")
           proc.body.statements.unshift bpl("assume {:startpoint} true;")
+        else
+          proc.body.statements.unshift bpl("if ($e) { goto $exit; }")
         end
 
         case proc.body.statements.last
