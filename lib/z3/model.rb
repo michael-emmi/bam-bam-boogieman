@@ -101,8 +101,10 @@ module Z3
     end
 
     def lookup(value, use_map_table = true)
-      @entries[@@u2b] && @entries[@@u2b][value] ||
-      @entries[@@u2i] && @entries[@@u2i][value] ||
+      result = @entries[@@u2b] && @entries[@@u2b][value]
+      return result unless result.nil? # result could be false!
+
+      return @entries[@@u2i] && @entries[@@u2i][value] ||
       use_map_table && @map_table[value] ||
       use_map_table && value.to_s =~ /as-array/ &&
       @map_table[value.to_s.match(/as-array\[(k!\d+)\]/){|m| m[1].to_sym}] ||

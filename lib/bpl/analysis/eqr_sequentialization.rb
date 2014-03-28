@@ -148,7 +148,7 @@ module Bpl
       gs = globals.map{|d| d.idents}.flatten
       return if gs.empty?
 
-      program.declarations << bpl("var #s: int;")
+      program.declarations << bpl("var #tasks: int;")
       program.declarations += globals.map do |decl|
         bpl "var #{decl.names.map{|g| "#{g}.next"} * ", "}: #{decl.type};"
       end
@@ -170,15 +170,15 @@ module Bpl
           # decl.add_modifies! (gs-mods) \
           #   if decl.body.any?{|s| s.attributes.include? :async}
 
-          decl.specifications << bpl("modifies #s;")
+          decl.specifications << bpl("modifies #tasks;")
 
           if decl.is_entrypoint?
-            decl.body.declarations << bpl("var #s.self: int;")
+            decl.body.declarations << bpl("var #t: int;")
             decl.body.declarations += globals.map do |decl|
               bpl "var #{decl.names.map{|g| "#{g}.start"} * ", "}: #{decl.type};"
             end
           else
-            decl.parameters << bpl("#s.self: int")
+            decl.parameters << bpl("#t: int")
           end
 
           if decl.body.any?{|elem| elem.attributes.include?(:async)}
@@ -191,8 +191,8 @@ module Bpl
             case elem
             when AssumeStatement
               if elem.attributes.include? :startpoint
-                next [bpl("#s := 0;")] +
-                  [bpl("#s.self := 0;")] +
+                next [bpl("#tasks := 0;")] +
+                  [bpl("#t := 0;")] +
                   accs.map{|g| bpl("#{g}.next := #{g}.start;")} +
                   [elem]
 
@@ -208,7 +208,7 @@ module Bpl
 
               if elem.attributes.include? :async then
                 elem.attributes.delete :async
-                elem.arguments << bpl("#s") if proc && proc.body
+                elem.arguments << bpl("#tasks") if proc && proc.body
 
                 # replace the return assignments with dummy assignments
                 elem.assignments.map! do |x|
@@ -230,13 +230,13 @@ module Bpl
                   call_accs.map{|g| bpl("#{g} := #{g}.next;")} +
                   call_mods.map{|g| bpl("havoc #{g}.guess;")} +
                   call_mods.map{|g| bpl("#{g}.next := #{g}.guess;")} +
-                  [ bpl("#s := #s + 1;") ] +
+                  [ bpl("#tasks := #tasks + 1;") ] +
                   [ elem ] +
                   call_mods.map{|g| bpl("assume #{g} == #{g}.guess;")} +
                   call_accs.map{|g| bpl("#{g} := #{g}.save;")}
 
               else # a synchronous procedure call
-                elem.arguments << bpl("#s.self") if proc && proc.body
+                elem.arguments << bpl("#t") if proc && proc.body
 
               end
             end

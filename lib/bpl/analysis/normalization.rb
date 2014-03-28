@@ -62,7 +62,8 @@ module Bpl
           proc.body.statements.unshift bpl("$e := false;")
           proc.body.statements.unshift bpl("assume {:startpoint} true;")
         else
-          proc.body.statements.unshift bpl("if ($e) { goto $exit; }")
+          # this branch costs extra, on the order of 10s in my tests
+          # proc.body.statements.unshift bpl("if ($e) { goto $exit; }")
         end
 
         case proc.body.statements.last

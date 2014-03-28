@@ -40,10 +40,10 @@ module Bpl
           end * ", " + "]"
 
         elsif value.is_a?(Hash)
-          "\n  " + value.map do |ks,v|
+          "  " + value.map do |ks,v|
             case ks
             when nil; "else"
-            when Array; "(#{ks.map(&:to_s) * ","})"
+            when Array; "(#{ks.map{|k| value_to_s(k)} * ","})"
             else ks.to_s
             end + " -> #{value_to_s(v)}"
           end * "\n  "
@@ -60,9 +60,9 @@ module Bpl
         gs = @program.global_variables.map{|g| g.names}.flatten
         num_steps_shown = 0
 
-        ("-" * 80) +
+        ("-" * 80) + "\n" +
         @model.constants.map{|c,v| "const #{c} = #{value_to_s(v)}"} * "\n" + "\n" +
-        @model.functions.map{|f,v| "function #{f} #{value_to_s(v)}"} * "\n" + "\n" +
+        @model.functions.map{|f,v| "function #{f}\n#{value_to_s(v)}"} * "\n" + "\n" +
         ("-" * 80) + "\n" +
         steps = @steps.map.with_index do |step,i|
           vars = @model.variables(i).select{|v,_| gs.include?(v)}
