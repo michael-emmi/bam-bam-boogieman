@@ -59,8 +59,8 @@ module Bpl
         proc.specifications << bpl("modifies $e;")
 
         if proc.is_entrypoint?
-          proc.body.statements.unshift bpl("assume {:startpoint} true;")
           proc.body.statements.unshift bpl("$e := false;")
+          proc.body.statements.unshift bpl("assume {:startpoint} true;")
         end
 
         case proc.body.statements.last
@@ -87,6 +87,10 @@ module Bpl
 
           when CallStatement
             next s unless (called = s.declaration) && called.body
+            next [ s, bpl("if ($e) { goto $exit; }") ]
+
+          when AssumeStatement
+            next s unless s.attributes.include? :yield
             next [ s, bpl("if ($e) { goto $exit; }") ]
 
           when ReturnStatement
