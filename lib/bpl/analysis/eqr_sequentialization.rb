@@ -158,10 +158,13 @@ module Bpl
         when ProcedureDeclaration
           next unless decl.body
 
-          mods = (decl.modifies & gs).sort
+          accs = (decl.accesses & gs).sort
+          mods = accs - decl.modifies
 
-          decl.specifications << bpl("modifies #{mods.map{|g| "#{g}.next"} * ", "};") \
+          decl.specifications << bpl("modifies #{mods * ", "};") \
             unless mods.empty?
+          decl.specifications << bpl("modifies #{accs.map{|g| "#{g}.next"} * ", "};") \
+            unless accs.empty?
 
           # TODO why did I write this?!
           # decl.add_modifies! (gs-mods) \
@@ -190,13 +193,13 @@ module Bpl
               if elem.attributes.include? :startpoint
                 next [bpl("#s := 0;")] +
                   [bpl("#s.self := 0;")] +
-                  mods.map{|g| bpl("#{g}.next := #{g}.start;")} +
+                  accs.map{|g| bpl("#{g}.next := #{g}.start;")} +
                   [elem]
 
               elsif elem.attributes.include? :endpoint
                 next [elem] +
-                  mods.map{|g| bpl("assume #{g} == #{g}.start;")} +
-                  mods.map{|g| bpl("#{g} := #{g}.next;")}
+                  accs.map{|g| bpl("assume #{g} == #{g}.start;")} +
+                  accs.map{|g| bpl("#{g} := #{g}.next;")}
                 elem
               end
 
