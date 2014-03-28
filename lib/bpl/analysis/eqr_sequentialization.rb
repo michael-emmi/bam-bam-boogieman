@@ -10,12 +10,47 @@ module Bpl
       vectorize! program
       resolve! program
       async_to_call! program
+      bookmarks! program
+      correct_modifies! program
       resolve! program
     end
 
     def self.excluded_variables; ['#d'] end
     def self.included_variables program
       program.global_variables.select{|d| (d.names & excluded_variables).empty?}
+    end
+
+    def self.bookmarks! program
+      bookmarks = Set.new
+      program.replace do |elem|
+
+        if elem.attributes.include? :bookmark
+          next unless name = elem.attributes[:bookmark].first
+          bookmarks << name.gsub(/"/,"")
+          next [
+            bpl("$C.#{name}[#t] := $C.#{name}[#t] + 1;"),
+            bpl("assume $R(#t,$B.#{name},$C.#{name}[#t]) == #k;")
+          ]
+
+        elsif elem.attributes.include? :round
+          next unless (ax = elem.attributes[:round]).count == 4
+          next bpl("assume $R(#{ax[0]},$B.#{ax[1]},#{ax[2]}) == #{ax[3]};")
+        end
+
+        next elem
+      end
+      bookmarks.each_with_index do |name,i|
+        program.declarations << bpl("const $B.#{name}: int;")
+        program.declarations << bpl("axiom $B.#{name} == #{i};")
+        program.declarations << bpl("var $C.#{name}: [int] int;")
+      end
+      program.replace do |elem|
+        next elem unless elem.attributes.include? :startpoint
+        next bookmarks.map do |name|
+          bpl("assume (forall t: int :: $C.#{name}[t] == 0);")
+        end + [elem]
+      end
+      program.declarations << bpl("function $R(int,int,int) returns (int);")
     end
 
     def self.vectorize! program
@@ -207,6 +242,9 @@ module Bpl
               proc = elem.procedure.declaration
 
               if elem.attributes.include? :async then
+
+                var = elem.attributes[:async].first
+
                 elem.attributes.delete :async
                 elem.arguments << bpl("#tasks") if proc && proc.body
 
@@ -231,6 +269,7 @@ module Bpl
                   call_mods.map{|g| bpl("havoc #{g}.guess;")} +
                   call_mods.map{|g| bpl("#{g}.next := #{g}.guess;")} +
                   [ bpl("#tasks := #tasks + 1;") ] +
+                  (var ? [bpl("#{var} := #tasks;")] : []) +
                   [ elem ] +
                   call_mods.map{|g| bpl("assume #{g} == #{g}.guess;")} +
                   call_accs.map{|g| bpl("#{g} := #{g}.save;")}
