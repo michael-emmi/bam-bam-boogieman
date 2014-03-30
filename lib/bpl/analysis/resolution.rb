@@ -6,7 +6,7 @@ module Bpl
       scope = [program]
       program.traverse do |elem,turn|
         case elem
-        when ProcedureDeclaration, FunctionDeclaration, QuantifiedExpression
+        when ProcedureDeclaration, FunctionDeclaration, Block, QuantifiedExpression
           case turn
           when :pre then scope.unshift elem
           else scope.shift
@@ -59,14 +59,20 @@ module Bpl
     
     class ProcedureDeclaration
       def resolve(id)
+        return unless id.is_a?(StorageIdentifier)
+        @parameters.find{|decl| decl.names.include? id.name} ||
+        @returns.find{|decl| decl.names.include? id.name}
+      end
+    end
+
+    class Block
+      def resolve(id)
         case id
         when StorageIdentifier
-          @parameters.find{|decl| decl.names.include? id.name} ||
-          @returns.find{|decl| decl.names.include? id.name} ||
-          @body && @body.declarations.find{|decl| decl.names.include? id.name}
+          @declarations.find{|decl| decl.names.include? id.name}
 
         when LabelIdentifier
-          ls = @body && @body.statements.find{|label| label == id.name}
+          ls = @statements.find{|label| label == id.name}
           def ls.signature; "label" end if ls
           ls
 

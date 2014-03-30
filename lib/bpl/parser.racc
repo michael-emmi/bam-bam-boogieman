@@ -98,6 +98,7 @@ rule
       | 'if' expr 'then' expr 'else' expr {
         IfExpression.new condition: val[1], then: val[3], else: val[5]
       }
+      | '|' block '|' { CodeExpression.new block: val[1] }
       | literal
       | ident '(' exprs_opt ')' {
         id = FunctionIdentifier.new val[0]
@@ -154,6 +155,7 @@ rule
       BreakStatement.new identifiers: ids
     }
     | 'return' ';' { ReturnStatement.new }
+    | 'return' expr ';' { ReturnStatement.new expression: val[1] }
     | 'goto' idents ';' {
       ids = val[1].map{|id| LabelIdentifier.new id}
       GotoStatement.new identifiers: ids
@@ -192,7 +194,8 @@ rule
     | name ':' lstmts { [val[0]] + val[2] }
     | stmt lstmts { [val[0]] + val[1] }
 
-  block: '{' lstmts '}' { Block.new declarations: [], statements: val[1] }
+  block: '{' var_decls lstmts '}' { Block.new declarations: val[1], statements: val[2] }
+  blocks: block { [val[0]] } | block blocks { [val[0]] + val[1] }
   
   decl:
     type_decl
@@ -291,9 +294,7 @@ rule
         specifications: val[8][:specs], body: val[8][:body]
     }
   out_params: { [] } | 'returns' '(' param_decls_opt ')' { val[2] }
-  pspec: ';' specs { {specs: val[1], body: nil} } | specs pbody { {specs: val[0], body: val[1]} }
-  pbody: '{' var_decls lstmts '}' { Block.new declarations: val[1], statements: val[2] }
-  pbodies: pbody { [val[0]] } | pbody pbodies { [val[0]] + val[1] }
+  pspec: ';' specs { {specs: val[1], body: nil} } | specs block { {specs: val[0], body: val[1]} }
 
   param_decl: typed_ids_where { NameDeclaration.new val[0] }
   param_decls: param_decl { [val[0]] } | param_decl ',' param_decls { [val[0]] + val[2] }
@@ -309,7 +310,7 @@ rule
   specs: { [] } | spec specs { [val[0]] + val[1] }
 
   impl_decl:
-    'implementation' attrs name type_args '(' param_decls_opt ')' out_params pbodies {
+    'implementation' attrs name type_args '(' param_decls_opt ')' out_params blocks {
       ImplementationDeclaration.new attributes: val[1], name: val[2],
         type_arguments: val[3], parameters: val[5], returns: val[7],
         body: val[8]

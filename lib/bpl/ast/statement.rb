@@ -70,9 +70,10 @@ module Bpl
     end
     
     class ReturnStatement < Statement
-      def show; "return;" end
+      children :expression
+      def show; "return #{@expression ? (yield @expression) : "" };".fmt end
     end
-    
+
     class Block < Statement
       children :declarations, :statements
       def show

@@ -64,7 +64,7 @@ class BoogieLanguage < Racc::Parser
         when (text = ss.scan(/\s+/))
           ;
 
-        when (text = ss.scan(/<==>|==>|\|\||&&|==|!=|<:|<=|<|>=|>|\+\+|\+|-|\*|\/|{:|:=|::|:/))
+        when (text = ss.scan(/<==>|==>|\|\||&&|==|!=|<:|<=|<|>=|>|\+\+|\+|-|\*|\/|{:|:=|::|:|\|/))
            @rex_tokens.push action { [text, text] }
 
         when (text = ss.scan(/\d+bv\d+/))

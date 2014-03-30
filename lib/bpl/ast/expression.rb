@@ -129,6 +129,13 @@ module Bpl
       def type; @then.type end
     end
 
+    class CodeExpression < Expression
+      children :block
+      def eql?(ce) ce.is_a?(CodeExpression) && ce.block.eql?(@block) end
+      def show; "|#{yield @block}|" end
+      def type; Type::Boolean end
+    end
+
     class MapSelect < Expression
       children :map, :indexes
       def name; @map.name end
