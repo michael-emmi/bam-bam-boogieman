@@ -76,7 +76,7 @@ class BoogieLanguage < Racc::Parser
         when (text = ss.scan(/bv\d+\b/))
            @rex_tokens.push action { [:BVTYPE, text[2..-1].to_i] }
 
-        when (text = ss.scan(/\b(assert|assume|axiom|bool|break|bv(\d+)|call|complete|const|else|ensures|exists|false|finite|forall|free|function|goto|havoc|if|implementation|int|invariant|modifies|old|procedure|requires|return|returns|true|type|unique|var|where|while)\b/))
+        when (text = ss.scan(/\b(assert|assume|axiom|bool|break|bv(\d+)|call|complete|const|else|ensures|exists|false|finite|forall|free|function|goto|havoc|if|implementation|int|invariant|modifies|old|procedure|requires|return|returns|then|true|type|unique|var|where|while)\b/))
            @rex_tokens.push action { [text, text] }
 
         when (text = ss.scan(/[a-zA-Z_.$\#'`~^\\?][\w.$\#'`~^\\?]*/))

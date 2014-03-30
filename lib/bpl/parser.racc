@@ -95,7 +95,10 @@ rule
       | expr '[' exprs ']' { MapSelect.new map: val[0], indexes: val[2] }
       | expr '[' exprs ':=' expr ']' { MapUpdate.new map: val[0], indexes: val[2], value: val[4] }
       | expr '[' NUMBER ':' NUMBER ']' { BitvectorExtract.new bitvector: val[0], msb: val[2], lsb: val[4] }
-      | literal       
+      | 'if' expr 'then' expr 'else' expr {
+        IfExpression.new condition: val[1], then: val[3], else: val[5]
+      }
+      | literal
       | ident '(' exprs_opt ')' {
         id = FunctionIdentifier.new val[0]
         FunctionApplication.new function: id, arguments: val[2]

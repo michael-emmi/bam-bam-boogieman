@@ -116,7 +116,19 @@ module Bpl
         end
       end
     end
-    
+
+    class IfExpression < Expression
+      children :condition, :then, :else
+      def eql?(ie)
+        ie.is_a?(IfExpression) &&
+        ie.condition.eql?(@condition) &&
+        ie.then.eql?(@then) &&
+        ie.else.eql?(@else)
+      end
+      def show; "if #{yield @condition} then #{yield @then} else #{yield @else}" end
+      def type; @then.type end
+    end
+
     class MapSelect < Expression
       children :map, :indexes
       def name; @map.name end
