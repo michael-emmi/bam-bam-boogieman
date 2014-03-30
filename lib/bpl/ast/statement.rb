@@ -76,6 +76,12 @@ module Bpl
 
     class Block < Statement
       children :declarations, :statements
+      def fresh_var(type)
+        taken = @declarations.map{|d| d.names}.flatten
+        var = (0..Float::INFINITY).each{|i| unless taken.include?(v = "_#{i}"); break v end}
+        @declarations << decl = VariableDeclaration.new(names: [var], type: type)
+        decl
+      end
       def show
         str = "\n"
         str << @declarations.map{|d| yield d} * "\n" + "\n\n" unless @declarations.empty?

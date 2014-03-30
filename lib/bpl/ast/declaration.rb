@@ -92,13 +92,6 @@ module Bpl
       def modifies
         specifications.map{|s| s.is_a?(ModifiesClause) ? s.identifiers : []}.flatten
       end
-      def fresh_var(type)
-        return nil unless @body
-        taken = @body.declarations.map{|d| d.names}.flatten
-        var = (0..Float::INFINITY).each{|i| unless taken.include?(v = "_#{i}"); break v end}
-        @body.declarations << decl = VariableDeclaration.new(names: [var], type: type)
-        decl
-      end
       def sig(&blk)
         params = @parameters.map{|a| yield a} * ", "
         rets = @returns.empty? ? "" : "returns (#{@returns.map{|a| yield a} * ", "})"
