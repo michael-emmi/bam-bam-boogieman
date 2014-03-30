@@ -47,7 +47,7 @@ module Bpl
       program.replace do |elem|
         next elem unless elem.attributes.include? :startpoint
         next bookmarks.map do |name|
-          bpl("assume (forall t: int :: $C.#{name}[t] == 0);")
+          bpl("assume (forall t: int :: {$C.#{name}[t]} $C.#{name}[t] == 0);")
         end + [elem]
       end
       program.declarations << bpl("function $R(int,int,int) returns (int);")
@@ -77,7 +77,7 @@ module Bpl
             decl.parameters << bpl("#k: int")
             decl.modifies.each do |x|
               decl.specifications <<
-                bpl("ensures (forall k: int :: k != #k ==> #{x}[k] == old(#{x})[k]);")
+                bpl("ensures (forall k: int :: {#{x}[k]} k != #k ==> #{x}[k] == old(#{x})[k]);")
             end
             decl.specifications.each do |spec|
               case spec
