@@ -29,12 +29,12 @@ module Bpl
           bookmarks << name.gsub(/"/,"")
           next [
             bpl("$C.#{name}[#t] := $C.#{name}[#t] + 1;"),
-            bpl("assume $R(#t,$B.#{name},$C.#{name}[#t]) == #k;")
+            bpl("assume $RRR(#t,$B.#{name},$C.#{name}[#t]) == #k;")
           ]
 
         elsif elem.attributes.include? :round
           next unless (ax = elem.attributes[:round]).count == 4
-          next bpl("assume $R(#{ax[0]},$B.#{ax[1]},#{ax[2]}) == #{ax[3]};")
+          next bpl("assume $RRR(#{ax[0]},$B.#{ax[1]},#{ax[2]}) == #{ax[3]};")
         end
 
         next elem
@@ -50,13 +50,16 @@ module Bpl
           bpl("assume (forall t: int :: {$C.#{name}[t]} $C.#{name}[t] == 0);")
         end + [elem]
       end
-      program.declarations << bpl("function $R(int,int,int) returns (int);")
+      program.declarations << bpl("function $RRR(int,int,int) returns (int);")
     end
 
     def self.vectorize! program
       globals = included_variables program
       gs = globals.map{|d| d.idents}.flatten
       return if gs.empty?
+
+      # triggers
+      program.declarations << bpl("function $R(int) returns (bool);")
 
       program.declarations << bpl("const #ROUNDS: int;")
       program.declarations << bpl("const #DELAYS: int;")
@@ -77,7 +80,7 @@ module Bpl
             decl.parameters << bpl("#k: int")
             decl.modifies.each do |x|
               decl.specifications <<
-                bpl("ensures (forall k: int :: {#{x}[k]} k != #k ==> #{x}[k] == old(#{x})[k]);")
+                bpl("ensures (forall k: int :: {$R(k)} k != #k ==> #{x}[k] == old(#{x})[k]);")
             end
             decl.specifications.each do |spec|
               case spec
@@ -154,13 +157,8 @@ module Bpl
                   # NEW VERSION -- independent of rounds bound.
                   next [elem] +
                     mods.map do |g|
-                      bpl(<<-end
-                      assume (forall i: int ::
-                        {#{g}.0[i]} {#{g}[i-1]}
-                        i > 0 && i <= #ROUNDS ==> #{g}[i-1] == #{g}.0[i]
-                      );
+                      bpl("assume (forall k: int :: {$R(k)} #{g}[k-1] == #{g}.0[k]);")
                     end
-                    ) end
 
                   # PREVIOUS VERSION -- needs to know rounds bound.
                   # next [elem] +

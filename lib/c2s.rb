@@ -102,7 +102,6 @@ OptionParser.new do |opts|
   @verifier = :boogie_fi
   @incremental = false
   @parallel = false
-  @boogie_opts = []
   @timeout = nil
   @unroll = nil
   @graph = false
@@ -199,7 +198,7 @@ OptionParser.new do |opts|
   end
 
   opts.on("-z", "--timeout TIME", Integer, "Verifier timeout (default #{@timeout || "-"})") do |t|
-    @boogie_opts << "/timeLimit:#{t}"
+    @timeout = t
   end
 
   opts.on("-u", "--unroll MAX", Integer, "Loop/recursion bound (default #{@unroll || "-"})") do |u|
@@ -286,7 +285,7 @@ begin
   timed('Verification') do
     trace = Bpl::Analysis::verify program, verifier: @verifier, \
       unroll: @unroll, rounds: (@rounds || @delays+1), delays: @delays, \
-      incremental: @incremental, parallel: @parallel
+      incremental: @incremental, parallel: @parallel, timeout: @timeout
   end if @verification
 
   case @trace_file

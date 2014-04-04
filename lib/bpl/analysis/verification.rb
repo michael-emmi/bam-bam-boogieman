@@ -36,7 +36,9 @@ module Bpl
       printer.join
       puts unless $quiet
 
-      if trace
+      if trace == :timeout
+        puts "Verification timed out." unless $quiet
+      elsif trace
         puts "Got a trace w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
       else
         puts "Verified w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
@@ -81,7 +83,9 @@ module Bpl
       printer.join
       puts unless $quiet
 
-      if trace
+      if trace == :timeout
+        puts "Verification timed out." unless $quiet
+      elsif trace
         puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
       else
         puts "Verified up to depth #{unroll} w/ #{delays} delays." unless $quiet
@@ -135,7 +139,11 @@ module Bpl
               if trace = vvvvv(program, options.merge(unroll: unroll, delays: delays)) then
                 EventMachine.stop
                 puts unless $quiet
-                puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
+                if trace == :timeout
+                  puts "Verification timed out." unless $quiet
+                else
+                  puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
+                end
                 break
               end
               unroll_lower += 1 if i == 0
@@ -196,7 +204,11 @@ module Bpl
               if trace = vvvvv(program, options.merge(unroll: unroll, delays: delays)) then
                 EventMachine.stop
                 puts unless $quiet
-                puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
+                if trace == :timeout
+                  puts "Verification timed out." unless $quiet
+                else
+                  puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
+                end
                 break
               else
                 worklist.reject!{|w| w[:unroll] <= unroll && w[:delays] <= delays}
@@ -257,9 +269,15 @@ module Bpl
       boogie_opts << "/removeEmptyBlocks:0" # XXX
       boogie_opts << "/coalesceBlocks:0"    # XXX
 
+      boogie_opts << "/timeLimit:#{options[:timeout]}" if options[:timeout]
+      boogie_opts << "/proverOpt:C:TRACE=true" if false # options[:debugz3]
+
       if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#DELAYS')}
         program.declarations.push bpl("axiom #ROUNDS == #{options[:rounds]};")
         program.declarations.push bpl("axiom #DELAYS == #{options[:delays]};")
+        (0..(options[:rounds]-1)).each do |i|
+          program.declarations.push bpl("axiom $R(#{i});")
+        end
       end
       File.write(src,program)
       if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#DELAYS')}
@@ -282,8 +300,11 @@ module Bpl
       end
 
       has_errors = output.last.match(/(\d+) error/){|m| m[1].to_i > 0}
+      timeout = output.last.match(/(\d+) time out/){|m| m[1].to_i > 0}
 
-      if has_errors
+      if timeout
+        trace = :timeout
+      elsif has_errors
         model = Z3::Model.new(model_file)
         trace = Trace.new(trace_file, program, model)
       else
