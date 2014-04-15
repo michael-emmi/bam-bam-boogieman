@@ -103,6 +103,7 @@ OptionParser.new do |opts|
   @incremental = false
   @parallel = false
   @timeout = nil
+  @debug_solver = false
   @unroll = nil
   @graph = false
 
@@ -201,6 +202,10 @@ OptionParser.new do |opts|
     @timeout = t
   end
 
+  opts.on("--debug_solver", "Solver debugging? (default #{@debug_solver})") do |d|
+    @debug_solver = d
+  end
+
   opts.on("-u", "--unroll MAX", Integer, "Loop/recursion bound (default #{@unroll || "-"})") do |u|
     @unroll = u
   end
@@ -285,7 +290,8 @@ begin
   timed('Verification') do
     trace = Bpl::Analysis::verify program, verifier: @verifier, \
       unroll: @unroll, rounds: (@rounds || @delays+1), delays: @delays, \
-      incremental: @incremental, parallel: @parallel, timeout: @timeout
+      incremental: @incremental, parallel: @parallel, timeout: @timeout, \
+      debug_solver: @debug_solver
   end if @verification
 
   case @trace_file

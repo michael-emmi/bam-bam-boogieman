@@ -262,6 +262,8 @@ module Bpl
         err "invalid back-end: #{options[:verifier]}"
       end
 
+      # boogie_opts << "/useArrayTheory"
+
       boogie_opts << "/errorLimit:1"
       boogie_opts << "/errorTrace:2"
       boogie_opts << "/printModel:4"
@@ -270,7 +272,7 @@ module Bpl
       boogie_opts << "/coalesceBlocks:0"    # XXX
 
       boogie_opts << "/timeLimit:#{options[:timeout]}" if options[:timeout]
-      boogie_opts << "/proverOpt:C:TRACE=true" if false # options[:debugz3]
+      boogie_opts << "/proverOpt:C:TRACE=true" if options[:debug_solver]
 
       if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#DELAYS')}
         program.declarations.push bpl("axiom #ROUNDS == #{options[:rounds]};")
