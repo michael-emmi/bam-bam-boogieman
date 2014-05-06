@@ -9,8 +9,6 @@ module Bpl
     def self.eqr_sequentialize! program, rounds, delays
       vectorize! program, rounds, delays
       resolve! program
-      puts program.inspect
-
       async_to_call! program
       # bookmarks! program
       correct_modifies! program
@@ -179,8 +177,15 @@ module Bpl
     end
 
     def self.acc var, rounds
-      (1..rounds-1).reduce(bpl("#{var}.r0")) do |elem,k|
-        bpl_expr("if #k == #{k} then #{var}.r#{k} else #{elem}")
+      if var.is_a?(StorageIdentifier) &&
+        var.is_variable? && var.is_global? &&
+        !excluded_variables.include?(var.name) then
+
+        (1..rounds-1).reduce(bpl("#{var}.r0")) do |elem,k|
+          bpl_expr("if #k == #{k} then #{var}.r#{k} else #{elem}")
+        end
+      else
+        var
       end
     end
 
@@ -220,13 +225,6 @@ module Bpl
             end
             decl.specifications.each do |spec|
               case spec
-              when EnsuresClause, RequiresClause
-                spec.replace do |elem|
-                  if elem.is_a?(StorageIdentifier) && elem.is_variable? && elem.is_global? then
-                    next acc(elem,rounds)
-                  end
-                  elem
-                end
               when ModifiesClause
                 spec.replace do |elem|
                   if elem.is_a?(StorageIdentifier) then
@@ -238,6 +236,22 @@ module Bpl
             end
           end
 
+          ignore = false
+          decl.traverse do |elem,phase|
+            case elem
+            when Trigger
+              ignore = (phase == :pre)
+              next nil # TODO don't throw away the triggers!
+
+            when AssignStatement
+              ignore = (phase == :pre)
+              elem.rhs.map! {|rhs| rhs.replace {|e| acc(e,rounds)}} unless ignore
+            when StorageIdentifier
+              next acc(elem,rounds) unless ignore
+            end
+            elem
+          end
+
           if decl.body then
             if decl.is_entrypoint?
               decl.body.declarations << bpl("var #k: int;")
@@ -247,6 +261,8 @@ module Bpl
               decl.returns << bpl("#k: int")
               decl.body.statements.unshift bpl("#k := #k.0;")
             end
+
+            mods = (decl.modifies & gs).sort
 
             decl.specifications.each do |spec|
               case spec
@@ -262,40 +278,6 @@ module Bpl
             decl.specifications << bpl("modifies #d;")
             decl.body.declarations << bpl("var #j: int;") \
               if decl.body.any?{|e| e.attributes.include? :yield}
-
-            mods = (decl.modifies & gs).sort
-
-            decl.body.each do |stmt|
-              case stmt
-              when AssignStatement
-                stmt.rhs.each {|rhs| rhs.replace {|elem|
-                  if elem.is_a?(StorageIdentifier) &&
-                    elem.is_variable? && elem.is_global? &&
-                    !excluded_variables.include?(elem.name) then
-                    next acc(elem,rounds)
-                  end
-                  elem
-                }}
-              when AssumeStatement, AssertStatement
-                stmt.replace do |elem|
-                  if elem.is_a?(StorageIdentifier) &&
-                    elem.is_variable? && elem.is_global? &&
-                    !excluded_variables.include?(elem.name) then
-                    next acc(elem,rounds)
-                  end
-                  elem
-                end
-              when IfStatement
-                stmt.condition = stmt.condition.replace do |elem|
-                  if elem.is_a?(StorageIdentifier) &&
-                    elem.is_variable? && elem.is_global? &&
-                    !excluded_variables.include?(elem.name) then
-                    next acc(elem,rounds)
-                  end
-                  elem
-                end
-              end
-            end
 
             decl.body.replace do |elem|
               case elem
@@ -332,12 +314,6 @@ module Bpl
                     end
                   end
                 end
-
-              # when StorageIdentifier
-              #   if elem.is_variable? && elem.is_global? &&
-              #     !excluded_variables.include?(elem.name) then
-              #     next acc(elem,rounds)
-              #   end
 
               when AssumeStatement
                 if elem.attributes.include? :yield then

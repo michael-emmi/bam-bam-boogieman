@@ -277,6 +277,8 @@ module Bpl
       if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#DELAYS')}
         program.declarations.push bpl("axiom #ROUNDS == #{options[:rounds]};")
         program.declarations.push bpl("axiom #DELAYS == #{options[:delays]};")
+      end
+      if program.declarations.any?{|d| d.is_a?(FunctionDeclaration) && d.name == '$R'}
         (0..(options[:rounds]-1)).each do |i|
           program.declarations.push bpl("axiom $R(#{i});")
         end
