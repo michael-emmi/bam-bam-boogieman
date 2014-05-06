@@ -17,6 +17,7 @@ module Bpl
             if s = scope.find {|s| s.resolve elem} then
               elem.declaration = s.resolve elem
             else
+              elem.declaration = nil
               warn "could not resolve identifier #{elem}"
             end
           end

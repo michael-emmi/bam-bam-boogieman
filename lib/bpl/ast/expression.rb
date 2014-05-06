@@ -125,7 +125,7 @@ module Bpl
         ie.then.eql?(@then) &&
         ie.else.eql?(@else)
       end
-      def show; "if #{yield @condition} then #{yield @then} else #{yield @else}" end
+      def show; "(if #{yield @condition} then #{yield @then} else #{yield @else})" end
       def type; @then.type end
     end
 

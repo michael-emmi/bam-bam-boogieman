@@ -64,6 +64,7 @@ module Kernel
   end
   
   def bpl(str) BoogieLanguage.new.parse_str(str) end
+  def bpl_expr(str) BoogieLanguage.new.parse_expr(str) end
   def bpl_type(str) BoogieLanguage.new.parse_type(str) end
 end
 
@@ -241,6 +242,7 @@ begin
 
   @type_checking = false unless @resolution
   @sequentialization = false unless @resolution
+  @rounds ||= @delays + 1
 
   src = timed 'Front-end' do
     C2S::process_source_file(src)
@@ -273,7 +275,7 @@ begin
     if program.any?{|e| e.attributes.include? :static_threads}
       Bpl::Analysis::static_segments_sequentialize! program
     else
-      Bpl::Analysis::eqr_sequentialize! program
+      Bpl::Analysis::eqr_sequentialize! program, @rounds, @delays
     end
   end if @sequentialization
 
@@ -289,7 +291,7 @@ begin
 
   timed('Verification') do
     trace = Bpl::Analysis::verify program, verifier: @verifier, \
-      unroll: @unroll, rounds: (@rounds || @delays+1), delays: @delays, \
+      unroll: @unroll, rounds: @rounds, delays: @delays, \
       incremental: @incremental, parallel: @parallel, timeout: @timeout, \
       debug_solver: @debug_solver
   end if @verification
