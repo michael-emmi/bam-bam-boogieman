@@ -88,11 +88,13 @@ def timed(desc = nil)
 end
 
 # parse @c2s-options comments in the source file(s) for additional options
-ARGV = ARGV.select{|f| File.exists?(f)}.map do |f|
+ARGV.select{|f| File.extname(f) == '.bpl' && File.exists?(f)}.map do |f|
   File.readlines(f).grep(/@c2s-options (.*)/) do |line|
-    line.gsub(/.* @c2s-options (.*)/,'\1').split
+    line.gsub(/.* @c2s-options (.*)/,'\1').split.reverse.each do |arg|
+      ARGV.unshift arg
+    end
   end
-end.flatten + ARGV
+end.flatten
 
 OptionParser.new do |opts|
   @output_file = nil
