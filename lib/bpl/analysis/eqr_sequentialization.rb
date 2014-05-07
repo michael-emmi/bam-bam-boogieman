@@ -9,10 +9,11 @@ module Bpl
     def self.eqr_sequentialize! program, rounds, delays
       vectorize! program, rounds, delays
       resolve! program
+      correct_modifies! program
       async_to_call! program
       # bookmarks! program
-      correct_modifies! program
       resolve! program
+      correct_modifies! program
     end
 
     def self.excluded_variables; ['#d'] end
@@ -441,6 +442,7 @@ module Bpl
 
                 call_mods = (proc ? proc.modifies & gs : gs).sort
                 call_accs = (proc ? proc.accesses & gs : gs).sort
+                # call_accs = call_mods
 
                 # some async-simulating guessing magic
                 next call_accs.map{|g| bpl("#{g}.save := #{g};")} +

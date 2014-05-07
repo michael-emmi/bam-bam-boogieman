@@ -1,7 +1,7 @@
 module Bpl
   module AST
     class ProcedureDeclaration
-      attr_accessor :accesses
+      children :accesses
     end
   end
 
@@ -41,8 +41,7 @@ module Bpl
           accs = proc.accesses - caller.accesses
           caller.specifications << bpl("modifies #{mods.to_a * ", "};") unless mods.empty?
           caller.accesses |= accs
-          work_list << caller \
-            unless mods.empty? && accs.empty? || work_list.include?(caller)
+          work_list |= [caller] unless mods.empty? && accs.empty?
         end
       end
     end
