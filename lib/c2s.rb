@@ -87,6 +87,13 @@ def timed(desc = nil)
   res
 end
 
+# parse @c2s-options comments in the source file(s) for additional options
+ARGV = ARGV.select{|f| File.exists?(f)}.map do |f|
+  File.readlines(f).grep(/@c2s-options (.*)/) do |line|
+    line.gsub(/.* @c2s-options (.*)/,'\1').split
+  end
+end.flatten + ARGV
+
 OptionParser.new do |opts|
   @output_file = nil
   @trace_file = nil
