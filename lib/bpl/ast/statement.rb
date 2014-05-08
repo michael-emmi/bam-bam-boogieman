@@ -73,6 +73,11 @@ module Bpl
       children :expression
       def show; "return #{@expression ? (yield @expression) : "" };".fmt end
     end
+    
+    class Label < Node
+      attr_accessor :name
+      def show; name.to_s end
+    end
 
     class Block < Statement
       children :declarations, :statements
@@ -85,7 +90,7 @@ module Bpl
       def show
         str = "\n"
         str << @declarations.map{|d| yield d} * "\n" + "\n\n" unless @declarations.empty?
-        str << @statements.map{|s| s.is_a?(String) ? "#{s}:" : yield(s)} * "\n"
+        str << @statements.map{|s| s.is_a?(Label) ? "#{s}:" : yield(s)} * "\n"
         str << "\n"
         "{#{str.gsub(/^(.*[^:\n])$/,"#{"  "}\\1")}}"
       end

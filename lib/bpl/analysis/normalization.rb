@@ -72,8 +72,15 @@ module Bpl
           proc.body.statements << bpl("return;")
         end
 
+        # TODO use error block to avoid extra if statements
+        # err_block = [
+        #   Label.new(name: "$err"),
+        #   bpl("assume $e;"),
+        #   bpl("goto $exit;")
+        # ]
+
         exit_block = [
-          "$exit",
+          Label.new(name: "$exit"),
           if proc.is_entrypoint? then [
             bpl("assume {:endpoint} true;"),
             bpl("assume $e;"),

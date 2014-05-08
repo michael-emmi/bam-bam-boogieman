@@ -188,10 +188,12 @@ rule
   loop_inv: free_opt 'invariant' expr ';' { LoopInvariant.new free: val[0], expression: val[2] }
   loop_invs: { [] } | loop_inv loop_invs { [val[0]] + val[1] }
   free_opt: { false } | 'free' { true }
-  
+
+  label: name { Label.new name: val[0] }
+
   lstmts: 
     { [] } 
-    | name ':' lstmts { [val[0]] + val[2] }
+    | label ':' lstmts { [val[0]] + val[2] }
     | stmt lstmts { [val[0]] + val[1] }
 
   block: '{' var_decls lstmts '}' { Block.new declarations: val[1], statements: val[2] }
@@ -313,7 +315,7 @@ rule
     'implementation' attrs name type_args '(' param_decls_opt ')' out_params blocks {
       ImplementationDeclaration.new attributes: val[1], name: val[2],
         type_arguments: val[3], parameters: val[5], returns: val[7],
-        body: val[8]
+        specifications: [], body: val[8]
     }
   
   program: decls { Program.new declarations: val[0] }

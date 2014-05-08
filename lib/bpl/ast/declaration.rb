@@ -115,7 +115,7 @@ module Bpl
     end
     
     class ImplementationDeclaration < ProcedureDeclaration
-      def show(&block); "implementation #{sig(&block)}\n#{yield @body}" end
+      def show(&block); "implementation #{sig(&block)}\n#{@body.map{|b| yield b} * "\n"}" end
     end
   end
 end

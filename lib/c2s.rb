@@ -103,6 +103,7 @@ OptionParser.new do |opts|
   @resolution = true
   @type_checking = true
   @sequentialization = true
+  @inlining = false
   @inspection = false
   @verification = true
 
@@ -177,6 +178,10 @@ OptionParser.new do |opts|
     @inspection = i
   end
 
+  opts.on("--[no-]inline", "Inspect program? (default #{@inlining})") do |i|
+    @inlining = i
+  end
+
   opts.on("--[no-]verify", "Do verification? (default #{@verification})") do |v|
     @verification = v
   end
@@ -235,7 +240,9 @@ begin
   require_relative 'bpl/analysis/type_checking'
   require_relative 'bpl/analysis/normalization'
   require_relative 'bpl/analysis/modifies_correction'
+  require_relative 'bpl/analysis/inlining'
   require_relative 'bpl/analysis/eqr_sequentialization'
+  require_relative 'bpl/analysis/flat_sequentialization'
   require_relative 'bpl/analysis/static_segments'
   require_relative 'bpl/analysis/verification'
   require_relative 'bpl/analysis/trace'
@@ -285,8 +292,13 @@ begin
       Bpl::Analysis::static_segments_sequentialize! program
     else
       Bpl::Analysis::eqr_sequentialize! program, @rounds, @delays
+      # Bpl::Analysis::flat_sequentialize! program, @rounds, @delays, @unroll
     end
   end if @sequentialization
+
+  timed 'Inlining' do
+    program = Bpl::Analysis::inline program
+  end if @inlining
 
   timed 'Inspection' do
     puts program.inspect
