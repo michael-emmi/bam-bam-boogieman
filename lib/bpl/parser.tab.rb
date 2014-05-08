@@ -2211,7 +2211,7 @@ module_eval(<<'.,.,', 'parser.racc', 313)
   def _reduce_191(val, _values)
           ImplementationDeclaration.new attributes: val[1], name: val[2],
         type_arguments: val[3], parameters: val[5], returns: val[7],
-        body: val[8]
+        specifications: [], body: val[8]
     
   end
 .,.,
