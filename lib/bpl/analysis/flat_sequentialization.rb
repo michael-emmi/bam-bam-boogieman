@@ -51,8 +51,10 @@ module Bpl
 
           next unless decl.body
 
-          copies = (1..rounds).map { bpl("#{decl}") }
+          copies = (1..rounds).map { bpl("#{decl}") } # "clone"
           copies.each_with_index do |copy,i|
+
+            isStartBlock = false
 
             copy.replace do |elem|
               case elem
@@ -66,7 +68,11 @@ module Bpl
               when AssumeStatement
                 elem.attributes[:pause] = [i] if elem.attributes.include?(:pause)
                 elem.attributes[:resume] = [i] if elem.attributes.include?(:resume)
+                isStartBlock ||= elem.attributes.include?(:startpoint)
+              when GotoStatement
+                isStartBlock = false
               end
+              next nil if isStartBlock && i > 0
               elem
             end
           end
