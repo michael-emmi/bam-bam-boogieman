@@ -2,8 +2,8 @@ module Bpl
     
   module Analysis
     def self.resolve! program
-      program.declarations.each do |d| d.parent = program end
-      scope = [program]
+      program.declarations.each {|d| d.parent = program} if program.is_a?(Program)
+      scope = [program] if program.respond_to? :resolve
       program.traverse do |elem,turn|
         case elem
         when ProcedureDeclaration, FunctionDeclaration, Block, QuantifiedExpression
@@ -73,7 +73,7 @@ module Bpl
           @declarations.find{|decl| decl.names.include? id.name}
 
         when LabelIdentifier
-          ls = @statements.find{|label| label == id.name}
+          ls = @statements.find{|label| label.is_a?(Label) && label.name == id.name}
           def ls.signature; "label" end if ls
           ls
 

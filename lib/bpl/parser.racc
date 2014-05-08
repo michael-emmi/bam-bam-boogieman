@@ -188,10 +188,12 @@ rule
   loop_inv: free_opt 'invariant' expr ';' { LoopInvariant.new free: val[0], expression: val[2] }
   loop_invs: { [] } | loop_inv loop_invs { [val[0]] + val[1] }
   free_opt: { false } | 'free' { true }
-  
+
+  label: name { Label.new name: val[0] }
+
   lstmts: 
     { [] } 
-    | name ':' lstmts { [val[0]] + val[2] }
+    | label ':' lstmts { [val[0]] + val[2] }
     | stmt lstmts { [val[0]] + val[1] }
 
   block: '{' var_decls lstmts '}' { Block.new declarations: val[1], statements: val[2] }

@@ -240,6 +240,7 @@ begin
   require_relative 'bpl/analysis/modifies_correction'
   require_relative 'bpl/analysis/inlining'
   require_relative 'bpl/analysis/eqr_sequentialization'
+  require_relative 'bpl/analysis/flat_sequentialization'
   require_relative 'bpl/analysis/static_segments'
   require_relative 'bpl/analysis/verification'
   require_relative 'bpl/analysis/trace'
@@ -289,6 +290,7 @@ begin
       Bpl::Analysis::static_segments_sequentialize! program
     else
       Bpl::Analysis::eqr_sequentialize! program, @rounds, @delays
+      # Bpl::Analysis::flat_sequentialize! program, @rounds, @delays, @unroll
     end
   end if @sequentialization
 

@@ -351,6 +351,10 @@ module Bpl
     end
 
     def self.prepare_for_boogie_fi! program, unroll
+      add_inline_annotations! program, unroll
+    end
+
+    def self.add_inline_annotations! program, unroll
       program.declarations.each do |d|
         if d.is_a?(ProcedureDeclaration) && d.body && !d.is_entrypoint?
           d.attributes[:inline] = [bpl("#{unroll || 1}")]
