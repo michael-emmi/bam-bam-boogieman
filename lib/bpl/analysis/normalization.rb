@@ -3,7 +3,7 @@ module Bpl
   module AST
     class Declaration
       def is_entrypoint?
-        is_a?(ProcedureDeclaration) && body && attributes.has_key?(:entrypoint)
+        is_a?(ProcedureDeclaration) && attributes.has_key?(:entrypoint)
       end
     end
   end

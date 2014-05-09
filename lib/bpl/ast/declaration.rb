@@ -115,7 +115,12 @@ module Bpl
     end
     
     class ImplementationDeclaration < ProcedureDeclaration
-      def show(&block); "implementation #{sig(&block)}\n#{@body.map{|b| yield b} * "\n"}" end
+      attr_accessor :declaration
+      def initialize(opts = {})
+        super(opts)
+        @declaration = nil
+      end
+      def show(&block); "implementation #{sig(&block)}\n#{yield @body}" end
     end
   end
 end

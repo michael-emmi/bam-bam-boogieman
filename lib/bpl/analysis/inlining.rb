@@ -17,7 +17,7 @@ module Bpl
       end
 
       program.declarations.each do |decl|
-        next if decl.is_a?(ProcedureDeclaration)
+        next if decl.is_a?(ProcedureDeclaration) && decl.body
         inlined.declarations << decl
       end
 

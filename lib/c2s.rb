@@ -241,6 +241,7 @@ begin
   require_relative 'bpl/analysis/normalization'
   require_relative 'bpl/analysis/modifies_correction'
   require_relative 'bpl/analysis/inlining'
+  require_relative 'bpl/analysis/df_async_removal'
   require_relative 'bpl/analysis/eqr_sequentialization'
   require_relative 'bpl/analysis/flat_sequentialization'
   require_relative 'bpl/analysis/static_segments'
@@ -293,14 +294,10 @@ begin
     if program.any?{|e| e.attributes.include? :static_threads}
       Bpl::Analysis::static_segments_sequentialize! program
     else
-      # EqrSequentialization.new(@rounds, @delays).sequentialize! program
-      FlatSequentialization.new(@rounds,@delays,@unroll).sequentialize! program
+      EqrSequentialization.new(@rounds, @delays).sequentialize! program
+      # FlatSequentialization.new(@rounds,@delays,@unroll).sequentialize! program
     end
   end if @sequentialization
-
-  timed 'Inlining' do
-    program = Bpl::Analysis::inline program
-  end if @inlining
 
   timed 'Inspection' do
     puts program.inspect

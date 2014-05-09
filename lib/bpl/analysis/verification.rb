@@ -262,7 +262,7 @@ module Bpl
         err "invalid back-end: #{options[:verifier]}"
       end
 
-      # boogie_opts << "/useArrayTheory"
+      # boogie_opts << "/useArrayTheory" # NOTE always slower for mje
 
       boogie_opts << "/errorLimit:1"
       boogie_opts << "/errorTrace:2"

@@ -26,6 +26,7 @@ module Bpl
             mods += elem.lhs.map(&:name) & globals
           when CallStatement
             mods += elem.assignments.map(&:name) & globals
+            puts "UNRESOLVED: #{elem.inspect}" unless elem.declaration
             elem.declaration.callers << proc
           end
         end
@@ -36,7 +37,9 @@ module Bpl
 
       until work_list.empty?
         proc = work_list.shift
-        proc.callers.each do |caller|
+        targets = proc.callers
+        targets << proc.declaration if proc.respond_to?(:declaration) && proc.declaration
+        targets.each do |caller|
           mods = proc.modifies - caller.modifies
           accs = proc.accesses - caller.accesses
           caller.specifications << bpl("modifies #{mods.to_a * ", "};") unless mods.empty?

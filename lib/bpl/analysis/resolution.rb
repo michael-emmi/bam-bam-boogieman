@@ -2,8 +2,8 @@ module Bpl
     
   module Analysis
     def self.resolve! program
-      program.declarations.each {|d| d.parent = program} if program.is_a?(Program)
-      scope = [program] if program.respond_to? :resolve
+      program.declarations.each {|d| d.parent = program} # if program.is_a?(Program)
+      scope = [program] # if program.respond_to? :resolve
       program.traverse do |elem,turn|
         case elem
         when ProcedureDeclaration, FunctionDeclaration, Block, QuantifiedExpression
@@ -11,6 +11,11 @@ module Bpl
           when :pre then scope.unshift elem
           else scope.shift
           end
+          if elem.is_a?(ImplementationDeclaration)
+            elem.declaration = program.resolve(ProcedureIdentifier.new(name: elem.name))
+            warn "could not resolve implementation #{elem.name}" unless elem.declaration
+          end
+
         when Identifier
           case turn
           when :pre
@@ -25,7 +30,7 @@ module Bpl
           case turn
           when :pre
             elem.declaration = scope.last.resolve(elem)
-            warn "could not resolve type #{elem}"  unless elem.declaration
+            warn "could not resolve type #{elem}" unless elem.declaration
 
           end
         when Statement
