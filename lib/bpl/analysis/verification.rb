@@ -274,8 +274,10 @@ module Bpl
       boogie_opts << "/timeLimit:#{options[:timeout]}" if options[:timeout]
       boogie_opts << "/proverOpt:C:TRACE=true" if options[:debug_solver]
 
-      if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#DELAYS')}
+      if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#ROUNDS')}
         program.declarations.push bpl("axiom #ROUNDS == #{options[:rounds]};")
+      end
+      if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#DELAYS')}
         program.declarations.push bpl("axiom #DELAYS == #{options[:delays]};")
       end
       if program.declarations.any?{|d| d.is_a?(FunctionDeclaration) && d.name == '$R'}

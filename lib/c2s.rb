@@ -248,6 +248,8 @@ begin
   require_relative 'bpl/analysis/trace'
   require_relative 'z3/model'
   require_relative 'c2s/frontend'
+  
+  include Bpl::Analysis
 
   begin
     require 'eventmachine'
@@ -291,8 +293,8 @@ begin
     if program.any?{|e| e.attributes.include? :static_threads}
       Bpl::Analysis::static_segments_sequentialize! program
     else
-      Bpl::Analysis::eqr_sequentialize! program, @rounds, @delays
-      # Bpl::Analysis::flat_sequentialize! program, @rounds, @delays, @unroll
+      # EqrSequentialization.new(@rounds, @delays).sequentialize! program
+      FlatSequentialization.new(@rounds,@delays,@unroll).sequentialize! program
     end
   end if @sequentialization
 
