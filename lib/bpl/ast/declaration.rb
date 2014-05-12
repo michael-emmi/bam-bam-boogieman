@@ -92,6 +92,11 @@ module Bpl
       def modifies
         specifications.map{|s| s.is_a?(ModifiesClause) ? s.identifiers : []}.flatten
       end
+      def fresh_var(prefix="",type)
+        taken = @parameters.map{|x| x.names}.flatten + @returns.map{|x| x.names}.flatten
+        @body && @body.fresh_var(prefix,type,taken)
+      end
+      def fresh_label(prefix="$label") @body && @body.fresh_label(prefix) end
       def sig(&blk)
         params = @parameters.map{|a| yield a} * ", "
         rets = @returns.empty? ? "" : "returns (#{@returns.map{|a| yield a} * ", "})"

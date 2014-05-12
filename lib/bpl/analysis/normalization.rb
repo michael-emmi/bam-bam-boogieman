@@ -71,16 +71,11 @@ module Bpl
         else
           proc.body.statements << bpl("return;")
         end
-
-        # TODO use error block to avoid extra if statements
-        # err_block = [
-        #   Label.new(name: "$err"),
-        #   bpl("assume $e;"),
-        #   bpl("goto $exit;")
-        # ]
+        
+        exit_label = proc.fresh_label("$exit")
 
         exit_block = [
-          Label.new(name: "$exit"),
+          exit_label.declaration,
           if proc.is_entrypoint? then [
             bpl("assume {:endpoint} true;"),
             bpl("assume $e;"),
@@ -89,29 +84,26 @@ module Bpl
           bpl("return;")
         ].compact.flatten
 
-        already_got_a_return = false
         proc.body.replace do |s|
           case s
           when AssertStatement
-            next bpl("if (!#{s.expression}) { $e := true; goto $exit; }")
+            next bpl("if (!#{s.expression}) { $e := true; goto #{exit_label}; }")
 
           when CallStatement
             next s unless (called = s.declaration) && called.body
-            next [ s, bpl("if ($e) { goto $exit; }") ]
+            next [s, bpl("if ($e) { goto #{exit_label}; }")]
 
           when AssumeStatement
             next s unless s.attributes.include? :yield
-            next [ s, bpl("if ($e) { goto $exit; }") ]
+            next [s, bpl("if ($e) { goto #{exit_label}; }")]
 
           when ReturnStatement
-            next bpl("goto $exit;") if already_got_a_return
-            already_got_a_return = true
-            next exit_block
+            next bpl("goto #{exit_label};")
           else
             next s
           end
         end
-        proc.body.statements += exit_block unless already_got_a_return
+        proc.body.statements += exit_block
       end
     end
   end

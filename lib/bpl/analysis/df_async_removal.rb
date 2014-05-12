@@ -2,6 +2,8 @@ module Bpl
   module Analysis
     module DFAsyncRemoval
 
+      def is_global?(g) g.is_a?(StorageIdentifier) && g.is_variable? && g.is_global? end
+
       def async_to_call! program
         globals = program.global_variables.select{|d| (d.names & ['#d']).empty?}
         gs = globals.map{|d| d.idents}.flatten
@@ -88,7 +90,7 @@ module Bpl
 
                   # replace the return assignments with dummy assignments
                   elem.assignments.map! do |x|
-                    elem.parent.fresh_var(x.declaration.type).idents.first
+                    decl.fresh_var(x.declaration.type)
                   end
 
                   # make sure to pass the 'save'd version of any globals

@@ -80,12 +80,27 @@ module Bpl
     end
 
     class Block < Statement
-      children :declarations, :statements
-      def fresh_var(type)
-        taken = @declarations.map{|d| d.names}.flatten
-        var = (0..Float::INFINITY).each{|i| unless taken.include?(v = "_#{i}"); break v end}
-        @declarations << decl = VariableDeclaration.new(names: [var], type: type)
-        decl
+      children :declarations, :labels, :statements
+      def initialize(opts = {})
+        super(opts)
+        @labels = @statements.select{|l| l.is_a?(Label)}
+      end
+      def fresh_var(prefix,type,taken=[])
+        taken += @declarations.map{|d| d.names}.flatten
+        name = fresh_from(prefix || "$var", taken)
+        @declarations << decl = VariableDeclaration.new(names: [name], type: type)
+        return StorageIdentifier.new(name: name, declaration: decl)
+      end
+      def fresh_label(prefix)
+        name = fresh_from (prefix || "$bb"), @labels.map(&:name)
+        @labels << decl = Label.new(name: name)
+        return LabelIdentifier.new(name: name, declaration: decl)
+      end
+      def fresh_from(prefix,taken)
+        return prefix unless taken.include?(prefix) || prefix.empty?
+        (0..Float::INFINITY).each do |i|
+           break "#{prefix}_#{i}" unless taken.include?("#{prefix}_#{i}")
+        end
       end
       def show
         str = "\n"

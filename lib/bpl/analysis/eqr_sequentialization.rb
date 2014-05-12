@@ -230,7 +230,7 @@ module Bpl
               bpl("const #{names.map {|g| "#{g}.r#{k}.0"} * ", "}: #{type};") ]
           end
         end.flatten
-        program.declarations << bpl("var #d: int;")
+        # program.declarations << bpl("var #d: int;")
 
         program.declarations.each do |decl|
           case decl
@@ -244,6 +244,23 @@ module Bpl
                     bpl("ensures #k == #{k} || #{g}.r#{k} == old(#{g}.r#{k});")
                 end
               end
+
+              decl.specifications.select{|s| s.is_a?(EnsuresClause)}.each do |s|
+                next unless s.any? {|g| is_global?(g)}
+                decl.specifications.delete s
+                (0..@rounds-1).map do |i|
+                  spec = bpl("ensures #k != #{i} || #{s.expression};")
+                  spec.replace do |elem|
+                    case elem
+                    when StorageIdentifier
+                      next bpl("#{elem}.r#{i}") if gs.map(&:name).include?(elem.name)
+                    end
+                    elem
+                  end
+                  decl.specifications << spec
+                end
+              end
+
               decl.specifications.each do |spec|
                 case spec
                 when ModifiesClause
@@ -296,9 +313,9 @@ module Bpl
                   end
                 end
               end
-              decl.specifications << bpl("modifies #d;")
-              decl.body.declarations << bpl("var #j: int;") \
-                if decl.body.any?{|e| e.attributes.include? :yield}
+              # decl.specifications << bpl("modifies #d;")
+              # decl.body.declarations << bpl("var #j: int;") \
+                # if decl.body.any?{|e| e.attributes.include? :yield}
 
               decl.body.replace do |elem|
                 case elem
@@ -338,24 +355,32 @@ module Bpl
 
                 when AssumeStatement
                   if elem.attributes.include? :yield then
+                    round = decl.fresh_var("#k","int")
+                    next [
+                      bpl("assume #{round} >= 0;"),
+                      bpl("assume #{round} >= #k;"),
+                      bpl("assume #{round} < #ROUNDS;"),
+                      bpl("#k := #{round};")
+                    ]
 
-                    next bpl(<<-end
-                      if (*) {
-                        havoc #j;
-                        assume #j >= 1;
-                        assume #k + #j < #ROUNDS;
-                        // assume #d + #j <= #DELAYS;
-                        assume #d + 1 <= #DELAYS;
-                        #k := #k + #j;
-                        // #d := #d + #j;
-                        #d := #d + 1;
-                      }
-                    end
-                    )
+                    # next bpl(<<-end
+                    #   if (*) {
+                    #     havoc #j;
+                    #     assume #j >= 1;
+                    #     assume #k + #j < #ROUNDS;
+                    #     // assume #d + #j <= #DELAYS;
+                    #     // assume #d + 1 <= #DELAYS;
+                    #     #k := #k + #j;
+                    #     // #d := #d + #j;
+                    #     // #d := #d + 1;
+                    #   }
+                    # end
+                    # )
 
                   elsif elem.attributes.include? :startpoint
 
-                    next [ bpl("#d := 0;"), bpl("#k := 0;") ] +
+                    # next [ bpl("#d := 0;"), bpl("#k := 0;") ] +
+                    next [ bpl("#k := 0;") ] +
                       mods.product((1..@rounds-1).entries).map do |g,k|
                         bpl("#{g}.r#{k} := #{g}.r#{k}.0;")
                       end +

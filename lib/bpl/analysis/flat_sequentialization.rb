@@ -58,7 +58,7 @@ module Bpl
 
               # replace the return assignments with dummy assignments
               elem.assignments.map! do |x|
-                elem.parent.fresh_var(x.declaration.type).idents.first
+                elem.parent.fresh_var(x.declaration.type)
               end
 
               # make sure to pass the 'save'd version of any globals

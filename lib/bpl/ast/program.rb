@@ -13,12 +13,12 @@ module Bpl
 
       def fresh_var(prefix,type)
         taken = global_variables.map{|d| d.names}.flatten
-        var = prefix unless taken.include?(prefix)
-        var ||= (0..Float::INFINITY).each do |i|
-          unless taken.include?(v = "#{prefix}_#{i}"); break v end
+        name = prefix unless taken.include?(prefix)
+        name ||= (0..Float::INFINITY).each do |i|
+          break "#{prefix}_#{i}" unless taken.include?(v = "#{prefix}_#{i}")
         end
-        @declarations << decl = bpl("var #{var}: #{type};")
-        decl
+        @declarations << decl = bpl("var #{name}: #{type};")
+        return StorageIdentifier.new(name: name, declaration: decl)
       end
 
     end
