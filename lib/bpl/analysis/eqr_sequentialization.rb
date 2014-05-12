@@ -294,6 +294,9 @@ module Bpl
               if decl.is_entrypoint?
                 decl.body.declarations << bpl("var #k: int;")
 
+              elsif decl.attributes.include? :atomic
+                decl.parameters << bpl("#k: int")
+
               else
                 decl.parameters << bpl("#k.0: int")
                 decl.returns << bpl("#k: int")
@@ -321,12 +324,15 @@ module Bpl
                 case elem
                 when CallStatement
                   proc = elem.procedure.declaration
-                  if proc && proc.body
-                    elem.arguments << bpl("#k")
-                    elem.assignments << bpl("#k")
-                  elsif proc && !proc.modifies.empty?
+
+                  if proc && (proc.body || !proc.modifies.empty?)
                     elem.arguments << bpl("#k")
                   end
+
+                  if proc && proc.body && !proc.attributes.include?(:atomic)
+                    elem.assignments << bpl("#k")
+                  end
+
                   next elem
 
                 when AssignStatement
@@ -335,6 +341,20 @@ module Bpl
                     g.is_variable? && g.is_global? &&
                     !excluded_variables.include?(g.name)
                   }} then
+
+                    if decl.name == "$static_init"
+                      elem.lhs.each {|lhs| lhs.replace {|elem|
+                        if elem.is_a?(StorageIdentifier)&& elem.is_variable? &&
+                          elem.is_global? && !excluded_variables.include?(elem.name)
+                          then
+                          bpl("#{elem}.r0")
+                        else
+                          elem
+                        end
+                      }}
+                      next elem
+                    end
+
                     next (0..@rounds-1).reduce(nil) do |rest,k|
                       lhs = elem.lhs.map {|lhs| lhs.clone.replace {|elem|
                         if elem.is_a?(StorageIdentifier) &&
@@ -345,10 +365,12 @@ module Bpl
                           elem
                         end
                       }}
-                      if rest
+                      if rest.is_a?(IfStatement)
                         bpl("if (#k == #{k}) { #{lhs * ", "} := #{elem.rhs * ", "}; } else #{rest}")
+                      elsif rest.is_a?(Statement)
+                        bpl("if (#k == #{k}) { #{lhs * ", "} := #{elem.rhs * ", "}; } else { #{rest} }")
                       else
-                        bpl("if (true) { #{lhs * ", "} := #{elem.rhs * ", "}; }")
+                        bpl("#{lhs * ", "} := #{elem.rhs * ", "};")
                       end
                     end
                   end

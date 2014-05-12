@@ -26,8 +26,6 @@ module Bpl
             mods += elem.lhs.map(&:name) & globals
           when CallStatement
             mods += elem.assignments.map(&:name) & globals
-            puts "UNRESOLVED: #{elem.inspect}" unless elem.declaration
-            elem.declaration.callers << proc
           end
         end
         proc.specifications << bpl("modifies #{mods.to_a * ", "};") \

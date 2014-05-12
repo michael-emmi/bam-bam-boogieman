@@ -107,10 +107,11 @@ module Bpl
         (@returns.empty? ? "" : ":#{@returns.map(&:type) * ","}")
       end
       def show(&block)
-        specs = @specifications.empty? ? "" : "\n"
-        specs << "// accesses #{accesses.map{|a| yield a} * ", "};\n" \
+        specs = []
+        specs << "// accesses #{accesses.map{|a| yield a} * ", "};" \
           if respond_to?(:accesses) && accesses && !accesses.empty?
-        specs << @specifications.map{|a| yield a} * "\n"
+        specs += @specifications.map{|a| yield a}
+        specs = specs.empty? ? "" : "\n" + specs * "\n"
         if @body
           "procedure #{sig(&block)}#{specs}\n#{yield @body}"
         else

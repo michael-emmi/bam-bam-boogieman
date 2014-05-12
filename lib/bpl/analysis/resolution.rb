@@ -31,10 +31,14 @@ module Bpl
           when :pre
             elem.declaration = scope.last.resolve(elem)
             warn "could not resolve type #{elem}" unless elem.declaration
-
           end
         when Statement
-          elem.parent = scope.first
+          case turn
+          when :post
+            elem.parent = scope.first
+            elem.declaration.callers << scope[1] \
+              if elem.is_a?(CallStatement) && elem.declaration
+          end
         end
         elem
       end

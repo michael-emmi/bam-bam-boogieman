@@ -90,7 +90,11 @@ module Bpl
             next bpl("if (!#{s.expression}) { $e := true; goto #{exit_label}; }")
 
           when CallStatement
-            next s unless (called = s.declaration) && called.body
+            called = s.declaration
+            next s unless called
+            # next s if called.attributes.include?(:atomic)
+            # next s if called.attributes.include?(:async)
+            next s unless called.body
             next [s, bpl("if ($e) { goto #{exit_label}; }")]
 
           when AssumeStatement

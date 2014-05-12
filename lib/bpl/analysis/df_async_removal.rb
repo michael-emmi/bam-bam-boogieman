@@ -9,7 +9,7 @@ module Bpl
         gs = globals.map{|d| d.idents}.flatten
         return if gs.empty?
 
-        program.declarations << bpl("var #tasks: int;")
+        # program.declarations << bpl("var #tasks: int;")
         program.declarations += globals.map do |decl|
           bpl "var #{decl.names.map{|g| "#{g}.next"} * ", "}: #{decl.type};"
         end
@@ -31,15 +31,15 @@ module Bpl
             # decl.add_modifies! (gs-mods) \
             #   if decl.body.any?{|s| s.attributes.include? :async}
 
-            decl.specifications << bpl("modifies #tasks;")
+            # decl.specifications << bpl("modifies #tasks;")
 
             if decl.is_entrypoint?
-              decl.body.declarations << bpl("var #t: int;")
+              # decl.body.declarations << bpl("var #t: int;")
               decl.body.declarations += globals.map do |decl|
                 bpl "var #{decl.names.map{|g| "#{g}.start"} * ", "}: #{decl.type};"
               end
             else
-              decl.parameters << bpl("#t: int")
+              # decl.parameters << bpl("#t: int")
             end
 
             if decl.body.any? do |elem|
@@ -56,10 +56,9 @@ module Bpl
               case elem
               when AssumeStatement
                 if elem.attributes.include? :startpoint
-                  next [bpl("#tasks := 0;")] +
-                    [bpl("#t := 0;")] +
-                    accs.map{|g| bpl("#{g}.next := #{g}.start;")} +
-                    [elem]
+                  # next [ bpl("#tasks := 0;")] +
+                  #   [bpl("#t := 0;")] +
+                  next accs.map{|g| bpl("#{g}.next := #{g}.start;")} + [elem]
 
                 elsif elem.attributes.include? :endpoint
                   next [elem] +
@@ -86,7 +85,7 @@ module Bpl
                   var = elem.attributes[:async].first
 
                   elem.attributes.delete :async
-                  elem.arguments << bpl("#tasks") if proc && proc.body
+                  # elem.arguments << bpl("#tasks") if proc && proc.body
 
                   # replace the return assignments with dummy assignments
                   elem.assignments.map! do |x|
@@ -109,14 +108,14 @@ module Bpl
                     call_accs.map{|g| bpl("#{g} := #{g}.next;")} +
                     call_mods.map{|g| bpl("havoc #{g}.guess;")} +
                     call_mods.map{|g| bpl("#{g}.next := #{g}.guess;")} +
-                    [ bpl("#tasks := #tasks + 1;") ] +
-                    (var ? [bpl("#{var} := #tasks;")] : []) +
+                    # [ bpl("#tasks := #tasks + 1;") ] +
+                    # (var ? [bpl("#{var} := #tasks;")] : []) +
                     [ elem ] +
                     call_mods.map{|g| bpl("assume #{g} == #{g}.guess;")} +
                     call_accs.map{|g| bpl("#{g} := #{g}.save;")}
 
                 else # a synchronous procedure call
-                  elem.arguments << bpl("#t") if proc && proc.body
+                  # elem.arguments << bpl("#t") if proc && proc.body
 
                 end
               end

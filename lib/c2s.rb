@@ -238,6 +238,7 @@ begin
   require_relative 'bpl/parser.tab'
   require_relative 'bpl/analysis/resolution'
   require_relative 'bpl/analysis/type_checking'
+  require_relative 'bpl/analysis/atomicity'
   require_relative 'bpl/analysis/normalization'
   require_relative 'bpl/analysis/modifies_correction'
   require_relative 'bpl/analysis/inlining'
@@ -281,6 +282,10 @@ begin
   timed 'Type-checking' do
     Bpl::Analysis::type_check program
   end if @type_checking
+
+  timed 'Atomicity analysis' do
+    Bpl::Analysis::detect_atomic! program
+  end
 
   timed('Normalization') do
     Bpl::Analysis::normalize! program
