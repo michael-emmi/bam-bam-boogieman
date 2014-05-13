@@ -46,8 +46,10 @@ module Bpl
         targets.each do |caller|
           mods = proc.modifies - caller.modifies
           accs = proc.accesses - caller.accesses
-          caller.specifications << ModifiesClause.new(identifiers: mods.to_a) unless mods.empty?
-          caller.accesses << AccessesClause.new(identifiers: accs.to_a) unless accs.empty?
+          caller.specifications << ModifiesClause.new(identifiers: mods.to_a) \
+            unless mods.empty?
+          caller.specifications << AccessesClause.new(identifiers: accs.to_a) \
+            unless accs.empty?
           work_list |= [caller] unless mods.empty? && accs.empty?
         end
       end

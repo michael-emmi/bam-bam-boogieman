@@ -20,12 +20,12 @@ module Bpl
 
       def sequentialize! program
         vectorize! program
-        Bpl::Analysis::resolve! program
-        Bpl::Analysis::correct_modifies! program
+        # Bpl::Analysis::resolve! program
+        # Bpl::Analysis::correct_modifies! program
         async_to_call! program
         # bookmarks! program
-        Bpl::Analysis::resolve! program
-        Bpl::Analysis::correct_modifies! program
+        # Bpl::Analysis::resolve! program
+        # Bpl::Analysis::correct_modifies! program
       end
 
       def excluded_variables; ['#d'] end
@@ -235,6 +235,8 @@ module Bpl
         program.declarations.each do |decl|
           case decl
           when ProcedureDeclaration
+            
+            scope = [decl.body, decl, program]
 
             if !decl.body && !decl.modifies.empty?
               decl.parameters << bpl("#k: int")
@@ -326,11 +328,11 @@ module Bpl
                   proc = elem.procedure.declaration
 
                   if proc && (proc.body || !proc.modifies.empty?)
-                    elem.arguments << bpl("#k")
+                    elem.arguments << bpl("#k").resolve!(scope)
                   end
 
                   if proc && proc.body && !proc.attributes.include?(:atomic)
-                    elem.assignments << bpl("#k")
+                    elem.assignments << bpl("#k").resolve!(scope)
                   end
 
                   next elem
