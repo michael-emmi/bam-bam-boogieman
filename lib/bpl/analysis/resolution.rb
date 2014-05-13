@@ -5,6 +5,8 @@ module Bpl
         scope ||= [self] if self.respond_to?(:resolve)
         scope ||= []
         scope = [scope] unless scope.is_a?(Array)
+        scope.select!{|s| s.respond_to?(:resolve)}
+
         declarations.each {|d| d.parent = self} if self.is_a?(Program)
         traverse do |elem,turn|
           case elem
@@ -42,8 +44,8 @@ module Bpl
               proc_decl = scope.find {|s| s.is_a?(ProcedureDeclaration)}
               elem.parent = proc_decl
 
-              if elem.is_a?(CallStatement) && elem.declaration
-                elem.declaration.callers << proc_decl
+              if elem.is_a?(CallStatement) && elem.target
+                elem.target.callers << proc_decl
               end
 
             end

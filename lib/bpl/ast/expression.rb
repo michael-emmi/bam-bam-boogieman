@@ -49,10 +49,10 @@ module Bpl
     
     class StorageIdentifier < Identifier
       def is_variable?
-        @declaration && @declaration.is_a?(VariableDeclaration)
+        @declaration && @declaration.is_a?(VariableDeclaration) || false
       end
       def is_global?
-        @declaration && @declaration.parent && @declaration.parent.is_a?(Program)
+        @declaration && @declaration.parent && @declaration.parent.is_a?(Program) || false
       end
     end
     class ProcedureIdentifier < Identifier; end

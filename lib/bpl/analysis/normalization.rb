@@ -41,7 +41,7 @@ module Bpl
         case elem
         when CallStatement
           abort "found call to entry point procedure #{elem.procedure}." \
-            if (d = elem.procedure.declaration) && d.is_entrypoint?
+            if elem.target && elem.target.is_entrypoint?
         when AssumeStatement
           abort "found :startpoint annotation." \
             if elem.attributes.include? :startpoint
@@ -92,11 +92,9 @@ module Bpl
             next bpl("if (!#{s.expression}) { $e := true; goto #{exit_label}; }").resolve!(scope)
 
           when CallStatement
-            called = s.declaration
-            next s unless called
             # next s if called.attributes.include?(:atomic)
             # next s if called.attributes.include?(:async)
-            next s unless called.body
+            next s unless s.target && s.target.body
             next [s, bpl("if ($e) { goto #{exit_label}; }").resolve!(scope)]
 
           when AssumeStatement
