@@ -1,51 +1,58 @@
 module Bpl
-    
-  module Analysis
-    def self.resolve! program
-      program.declarations.each {|d| d.parent = program} # if program.is_a?(Program)
-      scope = [program] # if program.respond_to? :resolve
-      program.traverse do |elem,turn|
-        case elem
-        when ProcedureDeclaration, FunctionDeclaration, Block, QuantifiedExpression
-          case turn
-          when :pre then scope.unshift elem
-          else scope.shift
-          end
-          if elem.is_a?(ImplementationDeclaration)
-            elem.declaration = program.resolve(ProcedureIdentifier.new(name: elem.name))
-            warn "could not resolve implementation #{elem.name}" unless elem.declaration
-          end
+  module AST
+    class Node
+      def resolve! scope=nil
+        scope ||= [self] if self.respond_to?(:resolve)
+        scope ||= []
+        scope = [scope] unless scope.is_a?(Array)
+        declarations.each {|d| d.parent = self} if self.is_a?(Program)
+        traverse do |elem,turn|
+          case elem
+          when ProcedureDeclaration, FunctionDeclaration, Block, QuantifiedExpression
+            case turn
+            when :pre then scope.unshift elem
+            else scope.shift
+            end
+            if elem.is_a?(ImplementationDeclaration)
+              elem.declaration = self.resolve(ProcedureIdentifier.new(name: elem.name))
+              warn "could not resolve implementation #{elem.name}" unless elem.declaration
+            end
 
-        when Identifier
-          case turn
-          when :pre
-            if s = scope.find {|s| s.resolve elem} then
-              elem.declaration = s.resolve elem
-            else
-              elem.declaration = nil
-              warn "could not resolve identifier #{elem}"
+          when Identifier
+            case turn
+            when :pre
+              if s = scope.find {|s| s.resolve elem} then
+                elem.declaration = s.resolve elem
+              else
+                elem.declaration = nil
+                warn "could not resolve identifier #{elem}"
+              end
+            end
+
+          when CustomType
+            case turn
+            when :pre
+              elem.declaration = scope.last.resolve(elem)
+              warn "could not resolve type #{elem}" unless elem.declaration
+            end
+
+          when Statement
+            case turn
+            when :post
+              proc_decl = scope.find {|s| s.is_a?(ProcedureDeclaration)}
+              elem.parent = proc_decl
+
+              if elem.is_a?(CallStatement) && elem.declaration
+                elem.declaration.callers << proc_decl
+              end
+
             end
           end
-        when CustomType
-          case turn
-          when :pre
-            elem.declaration = scope.last.resolve(elem)
-            warn "could not resolve type #{elem}" unless elem.declaration
-          end
-        when Statement
-          case turn
-          when :post
-            elem.parent = scope.first
-            elem.declaration.callers << scope[1] \
-              if elem.is_a?(CallStatement) && elem.declaration
-          end
+          elem
         end
-        elem
       end
     end
-  end
 
-  module AST
     class Program
       def resolve(id)
         case id
@@ -66,7 +73,7 @@ module Bpl
         end
       end
     end
-    
+
     class ProcedureDeclaration
       def resolve(id)
         return unless id.is_a?(StorageIdentifier)
@@ -91,18 +98,18 @@ module Bpl
         end
       end
     end
-    
+
     class FunctionDeclaration
       def resolve(id)
         id.is_a?(StorageIdentifier) && @arguments.find{|d| d.names.include? id.name}
       end
     end
-    
+
     class QuantifiedExpression
       def resolve(id)
         id.is_a?(StorageIdentifier) && @variables.find{|d| d.names.include? id.name}
       end
     end
-    
+
   end
 end

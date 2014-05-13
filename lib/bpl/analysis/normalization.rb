@@ -13,7 +13,7 @@ module Bpl
       locate_entrypoints! program
       sanity_check program
       uniq_starts_and_ends! program
-      resolve! program
+      # resolve! program
     end
 
     def self.is_default_entrypoint? name
@@ -56,10 +56,10 @@ module Bpl
       program.declarations << bpl("var $e: bool;")
       program.declarations.each do |proc|
         next unless proc.is_a?(ProcedureDeclaration) && proc.body
-        proc.specifications << bpl("modifies $e;")
+        proc.specifications << bpl("modifies $e;").resolve!(program)
 
         if proc.is_entrypoint?
-          proc.body.statements.unshift bpl("$e := false;")
+          proc.body.statements.unshift bpl("$e := false;").resolve!(program)
           proc.body.statements.unshift bpl("assume {:startpoint} true;")
         else
           # this branch costs extra, on the order of 10s in my tests
@@ -74,20 +74,22 @@ module Bpl
         
         exit_label = proc.fresh_label("$exit")
 
-        exit_block = [
+        exit_block = Block.new(declarations: [], statements: [
           exit_label.declaration,
           if proc.is_entrypoint? then [
             bpl("assume {:endpoint} true;"),
-            bpl("assume $e;"),
+            bpl("assume $e;").resolve!(program),
             bpl("assert false;")
           ] end,
           bpl("return;")
-        ].compact.flatten
+        ].compact.flatten)
+
+        scope = [exit_block, proc.body, proc, program]
 
         proc.body.replace do |s|
           case s
           when AssertStatement
-            next bpl("if (!#{s.expression}) { $e := true; goto #{exit_label}; }")
+            next bpl("if (!#{s.expression}) { $e := true; goto #{exit_label}; }").resolve!(scope)
 
           when CallStatement
             called = s.declaration
@@ -95,19 +97,19 @@ module Bpl
             # next s if called.attributes.include?(:atomic)
             # next s if called.attributes.include?(:async)
             next s unless called.body
-            next [s, bpl("if ($e) { goto #{exit_label}; }")]
+            next [s, bpl("if ($e) { goto #{exit_label}; }").resolve!(scope)]
 
           when AssumeStatement
             next s unless s.attributes.include? :yield
-            next [s, bpl("if ($e) { goto #{exit_label}; }")]
+            next [s, bpl("if ($e) { goto #{exit_label}; }").resolve!(scope)]
 
           when ReturnStatement
-            next bpl("goto #{exit_label};")
+            next bpl("goto #{exit_label};").resolve!(scope)
           else
             next s
           end
         end
-        proc.body.statements += exit_block
+        proc.body.statements += exit_block.statements
       end
     end
   end

@@ -276,7 +276,7 @@ begin
   trace = nil
 
   timed 'Resolution' do
-    Bpl::Analysis::resolve! program
+    program.resolve!
   end if @resolution
 
   timed 'Type-checking' do
@@ -285,7 +285,7 @@ begin
 
   timed 'Atomicity analysis' do
     Bpl::Analysis::detect_atomic! program
-  end
+  end if @sequentialization
 
   timed('Normalization') do
     Bpl::Analysis::normalize! program
