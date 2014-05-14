@@ -53,7 +53,7 @@ module Bpl
     end
 
     def self.uniq_starts_and_ends! program
-      program.declarations << bpl("var $e: bool;")
+      program << bpl("var $e: bool;")
       program.declarations.each do |proc|
         next unless proc.is_a?(ProcedureDeclaration) && proc.body
         proc.specifications << bpl("modifies $e;").resolve!(program)

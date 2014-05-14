@@ -13,8 +13,9 @@ module Bpl
         end
 
         globals.each do |decl|
-          program.declarations <<
-            bpl("var #{decl.names.map{|g| "#{g}.next"} * ", "}: #{decl.type};")
+          program << bpl(
+            "var #{decl.names.map{|g| "#{g}.next"} * ", "}: #{decl.type};"
+          )
         end
 
         program.declarations.each do |proc|

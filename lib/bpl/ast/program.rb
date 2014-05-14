@@ -4,6 +4,14 @@ module Bpl
   module AST
     class Program < Node
       children :declarations
+      def initialize(opts = {})
+        super(opts)
+        @declarations.each do |d| d.parent = self end
+      end
+      def <<(decl)
+        @declarations << decl
+        decl.parent = self
+      end
       attr_accessor :source_file
       def show; @declarations.map{|d| yield d} * "\n" end
       def global_variables; @declarations.select{|d| d.is_a?(VariableDeclaration)} end      
@@ -17,7 +25,7 @@ module Bpl
         name ||= (0..Float::INFINITY).each do |i|
           break "#{prefix}_#{i}" unless taken.include?(v = "#{prefix}_#{i}")
         end
-        @declarations << decl = bpl("var #{name}: #{type};")
+        self << decl = bpl("var #{name}: #{type};")
         return StorageIdentifier.new(name: name, declaration: decl)
       end
 

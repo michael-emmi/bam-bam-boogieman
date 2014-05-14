@@ -7,7 +7,6 @@ module Bpl
         scope = [scope] unless scope.is_a?(Array)
         scope.select!{|s| s.respond_to?(:resolve)}
 
-        declarations.each {|d| d.parent = self} if self.is_a?(Program)
         traverse do |elem,turn|
           case elem
           when ProcedureDeclaration, FunctionDeclaration, Block, QuantifiedExpression

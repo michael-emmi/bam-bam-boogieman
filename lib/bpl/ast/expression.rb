@@ -43,7 +43,9 @@ module Bpl
       def show; @name end
       def inspect
         (@declaration ? @name.green : @name.red) +
-        (type ? ":#{type.inspect.yellow}" : "")
+        (type ? ":#{type.inspect.yellow}" : "") +
+        ((is_a?(StorageIdentifier) && self.is_variable?) ? "<V>".blue : "") +
+        ((is_a?(StorageIdentifier) && self.is_global?) ? "<G>".blue : "")
       end
     end
     
