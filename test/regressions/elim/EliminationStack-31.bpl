@@ -1079,4 +1079,5 @@ var $CurrAddr:int;
 // END SMACK-GENERATED CODE
 // @c2s-options --unroll 1
 // @c2s-options --rounds 3
-// @c2s-expected Got a trace
+// @c2s-options --timeout 5
+// @c2s-expected timed out
