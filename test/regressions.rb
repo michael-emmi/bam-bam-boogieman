@@ -52,7 +52,7 @@ begin
   puts "c2s #{C2S::VERSION} REGRESSION TESTS".bold \
     unless $quiet
 
-  Dir.glob("./regressions/*.bpl").each do |source_file|
+  Dir.glob("./regressions/**/*.bpl").each do |source_file|
 
     # parse @c2s-expected comments in the source file
     expected = File.readlines(source_file).grep(/@c2s-expected (.*)/) do |line|

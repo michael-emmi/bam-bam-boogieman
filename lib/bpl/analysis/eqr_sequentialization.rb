@@ -34,7 +34,10 @@ module Bpl
 
       def vectorize! program
         return unless program.any? {|elem| elem.attributes.include?(:yield)}
-        return unless @rounds > 1
+        unless @rounds > 1
+          program.each {|elem| elem.attributes.delete(:yield)}
+          return
+        end
         globals = program.global_variables
         gs = globals.map(&:idents).flatten
         old_program = Program.new(declarations: program.declarations.select do |d|
@@ -68,9 +71,7 @@ module Bpl
           scope = [proc.body, proc, program]
           old_scope = [proc.body, proc, old_program]
 
-          if proc.is_entrypoint?
-            proc.body.declarations << bpl("var #k: int;")
-          elsif proc.attributes.include? :atomic
+          if proc.attributes.include? :atomic
             proc.parameters << bpl("#k: int")
           else
             proc.parameters << bpl("#k.0: int")

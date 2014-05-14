@@ -68,7 +68,7 @@ module Bpl
               end
 
             when CallStatement
-              called = elem.procedure.declaration
+              called = elem.target
 
               if elem.attributes.include? :async then
                 # var = elem.attributes[:async].first

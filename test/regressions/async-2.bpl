@@ -1,4 +1,5 @@
-// @c2s-options --unroll 1 --delays 1
+// @c2s-options --unroll 1
+// @c2s-options --rounds 2
 // @c2s-expected Got a trace
 
 var x: int;
