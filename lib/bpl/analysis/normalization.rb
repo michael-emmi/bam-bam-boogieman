@@ -79,10 +79,12 @@ module Bpl
           if proc.is_entrypoint? then [
             bpl("assume {:endpoint} true;"),
             bpl("assume $e;").resolve!(program),
-            bpl("assert false;")
-          ] end,
-          bpl("return;")
-        ].compact.flatten)
+            bpl("assert false;"),
+            bpl("return;")
+          ] else [
+            bpl("return;")
+          ] end
+        ].flatten)
 
         scope = [exit_block, proc.body, proc, program]
 
@@ -92,9 +94,11 @@ module Bpl
             next bpl("if (!#{s.expression}) { $e := true; goto #{exit_label}; }").resolve!(scope)
 
           when CallStatement
-            # next s if called.attributes.include?(:atomic)
-            # next s if called.attributes.include?(:async)
-            next s unless s.target && s.target.body
+            # TODO why do these "optimizations" make things slower??
+            # next s unless s.target && s.target.body
+            # next s if s.target.attributes.include?(:atomic)
+            # next s unless s.target.modifies.include?(bpl("$e").resolve!(program))
+            # next s if s.target.attributes.include?(:async)
             next [s, bpl("if ($e) { goto #{exit_label}; }").resolve!(scope)]
 
           when AssumeStatement
@@ -102,7 +106,9 @@ module Bpl
             next [s, bpl("if ($e) { goto #{exit_label}; }").resolve!(scope)]
 
           when ReturnStatement
-            next bpl("goto #{exit_label};").resolve!(scope)
+            next [
+              bpl("goto #{exit_label};").resolve!(scope)
+            ]
           else
             next s
           end

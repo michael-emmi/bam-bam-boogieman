@@ -69,17 +69,17 @@ module Bpl
           old_scope = [proc.body, proc, old_program]
 
           if proc.is_entrypoint?
-            # proc.body.declarations << bpl("var #k: int where #k >= 0 && #k < #{@rounds};")
             proc.body.declarations << bpl("var #k: int;")
           elsif proc.attributes.include? :atomic
-            # proc.parameters << bpl("#k: int where #k >= 0 && #k < #{@rounds}")
             proc.parameters << bpl("#k: int")
           else
-            # proc.parameters << bpl("#k.0: int where #k.0 >= 0 && #k.0 < #{@rounds}")
-            # proc.returns << bpl("#k: int where #k >= 0 && #k < #{@rounds}")
             proc.parameters << bpl("#k.0: int")
             proc.returns << bpl("#k: int")
             proc.body.statements.unshift bpl("assume #k == #k.0;").resolve!(scope)
+          end
+
+          if proc.any? {|s| s.attributes.include? :yield}
+            proc.body.declarations << bpl("var #j: int;")
           end
 
           old_mods = proc.modifies
@@ -174,12 +174,11 @@ module Bpl
 
             when AssumeStatement
               if stmt.attributes.include? :yield then
-                temp = proc.fresh_var("#k",Type::Integer)
                 next [
-                  bpl("assume #{temp} >= 0;").resolve!(scope),
-                  bpl("assume #{temp} >= #k;").resolve!(scope),
-                  bpl("assume #{temp} < #{@rounds};").resolve!(scope),
-                  bpl("#k := #{temp};").resolve!(scope)
+                  bpl("havoc #j;").resolve!(scope),
+                  bpl("assume #j >= #k;").resolve!(scope),
+                  bpl("assume #j < #{@rounds};").resolve!(scope),
+                  bpl("#k := #j;").resolve!(scope)
                 ]
 
               elsif stmt.attributes.include? :startpoint
