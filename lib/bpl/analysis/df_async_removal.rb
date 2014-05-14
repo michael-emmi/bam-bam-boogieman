@@ -110,6 +110,7 @@ module Bpl
             elem
           end
         end
+        Bpl::Analysis::correct_modifies! program
       end
 
     end

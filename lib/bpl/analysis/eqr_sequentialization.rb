@@ -22,182 +22,8 @@ module Bpl
 
       def sequentialize! program
         vectorize! program
-        # Bpl::Analysis::resolve! program
-        # Bpl::Analysis::correct_modifies! program
-        # async_to_call! program
-        # bookmarks! program
-        # Bpl::Analysis::resolve! program
-        # Bpl::Analysis::correct_modifies! program
+        async_to_call! program
       end
-
-      # def excluded_variables; ['#d'] end
-      # def included_variables program
-      #   program.global_variables.select{|d| (d.names & excluded_variables).empty?}
-      # end
-
-      # def self.bookmarks! program
-      #   bookmarks = Set.new
-      #   program.replace do |elem|
-      # 
-      #     if elem.attributes.include? :bookmark
-      #       next unless name = elem.attributes[:bookmark].first
-      #       bookmarks << name.gsub(/"/,"")
-      #       next [
-      #         bpl("$C.#{name}[#t] := $C.#{name}[#t] + 1;"),
-      #         bpl("assume $RRR(#t,$B.#{name},$C.#{name}[#t]) == #k;")
-      #       ]
-      # 
-      #     elsif elem.attributes.include? :round
-      #       next unless (ax = elem.attributes[:round]).count == 4
-      #       next bpl("assume $RRR(#{ax[0]},$B.#{ax[1]},#{ax[2]}) == #{ax[3]};")
-      #     end
-      # 
-      #     next elem
-      #   end
-      #   bookmarks.each_with_index do |name,i|
-      #     program.declarations << bpl("const $B.#{name}: int;")
-      #     program.declarations << bpl("axiom $B.#{name} == #{i};")
-      #     program.declarations << bpl("var $C.#{name}: [int] int;")
-      #   end
-      #   program.replace do |elem|
-      #     next elem unless elem.attributes.include? :startpoint
-      #     next bookmarks.map do |name|
-      #       bpl("assume (forall t: int :: {$C.#{name}[t]} $C.#{name}[t] == 0);")
-      #     end + [elem]
-      #   end
-      #   program.declarations << bpl("function $RRR(int,int,int) returns (int);")
-      # end
-      
-      # def vectorize! program
-      #   if @use_maps
-      #     vectorize_with_maps! program
-      #   else
-      #     vectorize_without_maps! program
-      #   end
-      # end
-      # 
-      # def vectorize_with_maps! program
-      #   globals = included_variables program
-      #   gs = globals.map{|d| d.idents}.flatten
-      #   return if gs.empty?
-      # 
-      #   # triggers
-      #   program.declarations << bpl("function $R(int) returns (bool);")
-      # 
-      #   program.declarations << bpl("const #ROUNDS: int;")
-      #   program.declarations << bpl("const #DELAYS: int;")
-      #   # program.declarations << bpl("axiom #ROUNDS == #{@rounds};")
-      #   # program.declarations << bpl("axiom #DELAYS == #{@delays};")
-      #   program.declarations += globals.map do |decl|
-      #     type = decl.type
-      #     decl.type = bpl_type("[int] #{type}")
-      #     bpl "const #{decl.names.map{|g| "#{g}.0"} * ", "}: [int] #{type};"
-      #   end
-      #   program.declarations << bpl("var #d: int;")
-      # 
-      #   program.declarations.each do |decl|
-      #     case decl
-      #     when ProcedureDeclaration
-      # 
-      #       if !decl.body && !decl.modifies.empty?
-      #         decl.parameters << bpl("#k: int")
-      #         decl.modifies.each do |x|
-      #           decl.specifications <<
-      #             bpl("ensures (forall k: int :: {$R(k)} k != #k ==> #{x}[k] == old(#{x})[k]);")
-      #         end
-      #         decl.specifications.each do |spec|
-      #           case spec
-      #           when EnsuresClause, RequiresClause
-      #             spec.replace do |elem|
-      #               if elem.is_a?(StorageIdentifier) && elem.is_variable? && elem.is_global? then
-      #                 next bpl("#{elem}[#k]")
-      #               end
-      #               elem
-      #             end
-      #           end
-      #         end
-      #       end
-      # 
-      #       if decl.body then
-      #         if decl.is_entrypoint?
-      #           decl.body.declarations << bpl("var #k: int;")
-      # 
-      #         else
-      #           decl.parameters << bpl("#k.0: int")
-      #           decl.returns << bpl("#k: int")
-      #           decl.body.statements.unshift bpl("#k := #k.0;")
-      #         end
-      # 
-      #         decl.specifications << bpl("modifies #d;")
-      #         decl.body.declarations << bpl("var #j: int;") \
-      #           if decl.body.any?{|e| e.attributes.include? :yield}
-      # 
-      #         mods = (decl.modifies & gs).sort
-      # 
-      #         decl.body.replace do |elem|
-      #           case elem
-      #           when CallStatement
-      #             called = elem.procedure.declaration
-      #             if called && called.body
-      #               elem.arguments << bpl("#k")
-      #               elem.assignments << bpl("#k")
-      #             elsif called && !called.modifies.empty?
-      #               elem.arguments << bpl("#k")
-      #             end
-      #             next elem
-      # 
-      #           when StorageIdentifier
-      #             if elem.is_variable? && elem.is_global? &&
-      #               !excluded_variables.include?(elem.name) then
-      #               next bpl("#{elem}[#k]")
-      #             end
-      # 
-      #           when AssumeStatement
-      #             if elem.attributes.include? :yield then
-      # 
-      #               next bpl(<<-end
-      #                 if (*) {
-      #                   havoc #j;
-      #                   assume #j >= 1;
-      #                   assume #k + #j < #ROUNDS;
-      #                   // assume #d + #j <= #DELAYS;
-      #                   assume #d + 1 <= #DELAYS;
-      #                   #k := #k + #j;
-      #                   // #d := #d + #j;
-      #                   #d := #d + 1;
-      #                 }
-      #               end
-      #               )
-      # 
-      #             elsif elem.attributes.include? :startpoint
-      # 
-      #               next [ bpl("#d := 0;"), bpl("#k := 0;") ] +
-      #                 mods.map{|g| bpl("#{g} := #{g}.0;")} +
-      #                 [elem]
-      # 
-      #             elsif elem.attributes.include? :endpoint
-      # 
-      #               # NEW VERSION -- independent of rounds bound.
-      #               next [elem] +
-      #                 mods.map do |g|
-      #                   bpl("assume (forall k: int :: {$R(k)} #{g}[k-1] == #{g}.0[k]);")
-      #                 end
-      # 
-      #               # PREVIOUS VERSION -- needs to know rounds bound.
-      #               # next [elem] +
-      #               #   (1..rounds).map do |i|
-      #               #     mods.map{|g| bpl("assume #{g}[#{i-1}] == #{g}.0[#{i}];")}
-      #               #   end.flatten
-      # 
-      #             end
-      #           end
-      #           elem
-      #         end
-      #       end
-      #     end
-      #   end
-      # 
-      # end
 
       def case_split(g)
         return g unless g.is_global_var?
@@ -211,7 +37,9 @@ module Bpl
         return unless @rounds > 1
         globals = program.global_variables
         gs = globals.map(&:idents).flatten
-        old_program = Program.new(declarations: globals)
+        old_program = Program.new(declarations: program.declarations.select do |d|
+          d.respond_to?(:name) || d.respond_to?(:names)
+        end)
 
         if globals.empty?
           program.each {|elem| elem.attributes.delete(:yield)}
@@ -238,14 +66,19 @@ module Bpl
         program.declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration)
           scope = [proc.body, proc, program]
+          old_scope = [proc.body, proc, old_program]
 
           if proc.is_entrypoint?
-            proc.body.declarations << bpl("var #k: int where #k >= 0 && #k < #{@rounds};")
+            # proc.body.declarations << bpl("var #k: int where #k >= 0 && #k < #{@rounds};")
+            proc.body.declarations << bpl("var #k: int;")
           elsif proc.attributes.include? :atomic
-            proc.parameters << bpl("#k: int where #k >= 0 && #k < #{@rounds}")
+            # proc.parameters << bpl("#k: int where #k >= 0 && #k < #{@rounds}")
+            proc.parameters << bpl("#k: int")
           else
-            proc.parameters << bpl("#k.0: int where #k.0 >= 0 && #k.0 < #{@rounds}")
-            proc.returns << bpl("#k: int where #k >= 0 && #k < #{@rounds}")
+            # proc.parameters << bpl("#k.0: int where #k.0 >= 0 && #k.0 < #{@rounds}")
+            # proc.returns << bpl("#k: int where #k >= 0 && #k < #{@rounds}")
+            proc.parameters << bpl("#k.0: int")
+            proc.returns << bpl("#k: int")
             proc.body.statements.unshift bpl("assume #k == #k.0;").resolve!(scope)
           end
 
@@ -259,6 +92,9 @@ module Bpl
                   "modifies #{@rounds.times.map{|i| "#{g}.r#{i}"} * ", "};"
                 ).resolve!(scope)
                 next unless proc.attributes.include?(:atomic)
+                next unless proc.body.nil?
+                # TODO why is it slower to include more ensures on atomic
+                # procedures which also have bodies??
                 @rounds.times do |i|
                   new_specs << bpl(
                     "ensures #k == #{i} || #{g}.r#{i} == old(#{g}.r#{i});"
@@ -270,7 +106,7 @@ module Bpl
               next unless proc.attributes.include?(:atomic)
               if spec.any?(&:is_global_var?)
                 @rounds.times do |i|
-                  expr = bpl_expr("#{spec.expression}").resolve!(old_program)
+                  expr = bpl_expr("#{spec.expression}").resolve!(old_scope)
                   expr.replace do |g|
                     if g.is_global_var? then bpl("#{g}.r#{i}") else g end
                   end
@@ -284,6 +120,25 @@ module Bpl
           proc.specifications = new_specs
           
           next unless proc.body
+
+          # replace each global `g` by `case_split(g)`
+          ignore = false
+          proc.body.traverse do |elem,phase|
+            case elem
+            when Trigger
+              ignore = (phase == :pre)
+              next nil # TODO don't throw away the triggers!
+
+            when AssignStatement
+              ignore = (phase == :pre)
+              elem.rhs.map! {|r| r.replace {|g| case_split(g).resolve!(scope)}} unless ignore
+
+            when StorageIdentifier
+              next case_split(elem).resolve!(scope) unless ignore
+            end
+            elem
+          end
+
           proc.body.replace do |stmt|
             case stmt
             when CallStatement
@@ -291,6 +146,7 @@ module Bpl
               stmt.assignments << bpl("#k").resolve!(scope) \
                 unless stmt.target && stmt.target.attributes.include?(:atomic)
               next stmt
+
             when AssignStatement
               next stmt unless stmt.lhs.any?{|l| l.any?(&:is_global_var?)}
               if proc.name == "$static_init"
@@ -303,7 +159,7 @@ module Bpl
               end
               next @rounds.times.reduce(nil) do |rest,i|
                 lhs = stmt.lhs.map do |l|
-                  bpl("#{l}").resolve!(old_program).replace do |g|
+                  bpl("#{l}").resolve!(old_scope).replace do |g|
                     if g.is_global_var? then bpl("#{g}.r#{i}") else g end
                   end
                 end
@@ -340,24 +196,7 @@ module Bpl
             end
             stmt
           end
-          
-          # finally, replace each global `g` by `case_split(g)`
-          ignore = false
-          proc.body.traverse do |elem,phase|
-            case elem
-            when Trigger
-              ignore = (phase == :pre)
-              next nil # TODO don't throw away the triggers!
 
-            when AssignStatement
-              ignore = (phase == :pre)
-              elem.rhs.map! {|r| r.replace {|g| case_split(g).resolve!(scope)}} unless ignore
-
-            else
-              next case_split(elem) unless ignore
-            end
-            elem
-          end
         end
       end
 

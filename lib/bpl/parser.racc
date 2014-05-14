@@ -240,8 +240,8 @@ rule
   }
   
   farg:
-    typed_ids { NameDeclaration.new val[0] } 
-    | type { NameDeclaration.new(names: [], type: val[0]) }
+    typed_ids { StorageDeclaration.new val[0] }
+    | type { StorageDeclaration.new(names: [], type: val[0]) }
   
   fargs:
     type { [{names: [], type: val[0]}] }
@@ -272,7 +272,7 @@ rule
     | fargs { 
       val[0].map do |x|
         x[:names].map!{|t| t.name}
-        NameDeclaration.new(x)
+        StorageDeclaration.new(x)
       end
     }
   fbody: ';' { nil } | '{' expr '}' { val[1] }
@@ -298,7 +298,7 @@ rule
   out_params: { [] } | 'returns' '(' param_decls_opt ')' { val[2] }
   pspec: ';' specs { {specs: val[1], body: nil} } | specs block { {specs: val[0], body: val[1]} }
 
-  param_decl: typed_ids_where { NameDeclaration.new val[0] }
+  param_decl: typed_ids_where { StorageDeclaration.new val[0] }
   param_decls: param_decl { [val[0]] } | param_decl ',' param_decls { [val[0]] + val[2] }
   param_decls_opt: { [] } | param_decls
 

@@ -1989,13 +1989,13 @@ module_eval(<<'.,.,', 'parser.racc', 237)
 
 module_eval(<<'.,.,', 'parser.racc', 242)
   def _reduce_158(val, _values)
-     NameDeclaration.new val[0] 
+     StorageDeclaration.new val[0] 
   end
 .,.,
 
 module_eval(<<'.,.,', 'parser.racc', 243)
   def _reduce_159(val, _values)
-     NameDeclaration.new(names: [], type: val[0]) 
+     StorageDeclaration.new(names: [], type: val[0]) 
   end
 .,.,
 
@@ -2045,7 +2045,7 @@ module_eval(<<'.,.,', 'parser.racc', 272)
   def _reduce_164(val, _values)
           val[0].map do |x|
         x[:names].map!{|t| t.name}
-        NameDeclaration.new(x)
+        StorageDeclaration.new(x)
       end
     
   end
@@ -2148,7 +2148,7 @@ module_eval(<<'.,.,', 'parser.racc', 298)
 
 module_eval(<<'.,.,', 'parser.racc', 300)
   def _reduce_180(val, _values)
-     NameDeclaration.new val[0] 
+     StorageDeclaration.new val[0] 
   end
 .,.,
 

@@ -40,23 +40,20 @@ module Bpl
       def type
         @declaration.type if @declaration.respond_to? :type
       end
-      def show; @name end
-      def inspect
-        (@declaration ? @name.green : @name.red) +
-        (type ? ":#{type.inspect.yellow}" : "") +
-        ((is_a?(StorageIdentifier) && self.is_variable?) ? "<V>".blue : "") +
-        ((is_a?(StorageIdentifier) && self.is_global?) ? "<G>".blue : "")
-      end
-    end
-    
-    class StorageIdentifier < Identifier
       def is_variable?
         @declaration && @declaration.is_a?(VariableDeclaration) || false
       end
       def is_global?
         @declaration && @declaration.parent && @declaration.parent.is_a?(Program) || false
       end
+      def show; @name end
+      def inspect
+        (@declaration ? (is_global? ? @name.blue : @name.green) : @name.red) +
+        (type ? ":#{type.inspect.yellow}" : "")
+      end
     end
+
+    class StorageIdentifier < Identifier; end
     class ProcedureIdentifier < Identifier; end
     class FunctionIdentifier < Identifier; end
     class LabelIdentifier < Identifier; end

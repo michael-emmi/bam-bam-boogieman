@@ -285,15 +285,15 @@ begin
 
   timed 'Atomicity analysis' do
     Bpl::Analysis::detect_atomic! program
-  end # if @sequentialization
+  end if @sequentialization
 
   timed('Normalization') do
     Bpl::Analysis::normalize! program
-  end # if @sequentialization || @verification
+  end if @sequentialization || @verification
 
   timed 'Modifies-correction' do
     Bpl::Analysis::correct_modifies! program
-  end # if @sequentialization
+  end if @sequentialization
 
   timed('Sequentialization') do
     if program.any?{|e| e.attributes.include? :static_threads}
@@ -302,7 +302,7 @@ begin
       EqrSequentialization.new(@rounds, @delays).sequentialize! program
       # FlatSequentialization.new(@rounds,@delays,@unroll).sequentialize! program
     end
-  end # if @sequentialization
+  end if @sequentialization
 
   timed 'Inspection' do
     puts program.inspect

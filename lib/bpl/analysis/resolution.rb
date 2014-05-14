@@ -58,7 +58,7 @@ module Bpl
       def resolve(id)
         case id
         when StorageIdentifier
-          @declarations.find{|d| d.is_a?(NameDeclaration) && d.names.include?(id.name)}
+          @declarations.find{|d| d.is_a?(StorageDeclaration) && d.names.include?(id.name)}
 
         when FunctionIdentifier
           @declarations.find{|d| d.is_a?(FunctionDeclaration) && d.name == id.name}

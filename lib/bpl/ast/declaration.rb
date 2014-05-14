@@ -35,7 +35,7 @@ module Bpl
       def show(&blk) "axiom #{show_attrs(&blk)} #{yield @expression};".fmt end
     end
     
-    class NameDeclaration < Declaration
+    class StorageDeclaration < Declaration
       children :names, :type, :where
       def signature; "#{@names * ", "}: #{@type}" end      
       def show(&blk)
@@ -59,12 +59,12 @@ module Bpl
       end
     end
     
-    class VariableDeclaration < NameDeclaration
+    class VariableDeclaration < StorageDeclaration
       def signature; "var #{@names * ", "}: #{@type}" end
       def show; "var #{super};" end
     end
     
-    class ConstantDeclaration < NameDeclaration
+    class ConstantDeclaration < StorageDeclaration
       children :unique, :order_spec
       def signature; "const #{@names * ", "}: #{@type}" end
       def show(&blk)
