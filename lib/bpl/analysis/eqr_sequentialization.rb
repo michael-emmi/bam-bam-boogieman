@@ -4,6 +4,15 @@ module Bpl
       def is_global_var?
         is_a?(StorageIdentifier) && is_global? && is_variable?
       end
+      def round(i)
+        if is_global_var? then bpl("#{self}.r#{i}") else self end
+      end
+      def split(rounds)
+        return self unless is_global_var?
+        return (1..rounds-1).reduce(bpl("#{self}.r0")) do |elem,k|
+          bpl_expr("if #k == #{k} then #{self}.r#{k} else #{elem}")
+        end
+      end
     end
   end
 
@@ -23,13 +32,6 @@ module Bpl
       def sequentialize! program
         vectorize! program
         async_to_call! program
-      end
-
-      def case_split(g)
-        return g unless g.is_global_var?
-        return (1..@rounds-1).reduce(bpl("#{g}.r0")) do |elem,k|
-          bpl_expr("if #k == #{k} then #{g}.r#{k} else #{elem}")
-        end
       end
 
       def vectorize! program
@@ -83,7 +85,6 @@ module Bpl
             proc.body.declarations << bpl("var #j: int;")
           end
 
-          old_mods = proc.modifies
           new_specs = []
           proc.specifications.each do |spec|
             case spec
@@ -122,23 +123,26 @@ module Bpl
           
           next unless proc.body
 
-          # replace each global `g` by `case_split(g)`
-          ignore = false
-          proc.body.traverse do |elem,phase|
-            case elem
-            when Trigger
-              ignore = (phase == :pre)
-              next nil # TODO don't throw away the triggers!
-
-            when AssignStatement
-              ignore = (phase == :pre)
-              elem.rhs.map! {|r| r.replace {|g| case_split(g).resolve!(scope)}} unless ignore
-
-            when StorageIdentifier
-              next case_split(elem).resolve!(scope) unless ignore
-            end
-            elem
-          end
+          # # replace each global `g` by `g.split(@rounds)`
+          # ignore = false
+          # proc.body.traverse do |elem,phase|
+          #   case elem
+          #   when Trigger
+          #     ignore = (phase == :pre)
+          #     next nil # TODO don't throw away the triggers!
+          # 
+          #   when AssignStatement
+          #     ignore = (phase == :pre)
+          #     elem.rhs.map! {|r| r.replace {|g| g.split(@rounds).resolve!(scope)}} unless ignore
+          # 
+          #   when StorageIdentifier
+          #     next elem.split(@rounds).resolve!(scope) unless ignore
+          #   end
+          #   elem
+          # end
+          
+          # NOTE times were slightly better when only LHS-accesses resulted
+          # in copied statements.
 
           proc.body.replace do |stmt|
             case stmt
@@ -147,33 +151,12 @@ module Bpl
               stmt.assignments << bpl("#k").resolve!(scope) \
                 unless stmt.target && stmt.target.attributes.include?(:atomic)
               next stmt
+              
+            when IfStatement, WhileStatement
+              next stmt unless stmt.condition.any?(&:is_global_var?)
+              stmt.condition = stmt.condition.replace {|g| g.split(@rounds).resolve!(scope)}
 
-            when AssignStatement
-              next stmt unless stmt.lhs.any?{|l| l.any?(&:is_global_var?)}
-              if proc.name == "$static_init"
-                stmt.lhs.each do |l|
-                  l.replace do |g|
-                    if g.is_global_var? then bpl("#{g}.r0") else g end
-                  end.resolve!(scope)
-                end
-                next stmt
-              end
-              next @rounds.times.reduce(nil) do |rest,i|
-                lhs = stmt.lhs.map do |l|
-                  bpl("#{l}").resolve!(old_scope).replace do |g|
-                    if g.is_global_var? then bpl("#{g}.r#{i}") else g end
-                  end
-                end
-                if rest.is_a?(IfStatement)
-                  bpl("if (#k == #{i}) { #{lhs * ", "} := #{stmt.rhs * ", "}; } else #{rest}")
-                elsif rest.is_a?(Statement)
-                  bpl("if (#k == #{i}) { #{lhs * ", "} := #{stmt.rhs * ", "}; } else { #{rest} }")
-                else
-                  bpl("#{lhs * ", "} := #{stmt.rhs * ", "};")
-                end
-              end.resolve!(scope)
-
-            when AssumeStatement
+            when AssertStatement, AssumeStatement, HavocStatement, AssignStatement
               if stmt.attributes.include? :yield then
                 next [
                   bpl("havoc #j;").resolve!(scope),
@@ -183,16 +166,32 @@ module Bpl
                 ]
 
               elsif stmt.attributes.include? :startpoint
-                next old_mods.product(@rounds.times.to_a).map do |g,i|
-                  bpl("#{g}.r#{i} := #{g}.r#{i}.0;").resolve!(scope)
+                next gs.product(@rounds.times.to_a).map do |g,i|
+                  bpl("assume #{g}.r#{i} == #{g}.r#{i}.0;").resolve!(scope)
                 end + [bpl("assume #k == 0;").resolve!(scope), stmt]
 
               elsif stmt.attributes.include? :endpoint
                 next [stmt] +
-                  old_mods.product((@rounds-1).times.to_a).map do |g,i|
+                  gs.product((@rounds-1).times.to_a).map do |g,i|
                     bpl("assume #{g}.r#{i+1}.0 == #{g}.r#{i};").resolve!(scope)
                   end
               end
+
+              next stmt unless stmt.any?(&:is_global_var?)
+
+              if proc.name == "$static_init"
+                next bpl("#{stmt}").resolve!(old_scope).replace {|g| g.round(0)}.resolve!(scope)
+              end
+
+              next @rounds.times.reduce(nil) do |rest,i|
+                s = bpl("#{stmt}").resolve!(old_scope).replace {|g| g.round(i)}
+                if rest.is_a?(IfStatement)
+                  bpl("if (#k == #{i}) { #{s} } else #{rest}")
+                elsif rest.is_a?(Statement)
+                  bpl("if (#k == #{i}) { #{s} } else { #{rest} }")
+                else s
+                end
+              end.resolve!(scope)
             end
             stmt
           end
