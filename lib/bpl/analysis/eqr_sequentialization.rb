@@ -14,6 +14,19 @@ module Bpl
         end
       end
     end
+    class Statement
+      def split(rounds,scope)
+        rounds.times.reduce(nil) do |rest,i|
+          s = bpl("#{self}").resolve!(scope).replace {|g| g.round(i)}
+          if rest.is_a?(IfStatement)
+            bpl("if (#k == #{i}) { #{s} } else #{rest}")
+          elsif rest.is_a?(Statement)
+            bpl("if (#k == #{i}) { #{s} } else { #{rest} }")
+          else s
+          end
+        end
+      end
+    end
   end
 
   module Analysis
@@ -156,7 +169,23 @@ module Bpl
               next stmt unless stmt.condition.any?(&:is_global_var?)
               stmt.condition = stmt.condition.replace {|g| g.split(@rounds).resolve!(scope)}
 
-            when AssertStatement, AssumeStatement, HavocStatement, AssignStatement
+            when HavocStatement
+              next stmt unless stmt.any?(&:is_global_var?)
+              next stmt.split(@rounds,old_scope).resolve!(scope)
+
+            when AssignStatement
+              next stmt unless stmt.any?(&:is_global_var?)
+              if proc.name == "$static_init"
+                next bpl("#{stmt}").resolve!(old_scope).replace {|g| g.round(0)}.resolve!(scope)
+              elsif stmt.lhs.any? {|l| l.any?(&:is_global_var?)}
+                next stmt.split(@rounds,old_scope).resolve!(scope)
+              else
+                next stmt.replace do |g|
+                  if g.is_a?(Statement) then g else g.split(@rounds).resolve!(scope) end
+                end
+              end
+
+            when AssertStatement, AssumeStatement
               if stmt.attributes.include? :yield then
                 next [
                   bpl("havoc #j;").resolve!(scope),
@@ -164,34 +193,21 @@ module Bpl
                   bpl("assume #j < #{@rounds};").resolve!(scope),
                   bpl("#k := #j;").resolve!(scope)
                 ]
-
               elsif stmt.attributes.include? :startpoint
                 next gs.product(@rounds.times.to_a).map do |g,i|
                   bpl("assume #{g}.r#{i} == #{g}.r#{i}.0;").resolve!(scope)
                 end + [bpl("assume #k == 0;").resolve!(scope), stmt]
-
               elsif stmt.attributes.include? :endpoint
                 next [stmt] +
                   gs.product((@rounds-1).times.to_a).map do |g,i|
                     bpl("assume #{g}.r#{i+1}.0 == #{g}.r#{i};").resolve!(scope)
                   end
+              elsif !stmt.any?(&:is_global_var?)
+                next stmt
+              else
+                stmt.expression = stmt.expression.replace {|g| g.split(@rounds).resolve!(scope)}
               end
 
-              next stmt unless stmt.any?(&:is_global_var?)
-
-              if proc.name == "$static_init"
-                next bpl("#{stmt}").resolve!(old_scope).replace {|g| g.round(0)}.resolve!(scope)
-              end
-
-              next @rounds.times.reduce(nil) do |rest,i|
-                s = bpl("#{stmt}").resolve!(old_scope).replace {|g| g.round(i)}
-                if rest.is_a?(IfStatement)
-                  bpl("if (#k == #{i}) { #{s} } else #{rest}")
-                elsif rest.is_a?(Statement)
-                  bpl("if (#k == #{i}) { #{s} } else { #{rest} }")
-                else s
-                end
-              end.resolve!(scope)
             end
             stmt
           end
