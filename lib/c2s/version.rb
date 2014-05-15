@@ -1,3 +1,3 @@
 module C2S
-  VERSION = "0.9.4-develop-9cd8825++"
+  VERSION = "0.9.4-develop-79bf913++"
 end

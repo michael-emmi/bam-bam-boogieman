@@ -20,7 +20,31 @@ def c2s; "../lib/c2s.rb" end
 $verbose = false
 $quiet = false
 $keep = false
+$run = true
+$graph = false
 $temp = []
+
+def gnuplot(commands)
+  IO.popen("gnuplot 2> /dev/null", "w") {|io| io.puts commands}
+end
+
+def plot(title, data_file)
+  gnuplot <<-eos
+  set terminal svg size 600,400 dynamic enhanced fname 'arial' fsize 8 mousing name "histograms_1" butt solid
+  set output '#{File.basename(data_file,".*")}.svg'
+  set key inside right top vertical Right noreverse noenhanced autotitle nobox
+  set datafile missing '-'
+  set style data linespoints
+  set logscale y
+  set xtics border in scale 1,0.5 nomirror rotate by -60  autojustify
+  set xtics  norangelimit
+  set xtics   ()
+  set title "#{title}"
+  x = 0.0
+  i = 22
+  plot '#{data_file}' using 2:xtic(1) title columnheader(2), for [i=3:22] '' using i title columnheader(i)
+  eos
+end
 
 OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename $0} [options]"
@@ -46,31 +70,60 @@ OptionParser.new do |opts|
     $keep = v
   end
 
+  opts.on("-r", "--[no-]run", "Actually run the regressions? (default #{$run})") do |r|
+    $run = r
+  end
+
+  opts.on("-g", "--[no-]graph", "Plot regression history? (default #{$graph})") do |g|
+    $graph = g
+  end
+
 end.parse!
 
 begin
   puts "c2s #{C2S::VERSION} REGRESSION TESTS".bold \
     unless $quiet
 
-  Dir.glob("./regressions/**/*.bpl").each do |source_file|
+  if $run
+    lines = File.readlines('regressions.dat')
+    lines.map! {|l| l.chomp + " -"}
+    lines[0].chop!
+    lines[0] += "#{C2S::VERSION}"
+    File.write('regressions.dat', lines.join("\n"))
 
-    # parse @c2s-expected comments in the source file
-    expected = File.readlines(source_file).grep(/@c2s-expected (.*)/) do |line|
-      line.gsub(/.* @c2s-expected (.*)/,'\1').chomp
-    end.flatten.map{|ex| /#{ex}/}
+    Dir.glob("./regressions/**/*.bpl").each do |source_file|
 
-    $temp << output_file = "regression.#{Time.now.to_f}.output"
-    cmd = "#{c2s} #{source_file} 1> #{output_file} 2>&1"
-    print "#{File.basename(source_file)} : "
-    t = Time.now
-    system cmd
-    @time = (Time.now - t).round
-    output = File.readlines(output_file)
-    @result = !expected.any? {|pattern| output.grep(pattern).empty?}
-    puts "#{@result ? "√".green : "X".red}, #{@time}s"
-    # puts output if $verbose
-    # puts if $verbose
+      # parse @c2s-expected comments in the source file
+      expected = File.readlines(source_file).grep(/@c2s-expected (.*)/) do |line|
+        line.gsub(/.* @c2s-expected (.*)/,'\1').chomp
+      end.flatten.map{|ex| /#{ex}/}
+
+      $temp << output_file = "regression.#{Time.now.to_f}.output"
+      cmd = "#{c2s} #{source_file} 1> #{output_file} 2>&1"
+      print "#{File.basename(source_file)} : "
+      t = Time.now
+      system cmd
+      @time = (Time.now - t).round
+      output = File.readlines(output_file)
+      @result = !expected.any? {|pattern| output.grep(pattern).empty?}
+      puts "#{@result ? "√".green : "X".red}, #{@time}s"
+
+      idx = lines.index {|l| l =~ /#{File.basename(source_file)}/}
+      lines[idx].chop!
+      lines[idx] += "#{@time}"
+      File.write('regressions.dat', lines.join("\n"))
+      plot('Regression Test Data', 'regressions.dat') if $graph
+
+      # puts output if $verbose
+      # puts if $verbose
+    end
   end
+
+  if $graph
+    plot('Regression Test Data', 'regressions.dat')
+    system("open regressions.svg")
+  end
+
 ensure
   $temp.each{|f| File.unlink(f) if File.exists?(f)} unless $keep
 end
