@@ -5,8 +5,7 @@ module Z3
 
     @@u2b = 'U_2_bool'.to_sym
     @@u2i = 'U_2_int'.to_sym
-    @@map2 = '[2]'.to_sym
-    @@map3 = '[3:=]'.to_sym
+    @@map_maps = ['[2]','Select_[$int]$bool', 'Select_[$int]$int'].map(&:to_sym)
     
     @@blacklist = Regexp.union *[
       'type',
@@ -16,6 +15,10 @@ module Z3
       'tickleBool',
       'Ctor',
       '[2]', '[3:=]',
+      'Select_[$int]$int',
+      'Select_[$int]$bool',
+      'Store_[$int]$int',
+      'Store_[$int]$bool',
       /inline\$/,
       /call\d+formal/,
       /%lbl%/,
@@ -68,12 +71,16 @@ module Z3
 
     def collect_map_values!
       @map_table = {}
-      @entries[@@map2].each do |keys,val|
-        next unless keys
-        keys = keys.map{|key| lookup key, false}
-        @map_table[keys[0]] ||= {map: true}
-        @map_table[keys[0]][keys[1]] = lookup(val, false)
-      end if @entries.include? @@map2
+
+      @@map_maps.each do |mm|
+        @entries[mm].each do |keys,val|
+          next unless keys
+          keys = keys.map{|key| lookup key, false}
+          @map_table[keys[0]] ||= {map: true}
+          @map_table[keys[0]][keys[1]] = lookup(val, false)
+        end if @entries.include? mm
+      end
+
       @entries.select{|k,_| k =~ /^k!\d+$/}.each do |k,vs|
         next unless vs.is_a?(Hash)
         k = lookup(k,false)
