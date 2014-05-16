@@ -102,6 +102,7 @@ OptionParser.new do |opts|
   
   @resolution = true
   @type_checking = true
+  @preemption = false
   @sequentialization = true
   @inlining = false
   @inspection = false
@@ -161,15 +162,19 @@ OptionParser.new do |opts|
 
   opts.separator ""
   opts.separator "Staging options:"
-  
+
   opts.on("--[no-]resolve", "Do identifier resolution? (default #{@resolution})") do |r|
     @resolution = r
   end
-  
+
   opts.on("--[no-]type-check", "Do type checking? (default #{@type_checking})") do |r|
     @type_checking = r
   end
-  
+
+  opts.on("--[no-]preemptive", "Preemptive concurrency? (default #{@preemption})") do |p|
+    @preemption = p
+  end
+
   opts.on("--[no-]sequentialize", "Do sequentialization? (default #{@sequentialization})") do |s|
     @sequentialization = s
   end
@@ -239,6 +244,7 @@ begin
   require_relative 'bpl/analysis/resolution'
   require_relative 'bpl/analysis/type_checking'
   require_relative 'bpl/analysis/atomicity'
+  require_relative 'bpl/analysis/preemption'
   require_relative 'bpl/analysis/normalization'
   require_relative 'bpl/analysis/modifies_correction'
   require_relative 'bpl/analysis/inlining'
@@ -282,6 +288,10 @@ begin
   timed 'Type-checking' do
     Bpl::Analysis::type_check program
   end if @type_checking
+
+  timed 'Preemption addition' do
+    Bpl::Analysis::add_preemptions! program
+  end if @preemption
 
   timed 'Atomicity analysis' do
     Bpl::Analysis::detect_atomic! program
