@@ -277,17 +277,13 @@ module Bpl
       if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#ROUNDS')}
         program.declarations.push bpl("axiom #ROUNDS == #{options[:rounds]};")
       end
-      if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#DELAYS')}
-        program.declarations.push bpl("axiom #DELAYS == #{options[:rounds]};")
-      end
       if program.declarations.any?{|d| d.is_a?(FunctionDeclaration) && d.name == '$R'}
         (0..(options[:rounds]-1)).each do |i|
           program.declarations.push bpl("axiom $R(#{i});")
         end
       end
       File.write(src,program)
-      if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#DELAYS')}
-        program.declarations.pop
+      if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#ROUNDS')}
         program.declarations.pop
       end
 

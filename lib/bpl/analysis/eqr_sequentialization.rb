@@ -65,9 +65,7 @@ module Bpl
         end
 
         program << bpl("const #ROUNDS: int;")
-        program << bpl("const #DELAYS: int;")
         program << bpl("axiom #ROUNDS == #{@rounds};").resolve!(program)
-        program << bpl("axiom #DELAYS == #{@delays};").resolve!(program)
 
         globals.each do |decl|
           program.declarations.delete(decl)

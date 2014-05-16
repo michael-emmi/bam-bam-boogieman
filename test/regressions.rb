@@ -21,6 +21,7 @@ $verbose = false
 $quiet = false
 $keep = false
 $run = true
+$log = true
 $graph = false
 $temp = []
 
@@ -74,6 +75,10 @@ OptionParser.new do |opts|
     $run = r
   end
 
+  opts.on("--[no-]log", "Log regression results for future reference? (default #{$log})") do |l|
+    $log = l
+  end
+
   opts.on("-g", "--[no-]graph", "Plot regression history? (default #{$graph})") do |g|
     $graph = g
   end
@@ -85,11 +90,13 @@ begin
     unless $quiet
 
   if $run
-    lines = File.readlines('regressions.dat')
-    lines.map! {|l| l.chomp + " -"}
-    lines[0].chop!
-    lines[0] += "#{C2S::VERSION}"
-    File.write('regressions.dat', lines.join("\n"))
+    if $log
+      lines = File.readlines('regressions.dat')
+      lines.map! {|l| l.chomp + " -"}
+      lines[0].chop!
+      lines[0] += "#{C2S::VERSION}"
+      File.write('regressions.dat', lines.join("\n"))
+    end
 
     Dir.glob("./regressions/**/*.bpl").each do |source_file|
 
@@ -108,18 +115,20 @@ begin
       @result = !expected.any? {|pattern| output.grep(pattern).empty?}
       puts "#{@result ? "√".green : "X".red}, #{@time}s"
 
-      idx = lines.index {|l| l =~ /#{File.basename(source_file)}/}
-      lines[idx].chop!
-      lines[idx] += "#{@time}"
-      File.write('regressions.dat', lines.join("\n"))
-      plot('Regression Test Data', 'regressions.dat') if $graph
+      if $log
+        idx = lines.index {|l| l =~ /#{File.basename(source_file)}/}
+        lines[idx].chop!
+        lines[idx] += "#{@time}"
+        File.write('regressions.dat', lines.join("\n"))
+        plot('Regression Test Data', 'regressions.dat') if $graph
+      end
 
       # puts output if $verbose
       # puts if $verbose
     end
   end
 
-  if $graph
+  if $log && $graph
     plot('Regression Test Data', 'regressions.dat')
     system("open regressions.svg")
   end
