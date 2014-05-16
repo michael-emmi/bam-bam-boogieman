@@ -14,7 +14,7 @@ module Bpl
 
     def self.verify_one_shot(program, options = {})
       unroll = options[:unroll]
-      delays = options[:delays]
+      rounds = options[:rounds]
 
       done = false
       trace = nil
@@ -24,7 +24,7 @@ module Bpl
         until done do
           print (" " * 80 + "\r")
           print \
-            "Verifying w/ depth #{unroll || "inf."} and #{delays} delays " \
+            "Verifying w/ depth #{unroll || "inf."} and #{rounds} rounds " \
             "(#{(Time.now - start).round}s)" \
             "\r" unless $quiet
           sleep 1
@@ -39,19 +39,19 @@ module Bpl
       if trace == :timeout
         puts "Verification timed out." unless $quiet
       elsif trace
-        puts "Got a trace w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
+        puts "Got a trace w/ depth #{unroll || "inf."} and #{rounds} rounds." unless $quiet
       else
-        puts "Verified w/ depth #{unroll || "inf."} and #{delays} delays." unless $quiet
+        puts "Verified w/ depth #{unroll || "inf."} and #{rounds} rounds." unless $quiet
       end
       return trace
     end
 
     def self.verify_incremental(program, options = {})
       unroll_bound = options[:unroll] || Float::INFINITY
-      delay_bound = options[:delays] || Float::INFINITY
+      rounds_bound = options[:rounds] || Float::INFINITY
 
       unroll = 0
-      delays = 0
+      rounds = 1
 
       done = false
       trace = nil
@@ -61,7 +61,7 @@ module Bpl
         until done do
           print (" " * 80 + "\r")
           print \
-            "Verifying w/ depth #{unroll} and #{delays} delays " \
+            "Verifying w/ depth #{unroll} and #{rounds} rounds " \
             "(#{(Time.now - last).round}s) total #{(Time.now - start).round}s" \
             "\r" unless $quiet
           sleep 1
@@ -70,11 +70,11 @@ module Bpl
 
       while true
         last = Time.now
-        break if trace = vvvvv(program, options.merge(unroll: unroll, delays: delays))
-        break if delays >= delay_bound && unroll >= unroll_bound
+        break if trace = vvvvv(program, options.merge(unroll: unroll, rounds: rounds))
+        break if round >= rounds_bound && unroll >= unroll_bound
 
-        if (delays < delay_bound && delays < unroll) || unroll >= unroll_bound
-          delays += 1
+        if (rounds < rounds_bound && rounds < unroll) || unroll >= unroll_bound
+          rounds += 1
         else
           unroll += 1
         end
@@ -86,9 +86,9 @@ module Bpl
       if trace == :timeout
         puts "Verification timed out." unless $quiet
       elsif trace
-        puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
+        puts "Got a trace w/ depth #{unroll} and #{rounds} rounds." unless $quiet
       else
-        puts "Verified up to depth #{unroll} w/ #{delays} delays." unless $quiet
+        puts "Verified up to depth #{unroll} w/ #{rounds} rounds." unless $quiet
       end
 
       return trace
@@ -96,12 +96,12 @@ module Bpl
 
     def self.verify_parallel_accelerated(program, options = {})
       unroll_bound = options[:unroll] || Float::INFINITY
-      delay_bound = options[:delays] || Float::INFINITY
+      rounds_bound = options[:rounds] || Float::INFINITY
 
       done = 0
 
       unroll_lower = 0
-      delay_lower = 0
+      round_lower = 0
 
       tasks = [nil, nil]
       start = Time.now
@@ -111,10 +111,10 @@ module Bpl
         EventMachine.add_periodic_timer(0.5) do
           print (" " * 80 + "\r")
           print \
-            "Verifying in parallel w/ unroll/delays " \
-            "#{tasks[0] ? "#{tasks[0][:unroll]}/#{tasks[0][:delays]}" : "-/-"} " \
+            "Verifying in parallel w/ unroll/rounds " \
+            "#{tasks[0] ? "#{tasks[0][:unroll]}/#{tasks[0][:rounds]}" : "-/-"} " \
               "(#{tasks[0] ? (Time.now - tasks[0][:time]).round : "-"}s) and " \
-            "#{tasks[1] ? "#{tasks[1][:unroll]}/#{tasks[1][:delays]}" : "-/-"} " \
+            "#{tasks[1] ? "#{tasks[1][:unroll]}/#{tasks[1][:rounds]}" : "-/-"} " \
               "(#{tasks[1] ? (Time.now - tasks[1][:time]).round : "-"}s) " \
             "total #{(Time.now - start).round}s" \
             "\r" unless $quiet
@@ -124,30 +124,30 @@ module Bpl
           EventMachine.defer do
             while true
               unroll = unroll_lower
-              delays = delay_lower
-              mode = tasks[i] ? tasks[i][:mode] : (i == 0 && :unroll || i == 1 && :delay)
-              mode = :unroll if delays == delay_bound
-              mode = :delay if unroll == unroll_bound
+              rounds = round_lower
+              mode = tasks[i] ? tasks[i][:mode] : (i == 0 && :unroll || i == 1 && :rounds)
+              mode = :unroll if rounds == rounds_bound
+              mode = :rounds if unroll == unroll_bound
               unroll += 1 if mode == :unroll
-              delays += 1 if mode == :delay
-              if unroll > unroll_bound || delays > delay_bound
+              rounds += 1 if mode == :rounds
+              if unroll > unroll_bound || rounds > round_bound
                 tasks[i] = nil
                 break
               end
-              tasks[i] = {mode: mode, time: Time.now, unroll: unroll, delays: delays}
+              tasks[i] = {mode: mode, time: Time.now, unroll: unroll, rounds: rounds}
 
-              if trace = vvvvv(program, options.merge(unroll: unroll, delays: delays)) then
+              if trace = vvvvv(program, options.merge(unroll: unroll, rounds: rounds)) then
                 EventMachine.stop
                 puts unless $quiet
                 if trace == :timeout
                   puts "Verification timed out." unless $quiet
                 else
-                  puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
+                  puts "Got a trace w/ depth #{unroll} and #{rounds} rounds." unless $quiet
                 end
                 break
               end
               unroll_lower += 1 if i == 0
-              delay_lower += 1 if i == 1
+              rounds_lower += 1 if i == 1
             end
             if (done += 1) >= 2
               EventMachine.stop
@@ -157,7 +157,7 @@ module Bpl
         end
       end
 
-      puts "Verified up to depth #{unroll_bound} w/ #{delay_bound} delays." \
+      puts "Verified up to depth #{unroll_bound} w/ #{rounds_bound} rounds." \
         unless trace || $quiet
 
       return trace
@@ -165,10 +165,10 @@ module Bpl
 
     def self.verify_parallel_worklist(program, options = {})
       unroll_bound = options[:unroll] || Float::INFINITY
-      delay_bound = options[:delays] || Float::INFINITY
+      round_bound = options[:rounds] || Float::INFINITY
 
       covered = []
-      worklist = [{unroll: 0, delays: 0}, {unroll: 1, delays: 0}]
+      worklist = [{unroll: 0, rounds: 0}, {unroll: 1, rounds: 0}]
       tasks = [nil, nil]
       start = Time.now
       trace = nil
@@ -179,10 +179,10 @@ module Bpl
         EventMachine.add_periodic_timer(0.5) do
           print (" " * 80 + "\r")
           print \
-            "Verifying in parallel w/ unroll/delays " \
-            "#{tasks[0] ? "#{tasks[0][:unroll]}/#{tasks[0][:delays]}" : "-/-"} " \
+            "Verifying in parallel w/ unroll/rounds " \
+            "#{tasks[0] ? "#{tasks[0][:unroll]}/#{tasks[0][:rounds]}" : "-/-"} " \
               "(#{tasks[0] ? (Time.now - tasks[0][:time]).round : "-"}s) and " \
-            "#{tasks[1] ? "#{tasks[1][:unroll]}/#{tasks[1][:delays]}" : "-/-"} " \
+            "#{tasks[1] ? "#{tasks[1][:unroll]}/#{tasks[1][:rounds]}" : "-/-"} " \
               "(#{tasks[1] ? (Time.now - tasks[1][:time]).round : "-"}s) " \
             "total #{(Time.now - start).round}s" \
             "\r" unless $quiet
@@ -194,26 +194,26 @@ module Bpl
               work = worklist.shift
               break unless work
               unroll = work[:unroll]
-              delays = work[:delays]
-              next if covered.any?{|w| w[:unroll] >= unroll && w[:delays] >= delays}
-              covered.reject!{|w| w[:unroll] <= unroll && w[:delays] <= delays}
+              rounds = work[:rounds]
+              next if covered.any?{|w| w[:unroll] >= unroll && w[:rounds] >= rounds}
+              covered.reject!{|w| w[:unroll] <= unroll && w[:rounds] <= rounds}
               covered << work
 
-              tasks[i] = {time: Time.now, unroll: unroll, delays: delays}
+              tasks[i] = {time: Time.now, unroll: unroll, rounds: rounds}
 
-              if trace = vvvvv(program, options.merge(unroll: unroll, delays: delays)) then
+              if trace = vvvvv(program, options.merge(unroll: unroll, rounds: rounds)) then
                 EventMachine.stop
                 puts unless $quiet
                 if trace == :timeout
                   puts "Verification timed out." unless $quiet
                 else
-                  puts "Got a trace w/ depth #{unroll} and #{delays} delays." unless $quiet
+                  puts "Got a trace w/ depth #{unroll} and #{rounds} rounds." unless $quiet
                 end
                 break
               else
-                worklist.reject!{|w| w[:unroll] <= unroll && w[:delays] <= delays}
-                worklist << {unroll: unroll+1, delays: delays} if unroll < unroll_bound
-                worklist << {unroll: unroll, delays: delays+1} if delays < delay_bound
+                worklist.reject!{|w| w[:unroll] <= unroll && w[:rounds] <= rounds}
+                worklist << {unroll: unroll+1, rounds: rounds} if unroll < unroll_bound
+                worklist << {unroll: unroll, rounds: rounds+1} if rounds < rounds_bound
               end
             end
             tasks[i] = nil
@@ -222,7 +222,7 @@ module Bpl
         end
       end
 
-      puts "Verified up to depth #{unroll_bound} w/ #{delay_bound} delays." \
+      puts "Verified up to depth #{unroll_bound} w/ #{rounds_bound} rounds." \
         unless trace || $quiet
       return trace
     end
@@ -278,7 +278,7 @@ module Bpl
         program.declarations.push bpl("axiom #ROUNDS == #{options[:rounds]};")
       end
       if program.declarations.any?{|d| d.is_a?(ConstantDeclaration) && d.names.include?('#DELAYS')}
-        program.declarations.push bpl("axiom #DELAYS == #{options[:delays]};")
+        program.declarations.push bpl("axiom #DELAYS == #{options[:rounds]};")
       end
       if program.declarations.any?{|d| d.is_a?(FunctionDeclaration) && d.name == '$R'}
         (0..(options[:rounds]-1)).each do |i|
