@@ -98,7 +98,7 @@ rule
       | 'if' expr 'then' expr 'else' expr {
         IfExpression.new condition: val[1], then: val[3], else: val[5]
       }
-      | '|' block '|' { CodeExpression.new block: val[1] }
+      | '|' body '|' { CodeExpression.new body: val[1] }
       | literal
       | ident '(' exprs_opt ')' {
         id = FunctionIdentifier.new val[0]
@@ -142,13 +142,13 @@ rule
       CallStatement.new attributes: val[1], assignments: val[2][:rets], 
       procedure: val[2][:name], arguments: val[4]
     }
-    | 'call' 'forall' ident '(' wc_exprs_opt ')' ';' { 
+    | 'call' 'forall' ident '(' wc_exprs_opt ')' ';' {
       id = ProcedureIdentifier.new val[2]
       CallStatement.new assignments: nil, procedure: id, arguments: val[4]
     }
     | if_stmt
-    | 'while' '(' wc_expr ')' loop_invs block { 
-      WhileStatement.new condition: val[2], invariants: val[4], block: val[5]
+    | 'while' '(' wc_expr ')' loop_invs '{' blocks '}' {
+      WhileStatement.new condition: val[2], invariants: val[4], blocks: val[6]
     }
     | 'break' idents_opt ';' { 
       ids = val[1].map{|id| LabelIdentifier.new id}
@@ -160,6 +160,9 @@ rule
       ids = val[1].map{|id| LabelIdentifier.new id}
       GotoStatement.new identifiers: ids
     }
+  stmts:
+    stmt { [val[0]] }
+    | stmt stmts { [val[0]] + val[1] }
     
   call_lhs: 
     ident { {name: ProcedureIdentifier.new(val[0]), rets: []} }
@@ -169,8 +172,8 @@ rule
       {name: id, rets: ids}
     }
   
-  if_stmt: 'if' '(' wc_expr ')' block else_stmt { IfStatement.new condition: val[2], block: val[4], else: val[5] }
-  else_stmt: { nil } | 'else' block { val[1] } | 'else' if_stmt { val[1] }
+  if_stmt: 'if' '(' wc_expr ')' '{' blocks '}' else_stmt { IfStatement.new condition: val[2], blocks: val[5], else: val[7] }
+  else_stmt: { nil } | 'else' '{' blocks '}' { val[1] } | 'else' if_stmt { val[2] }
 
   lhs: ident selects {
     id = StorageIdentifier.new val[0]
@@ -191,13 +194,23 @@ rule
 
   label: name { Label.new name: val[0] }
 
-  lstmts: 
-    { [] } 
-    | label ':' lstmts { [val[0]] + val[2] }
-    | stmt lstmts { [val[0]] + val[1] }
+  blocks:
+    { [Block.new(labels: [], statements: [])] }
+    | label ':' blocks {
+      bs = val[2]
+      bs.first.labels.unshift val[0]
+      bs
+    }
+    | stmt blocks {
+      bs = val[1]
+      unless bs.first.labels.empty?
+        bs.unshift Block.new(labels: [], statements: [])
+      end
+      bs.first.statements.unshift val[0]
+      bs
+    }
 
-  block: '{' var_decls lstmts '}' { Block.new declarations: val[1], statements: val[2] }
-  # blocks: block { [val[0]] } | block blocks { [val[0]] + val[1] }
+  body: '{' var_decls blocks '}' { Body.new declarations: val[1], blocks: val[2] }
   
   decl:
     type_decl
@@ -296,7 +309,7 @@ rule
         specifications: val[8][:specs], body: val[8][:body]
     }
   out_params: { [] } | 'returns' '(' param_decls_opt ')' { val[2] }
-  pspec: ';' specs { {specs: val[1], body: nil} } | specs block { {specs: val[0], body: val[1]} }
+  pspec: ';' specs { {specs: val[1], body: nil} } | specs body { {specs: val[0], body: val[1]} }
 
   param_decl: typed_ids_where { StorageDeclaration.new val[0] }
   param_decls: param_decl { [val[0]] } | param_decl ',' param_decls { [val[0]] + val[2] }
@@ -312,7 +325,7 @@ rule
   specs: { [] } | spec specs { [val[0]] + val[1] }
 
   impl_decl:
-    'implementation' attrs name type_args '(' param_decls_opt ')' out_params block {
+    'implementation' attrs name type_args '(' param_decls_opt ')' out_params body {
       ImplementationDeclaration.new attributes: val[1], name: val[2],
         type_arguments: val[3], parameters: val[5], returns: val[7],
         specifications: [], body: val[8]

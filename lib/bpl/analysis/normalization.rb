@@ -59,23 +59,22 @@ module Bpl
         proc.specifications << bpl("modifies $e;").resolve!(program)
 
         if proc.is_entrypoint?
-          proc.body.statements.unshift bpl("$e := false;").resolve!(program)
-          proc.body.statements.unshift bpl("assume {:startpoint} true;")
+          proc.body.blocks.first.statements.unshift bpl("$e := false;").resolve!(program)
+          proc.body.blocks.first.statements.unshift bpl("assume {:startpoint} true;")
         else
           # this branch costs extra, on the order of 10s in my tests
           # proc.body.statements.unshift bpl("if ($e) { goto $exit; }")
         end
 
-        case proc.body.statements.last
+        case proc.body.blocks.last.statements.last
         when GotoStatement, ReturnStatement
         else
-          proc.body.statements << bpl("return;")
+          proc.body.blocks.last.statements << bpl("return;")
         end
         
         exit_label = proc.fresh_label("$exit")
 
-        exit_block = Block.new(declarations: [], statements: [
-          exit_label.declaration,
+        exit_block = Block.new(labels: [exit_label.declaration], statements: [
           if proc.is_entrypoint? then [
             bpl("assume {:endpoint} true;"),
             bpl("assume $e;").resolve!(program),
@@ -86,7 +85,7 @@ module Bpl
           ] end
         ].flatten)
 
-        scope = [exit_block, proc.body, proc, program]
+        scope = [Body.new(declarations: [], blocks: [exit_block]), proc.body, proc, program]
 
         proc.body.replace do |s|
           case s
@@ -113,7 +112,7 @@ module Bpl
             next s
           end
         end
-        proc.body.statements += exit_block.statements
+        proc.body.blocks << exit_block
       end
     end
   end

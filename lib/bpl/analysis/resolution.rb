@@ -9,7 +9,7 @@ module Bpl
 
         traverse do |elem,turn|
           case elem
-          when ProcedureDeclaration, FunctionDeclaration, Block, QuantifiedExpression
+          when ProcedureDeclaration, FunctionDeclaration, Body, QuantifiedExpression
             case turn
             when :pre then scope.unshift elem
             else scope.shift
@@ -38,6 +38,12 @@ module Bpl
             end
 
           when Statement
+            if elem.is_a?(IfStatement) || elem.is_a?(WhileStatement)
+              case turn
+              when :pre then scope.unshift elem
+              else scope.shift
+              end
+            end
             case turn
             when :post
               proc_decl = scope.find {|s| s.is_a?(ProcedureDeclaration)}
@@ -83,20 +89,36 @@ module Bpl
       end
     end
 
-    class Block
+    class Body
       def resolve(id)
         case id
         when StorageIdentifier
           @declarations.find{|decl| decl.names.include? id.name}
 
         when LabelIdentifier
-          ls = @statements.find{|label| label.is_a?(Label) && label.name == id.name}
+          ls = @blocks.find{|b| b.labels.find{|l| l.name == id.name}}
           def ls.signature; "label" end if ls
           ls
 
         else
           nil
         end
+      end
+    end
+
+    class IfStatement
+      def resolve(id)
+        return unless id.is_a?(LabelIdentifier)
+        @blocks.find{|b| b.labels.find{|l| l.name == id.name}} ||
+        @else && @else.is_a?(Enumerable) &&
+        @else.find{|b| b.labels.find{|l| l.name == id.name}}
+      end
+    end
+
+    class WhileStatement
+      def resolve(id)
+        return unless id.is_a?(LabelIdentifier)
+        @blocks.find{|b| b.labels.find{|l| l.name == id.name}}
       end
     end
 
