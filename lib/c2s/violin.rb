@@ -44,31 +44,31 @@ module C2S
           decl.body.statements.unshift \
             bpl("call $myop := #{methods[decl.name]}.start(#{params * ","});")
           
-          decl.body.replace do |elem|
-            if elem.is_a?(ReturnStatement)
-              next [
+          decl.body.each do |stmt|
+            if stmt.is_a?(ReturnStatement)
+              stmt.insert_before \
                 bpl("call #{methods[decl.name]}.finish(#{rets * ","});"),
-                bpl("return;") ]
             end
-            elem
           end
         end
         
-        decl.body.replace do |elem|
-          case elem
+        decl.body.each do |stmt|
+          case stmt
           when AssumeStatement
-            if elem.attributes.include? :startpoint
-              next [elem] + inits.reverse.map{|init| bpl("call #{init.name}();")}
+            if stmt.attributes.include? :startpoint
+              stmt.insert_after \
+                inits.reverse.map{|init| bpl("call #{init.name}();")}
             end
           when AssertStatement
-            if elem.attributes.include?(:spec) &&
-              (ax = elem.attributes[:spec]) && !ax.empty? &&
+            if stmt.attributes.include?(:spec) &&
+              (ax = stmt.attributes[:spec]) && !ax.empty? &&
               (name = ax.first) &&
               (spec = specs.detect{|s| s.name == name}) then
-              next bpl("assert #{spec.name}(#{spec.arguments.map{|arg| arg.names}.flatten * ","});")
+              stmt.replace_with \
+                bpl("assert #{spec.name}(#{spec.arguments.map{|arg| arg.names}.flatten * ","});")
             end
           end
-          elem
+
         end
         
       end

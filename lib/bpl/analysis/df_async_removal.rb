@@ -25,10 +25,10 @@ module Bpl
           mods = accs - proc.modifies
 
           proc.specifications <<
-            bpl("modifies #{mods * ", "};").resolve!(program) \
+            bpl("modifies #{mods * ", "};", scope: program) \
             unless mods.empty?
           proc.specifications <<
-            bpl("modifies #{accs.map{|g| "#{g}.next"} * ", "};").resolve!(program) \
+            bpl("modifies #{accs.map{|g| "#{g}.next"} * ", "};", scope: program) \
             unless accs.empty?
 
           globals.each do |decl|
@@ -43,17 +43,17 @@ module Bpl
           
           scope = [proc.body, proc, program]
 
-          proc.body.replace do |elem|
-            case elem
+          proc.body.each do |stmt|
+            case stmt
             when AssumeStatement
-              if elem.attributes.include? :startpoint
-                next accs.map{|g| bpl("#{g}.next := #{g}.start;").resolve!(scope)} + [elem]
+              if stmt.attributes.include? :startpoint
+                stmt.insert_before \
+                  *(accs.map{|g| bpl("#{g}.next := #{g}.start;", scope: scope)})
 
-              elsif elem.attributes.include? :endpoint
-                next [elem] +
-                  accs.map{|g| bpl("assume #{g} == #{g}.start;").resolve!(scope)} +
-                  accs.map{|g| bpl("#{g} := #{g}.next;").resolve!(scope)}
-                elem
+              elsif stmt.attributes.include? :endpoint
+                stmt.insert_after *(
+                  accs.map{|g| bpl("assume #{g} == #{g}.start;", scope: scope)} +
+                  accs.map{|g| bpl("#{g} := #{g}.next;", scope: scope)})
 
               # elsif elem.attributes.include? :pause
               #   next gs.map{|g| bpl("#{g}.save := #{g};")} +
@@ -68,20 +68,20 @@ module Bpl
               end
 
             when CallStatement
-              called = elem.target
+              called = stmt.target
 
-              if elem.attributes.include? :async then
+              if stmt.attributes.include? :async then
                 # var = elem.attributes[:async].first
-                elem.attributes.delete :async
+                stmt.attributes.delete :async
 
                 # replace the return assignments with dummy assignments
-                elem.assignments.map! do |x|
+                stmt.assignments.map! do |x|
                   proc.fresh_var(x.declaration.type)
                 end
 
                 # make sure to pass the 'save'd version of any globals
-                elem.arguments.map! do |e|
-                  e.replace do |e|
+                stmt.arguments.map! do |e|
+                  e.replace! do |e|
                     e.is_a?(Identifier) && globals.include?(e.declaration) ? e.save : e
                   end
                 end
@@ -91,15 +91,16 @@ module Bpl
                 # call_accs = call_mods
 
                 # some async-simulating guessing magic
-                next call_accs.map{|g| bpl("#{g}.save := #{g};").resolve!(scope)} +
-                  call_accs.map{|g| bpl("#{g} := #{g}.next;").resolve!(scope)} +
-                  call_mods.map{|g| bpl("havoc #{g}.guess;").resolve!(scope)} +
-                  call_mods.map{|g| bpl("#{g}.next := #{g}.guess;").resolve!(scope)} +
+                stmt.insert_before *(
+                  call_accs.map{|g| bpl("#{g}.save := #{g};", scope: scope)} +
+                  call_accs.map{|g| bpl("#{g} := #{g}.next;", scope: scope)} +
+                  call_mods.map{|g| bpl("havoc #{g}.guess;", scope: scope)} +
+                  call_mods.map{|g| bpl("#{g}.next := #{g}.guess;", scope: scope)})
                   # [ bpl("#tasks := #tasks + 1;") ] +
                   # (var ? [bpl("#{var} := #tasks;")] : []) +
-                  [ elem ] +
-                  call_mods.map{|g| bpl("assume #{g} == #{g}.guess;").resolve!(scope)} +
-                  call_accs.map{|g| bpl("#{g} := #{g}.save;").resolve!(scope)}
+                stmt.insert_after *(
+                  call_mods.map{|g| bpl("assume #{g} == #{g}.guess;", scope: scope)} +
+                  call_accs.map{|g| bpl("#{g} := #{g}.save;", scope: scope)})
 
               else # a synchronous procedure call
                 # elem.arguments << bpl("#t") if called && called.body
@@ -107,7 +108,6 @@ module Bpl
               end
             end
 
-            elem
           end
         end
         Bpl::Analysis::correct_modifies! program

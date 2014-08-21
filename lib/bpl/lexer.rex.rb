@@ -5,6 +5,10 @@
 #++
 
 require 'racc/parser'
+module Bpl
+  IDENTIFIER = /[a-zA-Z_.$\#'`~^\\?][\w.$\#'`~^\\?]*/
+end
+
 class BoogieLanguage < Racc::Parser
   require 'strscan'
 

@@ -19,11 +19,25 @@ module Bpl
               warn "could not resolve implementation #{elem.name}" unless elem.declaration
             end
 
+          when Block
+            case turn
+            when :pre
+              scope.unshift elem
+            else
+              scope.shift
+            end
+
           when Identifier
             case turn
             when :pre
               if s = scope.find {|s| s.resolve elem} then
                 elem.declaration = s.resolve elem
+
+                if elem.is_a?(LabelIdentifier) && src = scope.find{|b| b.is_a? Block}
+                  src.successors << elem.declaration.id
+                  elem.declaration.predecessors << src.id
+                end
+
               else
                 elem.declaration = nil
                 warn "could not resolve identifier #{elem}"
@@ -105,6 +119,8 @@ module Bpl
         end
       end
     end
+
+    class Block; def resolve(id) return end end
 
     class IfStatement
       def resolve(id)

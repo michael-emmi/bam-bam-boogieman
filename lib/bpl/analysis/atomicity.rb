@@ -9,7 +9,7 @@ module Bpl
           work_list << proc
         end
       end
-      
+
       until work_list.empty?
         proc = work_list.shift
         proc.attributes.delete :atomic

@@ -1,3 +1,7 @@
+module Bpl
+  IDENTIFIER = /[a-zA-Z_.$\#'`~^\\?][\w.$\#'`~^\\?]*/
+end
+
 class BoogieLanguage
 macro
   BLANK     \s+

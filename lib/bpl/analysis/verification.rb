@@ -363,9 +363,9 @@ module Bpl
     def self.prepare_for_boogie_si! program
       program.declarations.each do |proc|
         next unless proc.is_entrypoint?
-        proc.body.replace do |s|
-          next s unless s.is_a?(AssertStatement)
-          next
+        proc.body.each do |stmt|
+          next unless stmt.is_a?(AssertStatement)
+          stmt.remove
         end
       end
     end

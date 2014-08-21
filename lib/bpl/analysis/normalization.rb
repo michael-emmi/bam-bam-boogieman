@@ -56,41 +56,41 @@ module Bpl
       program << bpl("var $e: bool;")
       program.declarations.each do |proc|
         next unless proc.is_a?(ProcedureDeclaration) && proc.body
-        proc.specifications << bpl("modifies $e;").resolve!(program)
+        proc.specifications << bpl("modifies $e;", scope: program)
 
         if proc.is_entrypoint?
-          proc.body.blocks.first.statements.unshift bpl("$e := false;").resolve!(program)
-          proc.body.blocks.first.statements.unshift bpl("assume {:startpoint} true;")
+          proc.body.first.unshift bpl("$e := false;", scope: program)
+          proc.body.first.unshift bpl("assume {:startpoint} true;")
         else
-          # this branch costs extra, on the order of 10s in my tests
+          ## this branch costs extra, on the order of 10s in my tests
           # proc.body.statements.unshift bpl("if ($e) { goto $exit; }")
         end
 
-        case proc.body.blocks.last.statements.last
+        case proc.body.last.last
         when GotoStatement, ReturnStatement
-        else
-          proc.body.blocks.last.statements << bpl("return;")
+        else proc.body.last << bpl("return;")
         end
-        
-        exit_label = proc.fresh_label("$exit")
 
-        exit_block = Block.new(labels: [exit_label.declaration], statements: [
-          if proc.is_entrypoint? then [
-            bpl("assume {:endpoint} true;"),
-            bpl("assume $e;").resolve!(program),
-            bpl("assert false;"),
-            bpl("return;")
-          ] else [
-            bpl("return;")
-          ] end
-        ].flatten)
+        exit_block = if proc.is_entrypoint? then
+          bpl(<<-END, scope: program)
+          $exit:
+            assume {:endpoint} true;
+            assume $e;
+            assert false;
+            return;
+            END
+        else
+          bpl("$exit: return;")
+        end
 
-        scope = [Body.new(declarations: [], blocks: [exit_block]), proc.body, proc, program]
+        # an artificial scope containing the exit block
+        scope = [Body.new(blocks: [exit_block]), proc.body, proc, program]
 
-        proc.body.replace do |s|
-          case s
+        proc.body.each do |stmt|
+          case stmt
           when AssertStatement
-            next bpl("if (!#{s.expression}) { $e := true; goto #{exit_label}; }").resolve!(scope)
+            stmt.replace_with \
+              bpl("if (!#{stmt.expression}) { $e := true; goto $exit; }", scope: scope)
 
           when CallStatement
             # TODO why do these "optimizations" make things slower??
@@ -98,21 +98,20 @@ module Bpl
             # next s if s.target.attributes.include?(:atomic)
             # next s unless s.target.modifies.include?(bpl("$e").resolve!(program))
             # next s if s.target.attributes.include?(:async)
-            next [s, bpl("if ($e) { goto #{exit_label}; }").resolve!(scope)]
+            # next [s, bpl("if ($e) { goto $exit; }", scope: scope)]
+            stmt.insert_after bpl("if ($e) { goto $exit; }", scope: scope)
 
           when AssumeStatement
-            next s unless s.attributes.include? :yield
-            next [s, bpl("if ($e) { goto #{exit_label}; }").resolve!(scope)]
+            if stmt.attributes.include? :yield
+              stmt.insert_after bpl("if ($e) { goto $exit; }", scope: scope)
+            end
 
           when ReturnStatement
-            next [
-              bpl("goto #{exit_label};").resolve!(scope)
-            ]
-          else
-            next s
+            stmt.replace_with bpl("goto $exit;", scope: scope)
+
           end
         end
-        proc.body.blocks << exit_block
+        proc.body << exit_block
       end
     end
   end

@@ -17,7 +17,7 @@ module Bpl
     class Statement
       def split(rounds,scope)
         rounds.times.reduce(nil) do |rest,i|
-          s = bpl("#{self}").resolve!(scope).replace {|g| g.round(i)}
+          s = bpl("#{self}", scope: scope).replace! {|g| g.round(i)}
           if rest.is_a?(IfStatement)
             bpl("if (#k == #{i}) { #{s} } else #{rest}")
           elsif rest.is_a?(Statement)
@@ -65,7 +65,7 @@ module Bpl
         end
 
         program << bpl("const #ROUNDS: int;")
-        program << bpl("axiom #ROUNDS == #{@rounds};").resolve!(program)
+        program << bpl("axiom #ROUNDS == #{@rounds};", scope: program)
 
         globals.each do |decl|
           program.declarations.delete(decl)
@@ -89,7 +89,7 @@ module Bpl
           else
             proc.parameters << bpl("#k.0: int")
             proc.returns << bpl("#k: int")
-            proc.body.statements.unshift bpl("assume #k == #k.0;").resolve!(scope)
+            proc.body.blocks.first.statements.unshift bpl("assume #k == #k.0;", scope: scope)
           end
 
           if proc.any? {|s| s.attributes.include? :yield}
@@ -102,16 +102,16 @@ module Bpl
             when ModifiesClause
               spec.identifiers.each do |g|
                 new_specs << bpl(
-                  "modifies #{@rounds.times.map{|i| "#{g}.r#{i}"} * ", "};"
-                ).resolve!(scope)
+                  "modifies #{@rounds.times.map{|i| "#{g}.r#{i}"} * ", "};",
+                  scope: scope)
                 next unless proc.attributes.include?(:atomic)
                 next unless proc.body.nil?
                 # TODO why is it slower to include more ensures on atomic
                 # procedures which also have bodies??
                 @rounds.times do |i|
                   new_specs << bpl(
-                    "ensures #k == #{i} || #{g}.r#{i} == old(#{g}.r#{i});"
-                  ).resolve!(scope)
+                    "ensures #k == #{i} || #{g}.r#{i} == old(#{g}.r#{i});",
+                    scope: scope)
                 end
               end
             when RequiresClause, EnsuresClause
@@ -119,11 +119,11 @@ module Bpl
               next unless proc.attributes.include?(:atomic)
               if spec.any?(&:is_global_var?)
                 @rounds.times do |i|
-                  expr = bpl_expr("#{spec.expression}").resolve!(old_scope)
-                  expr.replace do |g|
+                  expr = bpl_expr("#{spec.expression}", scope: old_scope)
+                  expr.replace! do |g|
                     if g.is_global_var? then bpl("#{g}.r#{i}") else g end
                   end
-                  new_specs << bpl("ensures #k != #{i} || #{expr};").resolve!(scope)
+                  new_specs << bpl("ensures #k != #{i} || #{expr};", scope: scope)
                 end
               else
                 new_specs << spec
@@ -155,59 +155,63 @@ module Bpl
           # NOTE times were slightly better when only LHS-accesses resulted
           # in copied statements.
 
-          proc.body.replace do |stmt|
+          proc.body.each do |stmt|
             case stmt
             when CallStatement
-              stmt.arguments << bpl("#k").resolve!(scope)
-              stmt.assignments << bpl("#k").resolve!(scope) \
+              stmt.arguments << bpl("#k", scope: scope)
+              stmt.assignments << bpl("#k", scope: scope) \
                 unless stmt.target && stmt.target.attributes.include?(:atomic)
-              next stmt
               
             when IfStatement, WhileStatement
-              next stmt unless stmt.condition.any?(&:is_global_var?)
-              stmt.condition = stmt.condition.replace {|g| g.split(@rounds).resolve!(scope)}
+              next unless stmt.condition.any?(&:is_global_var?)
+              stmt.condition = stmt.condition.replace! {|g| g.split(@rounds).resolve!(scope)}
 
             when HavocStatement
-              next stmt unless stmt.any?(&:is_global_var?)
-              next stmt.split(@rounds,old_scope).resolve!(scope)
+              next unless stmt.any?(&:is_global_var?)
+              stmt.replace_with \
+                stmt.split(@rounds,old_scope).resolve!(scope)
 
             when AssignStatement
-              next stmt unless stmt.any?(&:is_global_var?)
+              next unless stmt.any?(&:is_global_var?)
               if proc.name == "$static_init"
-                next bpl("#{stmt}").resolve!(old_scope).replace {|g| g.round(0)}.resolve!(scope)
+                stmt.replace_with \
+                  bpl("#{stmt}", scope: old_scope).replace! {|g| g.round(0)}.resolve!(scope)
               elsif stmt.lhs.any? {|l| l.any?(&:is_global_var?)}
-                next stmt.split(@rounds,old_scope).resolve!(scope)
+                stmt.replace_with \
+                  stmt.split(@rounds,old_scope).resolve!(scope)
               else
-                next stmt.replace do |g|
+                s = stmt.replace! do |g|
                   if g.is_a?(Statement) then g else g.split(@rounds).resolve!(scope) end
                 end
+                stmt.replace_with(s)
               end
 
             when AssertStatement, AssumeStatement
               if stmt.attributes.include? :yield then
-                next [
-                  bpl("havoc #j;").resolve!(scope),
-                  bpl("assume #j >= #k;").resolve!(scope),
-                  bpl("assume #j < #{@rounds};").resolve!(scope),
-                  bpl("#k := #j;").resolve!(scope)
-                ]
+                stmt.replace_with(
+                  bpl("havoc #j;", scope: scope),
+                  bpl("assume #j >= #k;", scope: scope),
+                  bpl("assume #j < #{@rounds};", scope: scope),
+                  bpl("#k := #j;", scope: scope))
+
               elsif stmt.attributes.include? :startpoint
-                next gs.product(@rounds.times.to_a).map do |g,i|
-                  bpl("assume #{g}.r#{i} == #{g}.r#{i}.0;").resolve!(scope)
-                end + [bpl("assume #k == 0;").resolve!(scope), stmt]
+                stmt.insert_before *(
+                  gs.product(@rounds.times.to_a).map do |g,i|
+                    bpl("assume #{g}.r#{i} == #{g}.r#{i}.0;", scope: scope)
+                  end)
+                stmt.insert_before bpl("assume #k == 0;", scope: scope)
+
               elsif stmt.attributes.include? :endpoint
-                next [stmt] +
+                stmt.insert_after *(
                   gs.product((@rounds-1).times.to_a).map do |g,i|
-                    bpl("assume #{g}.r#{i+1}.0 == #{g}.r#{i};").resolve!(scope)
-                  end
-              elsif !stmt.any?(&:is_global_var?)
-                next stmt
-              else
-                stmt.expression = stmt.expression.replace {|g| g.split(@rounds).resolve!(scope)}
+                    bpl("assume #{g}.r#{i+1}.0 == #{g}.r#{i};", scope: scope)
+                  end)
+
+              elsif stmt.any?(&:is_global_var?)
+                stmt.expression = stmt.expression.replace! {|g| g.split(@rounds).resolve!(scope)}
               end
 
             end
-            stmt
           end
 
         end

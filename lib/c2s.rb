@@ -63,9 +63,30 @@ module Kernel
       "Verification requires Boogie; please install it."
   end
   
-  def bpl(str) BoogieLanguage.new.parse_str(str) end
-  def bpl_expr(str) BoogieLanguage.new.parse_expr(str) end
-  def bpl_type(str) BoogieLanguage.new.parse_type(str) end
+  def bpl(str, scope: nil)
+    elem = BoogieLanguage.new.parse_str(str)
+    case elem
+    when Node; elem.resolve!(scope)
+    when Array; elem.each {|e| e.resolve!(scope)}
+    end if scope
+    elem
+  end
+  def bpl_expr(str, scope: nil)
+    elem = BoogieLanguage.new.parse_expr(str)
+    case elem
+    when Node; elem.resolve!(scope)
+    when Array; elem.each {|e| e.resolve!(scope)}
+    end if scope
+    elem
+  end
+  def bpl_type(str, scope: nil)
+    elem = BoogieLanguage.new.parse_type(str)
+    case elem
+    when Node; elem.resolve!(scope)
+    when Array; elem.each {|e| e.resolve!(scope)}
+    end if scope
+    elem
+  end
 end
 
 class String
@@ -102,7 +123,10 @@ OptionParser.new do |opts|
   
   @resolution = true
   @type_checking = true
-  @preemption = false
+  @preemption = true
+  @atomicity = true
+  @normalization = true
+  @modifies_correction = true
   @sequentialization = true
   @inlining = false
   @inspection = false
@@ -246,6 +270,7 @@ begin
   require_relative 'bpl/analysis/atomicity'
   require_relative 'bpl/analysis/preemption'
   require_relative 'bpl/analysis/normalization'
+  require_relative 'bpl/analysis/desugaring'
   require_relative 'bpl/analysis/modifies_correction'
   require_relative 'bpl/analysis/inlining'
   require_relative 'bpl/analysis/df_async_removal'
@@ -268,6 +293,9 @@ begin
 
   @type_checking = false unless @resolution
   @sequentialization = false unless @resolution
+  @atomicity = @sequentialization
+  @normalization = @sequentialization || @verification
+  @modifies_correction = @sequentialization
   @rounds ||= @delays + 1
 
   src = timed 'Front-end' do
@@ -295,15 +323,15 @@ begin
 
   timed 'Atomicity analysis' do
     Bpl::Analysis::detect_atomic! program
-  end if @sequentialization
+  end if @atomicity
 
   timed('Normalization') do
     Bpl::Analysis::normalize! program
-  end if @sequentialization || @verification
+  end if @normalization
 
   timed 'Modifies-correction' do
     Bpl::Analysis::correct_modifies! program
-  end if @sequentialization
+  end if @modifies_correction
 
   timed('Sequentialization') do
     if program.any?{|e| e.attributes.include? :static_threads}

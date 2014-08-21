@@ -6,12 +6,12 @@ module Bpl
         next if proc.name =~ /^\$/ # includes $static_init, $malloc, $free, ...
         next if proc.name =~ /__SMACK/
         next if proc.attributes.include? :atomic
-        proc.replace do |stmt|
-          next stmt unless stmt.is_a?(AssignStatement)
-          next stmt unless stmt.any? do |g|
+        proc.each do |stmt|
+          next unless stmt.is_a?(AssignStatement)
+          next unless stmt.any? do |g|
             g.is_a?(StorageIdentifier) && g.is_global? && g.is_variable?
           end
-          next [bpl("assume {:yield} true;"), stmt]
+          stmt.insert_before bpl("assume {:yield} true;")
         end
       end
     end

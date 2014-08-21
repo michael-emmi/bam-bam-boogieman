@@ -21,7 +21,7 @@ class BoogieLanguage
   options no_result_var
 
   token IDENTIFIER NUMBER BITVECTOR STRING BVTYPE
-  token PARSE_DECL PARSE_PARAM PARSE_SPEC PARSE_STMT PARSE_EXPR PARSE_TYPE
+  token PARSE_DECL PARSE_PARAM PARSE_SPEC PARSE_BLOCKS PARSE_STMT PARSE_EXPR PARSE_TYPE
   
 rule 
   target: 
@@ -29,6 +29,7 @@ rule
     | PARSE_DECL decl { val[1] }
     | PARSE_PARAM param_decl { val[1] }
     | PARSE_SPEC spec { val[1] }
+    | PARSE_BLOCKS blocks { val[1] }
     | PARSE_STMT stmt { val[1] }
     | PARSE_EXPR expr { val[1] }
     | PARSE_TYPE type { val[1] }
@@ -195,7 +196,7 @@ rule
   label: name { Label.new name: val[0] }
 
   blocks:
-    { [Block.new(labels: [], statements: [])] }
+    { [Block.new] }
     | label ':' blocks {
       bs = val[2]
       bs.first.labels.unshift val[0]
@@ -203,10 +204,8 @@ rule
     }
     | stmt blocks {
       bs = val[1]
-      unless bs.first.labels.empty?
-        bs.unshift Block.new(labels: [], statements: [])
-      end
-      bs.first.statements.unshift val[0]
+      bs.unshift(Block.new) unless bs.first.labels.empty?
+      bs.first.unshift val[0]
       bs
     }
 
@@ -349,41 +348,20 @@ def parse(input)
   scan_str(input)
 end
 
-def parse_decl(str)
+def parse_special(str, kind)
   scan_evaluate str
-  @rex_tokens.unshift [:PARSE_DECL, ""]
+  @rex_tokens.unshift ["PARSE_#{kind.upcase}".to_sym, ""]
   do_parse
 end
 
-def parse_param(str)
-  scan_evaluate str
-  @rex_tokens.unshift [:PARSE_PARAM, ""]
-  do_parse
-end
-
-def parse_spec(str)
-  scan_evaluate str
-  @rex_tokens.unshift [:PARSE_SPEC, ""]
-  do_parse
-end
-
-def parse_stmt(str)
-  scan_evaluate str
-  @rex_tokens.unshift [:PARSE_STMT, ""]
-  do_parse
-end
-
-def parse_expr(str)
-  scan_evaluate str
-  @rex_tokens.unshift [:PARSE_EXPR, ""]
-  do_parse
-end
-
-def parse_type(str)
-  scan_evaluate str
-  @rex_tokens.unshift [:PARSE_TYPE, ""]
-  do_parse
-end
+def parse_decl(str) parse_special(str, :decl) end
+def parse_param(str) parse_special(str, :param) end
+def parse_spec(str) parse_special(str, :spec) end
+def parse_blocks(str) parse_special(str, :blocks) end
+def parse_block(str) parse_special(str, :blocks).first end
+def parse_stmt(str) parse_special(str, :stmt) end
+def parse_expr(str) parse_special(str, :expr) end
+def parse_type(str) parse_special(str, :type) end
 
 def parse_str(str)
   case str
@@ -391,6 +369,10 @@ def parse_str(str)
     parse_spec(str)
   when /\b(type|const|function|axiom|var|procedure|implementation)\b/
     parse_decl(str)
+  when /\A\s*#{Bpl::IDENTIFIER}:.*;.*\s+#{Bpl::IDENTIFIER}:/m
+    parse_blocks(str)
+  when /\A\s*#{Bpl::IDENTIFIER}:.*;/m
+    parse_block(str)
   when /\b(assert|assume|havoc|call|if|while|break|goto|return)\b|:=/
     parse_stmt(str)
   when /[^<:]:[^:]/
