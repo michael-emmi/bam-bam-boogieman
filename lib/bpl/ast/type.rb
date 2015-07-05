@@ -13,18 +13,23 @@ module Bpl
       # def base; nil end
       # (is_a?(CustomType) ? base : self).oldeql?( ty.is_a?(CustomType) ? ty.base : ty )
     end
-    
+
     class BitvectorType < Type
       attr_accessor :width
       def show; "bv#{@width}" end
+      def eql?(ty)
+        ty = ty.is_a?(CustomType) ? ty.base : ty
+        ty.is_a?(BitvectorType) &&
+        ty.width == @width
+      end
     end
-    
+
     class CustomType < Type
       children :name, :arguments
       attr_accessor :declaration
       def base
         case @declaration && @declaration.type
-        when CustomType; base(@declaration.type)
+        when CustomType; @declaration.type.base
         when Type; @declaration.type
         else self
         end
@@ -38,11 +43,11 @@ module Bpl
       end
       def show; "#{@name} #{@arguments.map{|a| yield a} * " "}".fmt end
     end
-    
+
     class MapType < Type
       children :arguments, :domain, :range
       def eql?(ty)
-        ty.is_a?(MapType) && 
+        ty.is_a?(MapType) &&
         ty.domain.count == @domain.count &&
         ty.domain.zip(@domain).all?{|t1,t2| t1.eql?(t2)} &&
         ty.range.eql?(@range)
