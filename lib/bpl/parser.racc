@@ -1,5 +1,5 @@
 class BoogieLanguage
-  
+
   prechigh
     left 'forall' 'exists'
     left 'old'
@@ -17,14 +17,14 @@ class BoogieLanguage
     left ':'
     nonassoc '(' ')'
   preclow
-  
+
   options no_result_var
 
   token IDENTIFIER NUMBER BITVECTOR STRING BVTYPE
   token PARSE_DECL PARSE_PARAM PARSE_SPEC PARSE_BLOCKS PARSE_STMT PARSE_EXPR PARSE_TYPE
-  
-rule 
-  target: 
+
+rule
+  target:
     program
     | PARSE_DECL decl { val[1] }
     | PARSE_PARAM param_decl { val[1] }
@@ -33,33 +33,33 @@ rule
     | PARSE_STMT stmt { val[1] }
     | PARSE_EXPR expr { val[1] }
     | PARSE_TYPE type { val[1] }
-  
+
   name: IDENTIFIER { val[0] }
   names: name { [val[0]] } | name ',' names { [val[0]] + val[2] }
-      
+
   ident: IDENTIFIER { {name: val[0]} }
   idents: ident { [val[0]] } | ident ',' idents { [val[0]] + val[2] }
   idents_opt: { [] } | idents
-      
-  literal: 
+
+  literal:
     bool_lit    { BooleanLiteral.new value: val[0] }
     | BITVECTOR  { BitvectorLiteral.new val[0] }
-    | NUMBER     { IntegerLiteral.new value: val[0] }      
+    | NUMBER     { IntegerLiteral.new value: val[0] }
   bool_lit: 'true' { true } | 'false' { false }
 
   string: STRING
-  
+
   type:
     type_atom
     | map_type
     | name tc_args { CustomType.new name: val[0], arguments: val[1] }
-  
+
   type_atom:
     'bool' { Type::Boolean }
     | 'int' { Type::Integer }
     | BVTYPE { BitvectorType.new width: val[0] }
     | '(' type ')' { val[1] }
-    
+
   map_type: type_args '[' types ']' type {
     MapType.new arguments: val[0], domain: val[2], range: val[4]
   }
@@ -69,11 +69,11 @@ rule
     | type_atom tc_args { [val[0]] + val[1] }
     | name tc_args { [(CustomType.new name: val[0], arguments: val[1])] }
     | map_type { [val[0]] }
-    
+
   types: type { [val[0]] } | type ',' types { [val[0]] + val[2] }
-    
+
   type_args: { [] } | '<' names '>' { val[1] }
-  
+
   expr: expr '<==>' expr  { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
       | expr '==>' expr   { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
       | expr '||' expr    { BinaryExpression.new lhs: val[0], op: val[1], rhs: val[2] }
@@ -107,18 +107,18 @@ rule
       }
       | ident { StorageIdentifier.new val[0] }
       | 'old' '(' expr ')' { OldExpression.new expression: val[2] }
-      | '(' quantifier type_args param_decls '::' ants expr ')' { 
-        QuantifiedExpression.new quantifier: val[1], type_arguments: val[2], 
-          variables: val[3], 
+      | '(' quantifier type_args param_decls '::' ants expr ')' {
+        QuantifiedExpression.new quantifier: val[1], type_arguments: val[2],
+          variables: val[3],
           attributes: val[5].select{|a| a.is_a?(Hash)},
           triggers: val[5].select{|es| es.is_a?(Array)}.map{|es| Trigger.new(expressions: es)},
-          expression: val[6] 
+          expression: val[6]
       }
       | '(' expr ')'  { val[1] }
-      
+
   exprs: expr { [val[0]] } | expr ',' exprs { [val[0]] + val[2] }
   exprs_opt: { [] } | exprs
-  
+
   quantifier: 'forall' | 'exists'
 
   attr: '{:' name enss_opt '}' { {val[1].to_sym => val[2]} }
@@ -130,50 +130,52 @@ rule
   ens: expr | string
   enss: ens { [val[0]] } | ens ',' enss { [val[0]] + val[2] }
   enss_opt: { [] } | enss
-  
+
   stmt:
-    'assert' attrs expr ';' { AssertStatement.new attributes: val[1], expression: val[2] }
-    | 'assume' attrs expr ';' { AssumeStatement.new attributes: val[1], expression: val[2] }
-    | 'havoc' idents ';' { 
+    'assert' attrs expr ';' { AssertStatement.new attributes: val[1], expression: val[2], line_number: val[0] }
+    | 'assume' attrs expr ';' { AssumeStatement.new attributes: val[1], expression: val[2], line_number: val[0] }
+    | 'havoc' idents ';' {
       ids = val[1].map{|id| StorageIdentifier.new id}
-      HavocStatement.new identifiers: ids
+      HavocStatement.new identifiers: ids, line_number: val[0]
     }
     | lhss ':=' exprs ';' { AssignStatement.new lhs: val[0], rhs: val[2] }
-    | 'call' attrs call_lhs '(' exprs_opt ')' ';' { 
-      CallStatement.new attributes: val[1], assignments: val[2][:rets], 
-      procedure: val[2][:name], arguments: val[4]
+    | 'call' attrs call_lhs '(' exprs_opt ')' ';' {
+      CallStatement.new attributes: val[1], assignments: val[2][:rets],
+      procedure: val[2][:name], arguments: val[4], line_number: val[0]
     }
     | 'call' 'forall' ident '(' wc_exprs_opt ')' ';' {
       id = ProcedureIdentifier.new val[2]
-      CallStatement.new assignments: nil, procedure: id, arguments: val[4]
+      CallStatement.new assignments: nil, procedure: id, arguments: val[4],
+      line_number: val[0]
     }
     | if_stmt
     | 'while' '(' wc_expr ')' loop_invs '{' blocks '}' {
-      WhileStatement.new condition: val[2], invariants: val[4], blocks: val[6]
+      WhileStatement.new condition: val[2], invariants: val[4], blocks: val[6],
+      line_number: val[0]
     }
-    | 'break' idents_opt ';' { 
+    | 'break' idents_opt ';' {
       ids = val[1].map{|id| LabelIdentifier.new id}
-      BreakStatement.new identifiers: ids
+      BreakStatement.new identifiers: ids, line_number: val[0]
     }
-    | 'return' ';' { ReturnStatement.new }
-    | 'return' expr ';' { ReturnStatement.new expression: val[1] }
+    | 'return' ';' { ReturnStatement.new line_number: val[0] }
+    | 'return' expr ';' { ReturnStatement.new expression: val[1], line_number: val[0] }
     | 'goto' idents ';' {
       ids = val[1].map{|id| LabelIdentifier.new id}
-      GotoStatement.new identifiers: ids
+      GotoStatement.new identifiers: ids, line_number: val[0]
     }
   stmts:
     stmt { [val[0]] }
     | stmt stmts { [val[0]] + val[1] }
-    
-  call_lhs: 
+
+  call_lhs:
     ident { {name: ProcedureIdentifier.new(val[0]), rets: []} }
     | idents ':=' ident {
       ids = val[0].map{|id| StorageIdentifier.new id}
       id = ProcedureIdentifier.new val[2]
       {name: id, rets: ids}
     }
-  
-  if_stmt: 'if' '(' wc_expr ')' '{' blocks '}' else_stmt { IfStatement.new condition: val[2], blocks: val[5], else: val[7] }
+
+  if_stmt: 'if' '(' wc_expr ')' '{' blocks '}' else_stmt { IfStatement.new condition: val[2], blocks: val[5], else: val[7], line_number: val[0] }
   else_stmt: { nil } | 'else' '{' blocks '}' { val[1] } | 'else' if_stmt { val[2] }
 
   lhs: ident selects {
@@ -188,7 +190,7 @@ rule
   wc_expr: expr | '*' { Expression::Wildcard }
   wc_exprs: wc_expr { [val[0]] } | wc_expr ',' wc_exprs { [val[0]] + val[2] }
   wc_exprs_opt: { [] } | wc_exprs
-  
+
   loop_inv: free_opt 'invariant' expr ';' { LoopInvariant.new free: val[0], expression: val[2] }
   loop_invs: { [] } | loop_inv loop_invs { [val[0]] + val[1] }
   free_opt: { false } | 'free' { true }
@@ -210,7 +212,7 @@ rule
     }
 
   body: '{' var_decls blocks '}' { Body.new declarations: val[1], blocks: val[2] }
-  
+
   decl:
     type_decl
     | const_decl
@@ -221,12 +223,12 @@ rule
     | impl_decl
   decls: { [] } | decl decls { [val[0]] + val[1] }
 
-  type_decl: 'type' attrs finite_opt name tc_params type_syn ';' { 
+  type_decl: 'type' attrs finite_opt name tc_params type_syn ';' {
     if val[5] && val[2]
       abort "Illegal declaration of type #{([val[3]] + val[4]) * " "}"
     end
     TypeDeclaration.new attributes: val[1], finite: val[2], name: val[3],
-      arguments: val[4], type: val[5] 
+      arguments: val[4], type: val[5]
   }
   finite_opt: { false } | 'finite' { true }
   tc_params: { [] } | name tc_params { [val[0]] + val[1] }
@@ -250,11 +252,11 @@ rule
     FunctionDeclaration.new attributes: val[1], name: val[2],
       type_arguments: val[3], arguments: val[5], return: val[9], body: val[11]
   }
-  
+
   farg:
     typed_ids { StorageDeclaration.new val[0] }
     | type { StorageDeclaration.new(names: [], type: val[0]) }
-  
+
   fargs:
     type { [{names: [], type: val[0]}] }
     | type ',' fargs {
@@ -271,7 +273,7 @@ rule
       unless val[0].respond_to?(:name)
         raise ParseError, "parse error on value #{val[0]}: expecting name."
       end
-      
+
       if val[2].first[:names].empty?
         val[2].first[:names].unshift(val[0])
         val[2]
@@ -279,9 +281,9 @@ rule
         [{names: [val[0]], type: val[2].first[:names].shift}] + val[2]
       end
     }
-  fargs_opt: 
-    { [] } 
-    | fargs { 
+  fargs_opt:
+    { [] }
+    | fargs {
       val[0].map do |x|
         x[:names].map!{|t| t.name}
         StorageDeclaration.new(x)
@@ -289,7 +291,7 @@ rule
     }
   fbody: ';' { nil } | '{' expr '}' { val[1] }
 
-  axiom_decl: 'axiom' attrs expr ';' { 
+  axiom_decl: 'axiom' attrs expr ';' {
     AxiomDeclaration.new attributes: val[1], expression: val[2]
   }
 
@@ -301,10 +303,10 @@ rule
   var_decls: { [] } | var_decl var_decls { [val[0]] + val[1] }
   where_clause: { {} } | 'where' expr { {where: val[1]} }
 
-  proc_decl: 
+  proc_decl:
     'procedure' attrs name type_args '(' param_decls_opt ')' out_params pspec {
-      ProcedureDeclaration.new attributes: val[1], name: val[2], 
-        type_arguments: val[3], parameters: val[5], returns: val[7], 
+      ProcedureDeclaration.new attributes: val[1], name: val[2],
+        type_arguments: val[3], parameters: val[5], returns: val[7],
         specifications: val[8][:specs], body: val[8][:body]
     }
   out_params: { [] } | 'returns' '(' param_decls_opt ')' { val[2] }
@@ -314,7 +316,7 @@ rule
   param_decls: param_decl { [val[0]] } | param_decl ',' param_decls { [val[0]] + val[2] }
   param_decls_opt: { [] } | param_decls
 
-  spec: 
+  spec:
     free_opt 'requires' expr ';' { RequiresClause.new free: val[0], expression: val[2] }
     | free_opt 'modifies' idents ';' {
       ids = val[2].map{|id| StorageIdentifier.new id}
@@ -329,7 +331,7 @@ rule
         type_arguments: val[3], parameters: val[5], returns: val[7],
         specifications: [], body: val[8]
     }
-  
+
   program: decls { Program.new declarations: val[0] }
 end
 
@@ -349,8 +351,7 @@ def parse(input)
 end
 
 def parse_special(str, kind)
-  scan_evaluate str
-  @rex_tokens.unshift ["PARSE_#{kind.upcase}".to_sym, ""]
+  scan_setup("$$PARSE_#{kind.upcase}$$ " + str)
   do_parse
 end
 

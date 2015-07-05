@@ -8,7 +8,7 @@ module Bpl
   module AST
     class Node
       include Enumerable
-  
+
       class << self
         def children(*args)
           @children ||= []
@@ -22,12 +22,14 @@ module Bpl
           subclass.instance_variable_set("@children",@children)
         end
       end
-  
+
       children :attributes
       attr_accessor :parent
-  
+      attr_accessor :line_number
+
       def initialize(opts = {})
         @attributes = {}
+        @line_number = nil
         opts.each do |k,v|
           send("#{k}=",v) if respond_to?("#{k}=")
         end
