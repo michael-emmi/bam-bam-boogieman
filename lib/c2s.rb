@@ -25,9 +25,9 @@ $keep = false
 $temp = Set.new
 
 module Kernel
-  
+
   alias :old_abort :abort
-  
+
   def abort(str)
     old_abort("Error: #{str}".red)
   end
@@ -62,7 +62,7 @@ module Kernel
     abort "'Boogie' missing from executable path.\n" \
       "Verification requires Boogie; please install it."
   end
-  
+
   def bpl(str, scope: nil)
     elem = BoogieLanguage.new.parse_str(str)
     case elem
@@ -120,7 +120,7 @@ end.flatten
 OptionParser.new do |opts|
   @output_file = nil
   @trace_file = nil
-  
+
   @resolution = true
   @type_checking = true
   @preemption = true
@@ -144,10 +144,10 @@ OptionParser.new do |opts|
   @graph = false
 
   opts.banner = "Usage: #{File.basename $0} [options] FILE(s)"
-  
+
   opts.separator ""
   opts.separator "Basic options:"
-  
+
   opts.on("-h", "--help", "Show this message") do
     puts opts
     exit
@@ -175,7 +175,7 @@ OptionParser.new do |opts|
   opts.on("-k", "--[no-]keep-files", "Keep intermediate files? (default #{$keep})") do |v|
     $keep = v
   end
-  
+
   opts.on("-o", "--dump FILENAME") do |f|
     @output_file = f
   end
@@ -219,17 +219,17 @@ OptionParser.new do |opts|
   opts.separator "Sequentialization options:"
 
   opts.on("-r", "--rounds MAX", Integer, "The rounds bound (default #{@delays+1})") do |r|
-    @rounds = r 
+    @rounds = r
   end
 
   opts.on("-d", "--delays MAX", Integer, "The delay bound (default #{@delays})") do |d|
     @delays = d
   end
-  
+
   opts.separator ""
   opts.separator "Verifier options:"
 
-  opts.on("--verifier NAME", [:boogie_si, :boogie_fi], 
+  opts.on("--verifier NAME", [:boogie_si, :boogie_fi],
           "Select verifier (default #{@verifier})") do |v|
     @verifier = v
   end
@@ -267,6 +267,7 @@ begin
   require_relative 'bpl/parser.tab'
   require_relative 'bpl/analysis/resolution'
   require_relative 'bpl/analysis/type_checking'
+  require_relative 'bpl/analysis/static_reachability'
   require_relative 'bpl/analysis/atomicity'
   require_relative 'bpl/analysis/preemption'
   require_relative 'bpl/analysis/normalization'
@@ -281,7 +282,7 @@ begin
   require_relative 'bpl/analysis/trace'
   require_relative 'z3/model'
   require_relative 'c2s/frontend'
-  
+
   include Bpl::Analysis
 
   begin
