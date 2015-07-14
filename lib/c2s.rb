@@ -117,31 +117,22 @@ ARGV.select{|f| File.extname(f) == '.bpl' && File.exists?(f)}.map do |f|
   end
 end.flatten
 
+@modules = {}
+@stages = []
+@output_file = nil
+
+require_relative 'bpl/parser.tab'
+require_relative 'bpl/transformation'
+
+root = File.expand_path(File.dirname(__FILE__))
+Dir.glob(File.join(root,'bpl','analysis','*.rb')).each do |lib|
+  require_relative lib
+  name = File.basename(lib,'.rb')
+  klass = "Bpl::Analysis::#{name.split('_').collect(&:capitalize).join}"
+  @modules[name.to_sym] = Object.const_get(klass)
+end
+
 OptionParser.new do |opts|
-  @output_file = nil
-  @trace_file = nil
-
-  @resolution = true
-  @type_checking = true
-  @preemption = true
-  @atomicity = true
-  @normalization = true
-  @modifies_correction = true
-  @sequentialization = true
-  @inlining = false
-  @inspection = false
-  @verification = true
-
-  @rounds = nil
-  @delays = 0
-
-  @verifier = :boogie_fi
-  @incremental = false
-  @parallel = false
-  @timeout = nil
-  @debug_solver = false
-  @unroll = nil
-  @graph = false
 
   opts.banner = "Usage: #{File.basename $0} [options] FILE(s)"
 
@@ -176,82 +167,25 @@ OptionParser.new do |opts|
     $keep = v
   end
 
-  opts.on("-o", "--dump FILENAME") do |f|
+  opts.on("-o", "--output-file FILENAME") do |f|
     @output_file = f
-  end
-
-  opts.on("-t", "--trace FILENAME") do |f|
-    @trace_file = f
   end
 
   opts.separator ""
   opts.separator "Staging options:"
 
-  opts.on("--[no-]resolve", "Do identifier resolution? (default #{@resolution})") do |r|
-    @resolution = r
-  end
-
-  opts.on("--[no-]type-check", "Do type checking? (default #{@type_checking})") do |r|
-    @type_checking = r
-  end
-
-  opts.on("--[no-]preemptive", "Preemptive concurrency? (default #{@preemption})") do |p|
-    @preemption = p
-  end
-
-  opts.on("--[no-]sequentialize", "Do sequentialization? (default #{@sequentialization})") do |s|
-    @sequentialization = s
-  end
-
-  opts.on("--[no-]inspect", "Inspect program? (default #{@inspection})") do |i|
-    @inspection = i
-  end
-
-  opts.on("--[no-]inline", "Inspect program? (default #{@inlining})") do |i|
-    @inlining = i
-  end
-
-  opts.on("--[no-]verify", "Do verification? (default #{@verification})") do |v|
-    @verification = v
-  end
-
-  opts.separator ""
-  opts.separator "Sequentialization options:"
-
-  opts.on("-r", "--rounds MAX", Integer, "The rounds bound (default #{@delays+1})") do |r|
-    @rounds = r
-  end
-
-  opts.on("-d", "--delays MAX", Integer, "The delay bound (default #{@delays})") do |d|
-    @delays = d
-  end
-
-  opts.separator ""
-  opts.separator "Verifier options:"
-
-  opts.on("--verifier NAME", [:boogie_si, :boogie_fi],
-          "Select verifier (default #{@verifier})") do |v|
-    @verifier = v
-  end
-
-  opts.on("-i", "--incremental", "Incremental verification? (default #{@incremental})") do |i|
-    @incremental = i
-  end
-
-  opts.on("-p", "--parallel", "Parallel verification? (default #{@parallel})") do |p|
-    @parallel = p
-  end
-
-  opts.on("-z", "--timeout TIME", Integer, "Verifier timeout (default #{@timeout || "-"})") do |t|
-    @timeout = t
-  end
-
-  opts.on("--debug_solver", "Solver debugging? (default #{@debug_solver})") do |d|
-    @debug_solver = d
-  end
-
-  opts.on("-u", "--unroll MAX", Integer, "Loop/recursion bound (default #{@unroll || "-"})") do |u|
-    @unroll = u
+  @modules.each do |name,klass|
+    str = "--#{name}"
+    str << " [#{klass.options.map{|o| "#{o}:_"} * ","}]" \
+      unless klass.options.empty?
+    opts.on(str, klass.description) do |args|
+      if klass.options.empty?
+        args = {}
+      else
+        args = args.split(',').map{|s| k,v = s.split(':'); [k.to_sym,v]}.to_h
+      end
+      @stages << klass.new(args)
+    end
   end
 
 end.parse!
@@ -264,40 +198,25 @@ begin
   src = ARGV[0]
   abort "Source file '#{src}' does not exist." unless File.exists?(src)
 
-  require_relative 'bpl/parser.tab'
-  require_relative 'bpl/analysis/resolution'
-  require_relative 'bpl/analysis/type_checking'
-  require_relative 'bpl/analysis/static_reachability'
-  require_relative 'bpl/analysis/atomicity'
-  require_relative 'bpl/analysis/preemption'
-  require_relative 'bpl/analysis/normalization'
-  require_relative 'bpl/analysis/desugaring'
-  require_relative 'bpl/analysis/modifies_correction'
-  require_relative 'bpl/analysis/inlining'
-  require_relative 'bpl/analysis/df_async_removal'
-  require_relative 'bpl/analysis/eqr_sequentialization'
-  require_relative 'bpl/analysis/flat_sequentialization'
-  require_relative 'bpl/analysis/static_segments'
-  require_relative 'bpl/analysis/verification'
-  require_relative 'bpl/analysis/trace'
+  require_relative 'bpl/ast/trace'
   require_relative 'z3/model'
   require_relative 'c2s/frontend'
 
   include Bpl::Analysis
 
-  begin
-    require 'eventmachine'
-  rescue LoadError
-    warn "Parallel verification requires the eventmachine gem; disabling." if @parallel
-    @parallel = false
-  end
+  # begin
+  #   require 'eventmachine'
+  # rescue LoadError
+  #   warn "Parallel verification requires the eventmachine gem; disabling." if @parallel
+  #   @parallel = false
+  # end
 
-  @type_checking = false unless @resolution
-  @sequentialization = false unless @resolution
-  @atomicity = @sequentialization
-  @normalization = @sequentialization || @verification
-  @modifies_correction = @sequentialization
-  @rounds ||= @delays + 1
+  # @type_checking = false unless @resolution
+  # @sequentialization = false unless @resolution
+  # @atomicity = @sequentialization
+  # @normalization = @sequentialization || @verification
+  # @modifies_correction = @sequentialization
+  # @rounds ||= @delays + 1
 
   src = timed 'Front-end' do
     C2S::process_source_file(src)
@@ -308,63 +227,18 @@ begin
   end
 
   program.source_file = src
-  trace = nil
 
-  timed 'Resolution' do
-    program.resolve!
-  end if @resolution
+  @stages.each do |analysis|
+    analysis.run! program
+  end
 
-  timed 'Type-checking' do
-    Bpl::Analysis::type_check program
-  end if @type_checking
-
-  timed 'Preemption addition' do
-    Bpl::Analysis::add_preemptions! program
-  end if @preemption
-
-  timed 'Atomicity analysis' do
-    Bpl::Analysis::detect_atomic! program
-  end if @atomicity
-
-  timed('Normalization') do
-    Bpl::Analysis::normalize! program
-  end if @normalization
-
-  timed 'Modifies-correction' do
-    Bpl::Analysis::correct_modifies! program
-  end if @modifies_correction
-
-  timed('Sequentialization') do
-    if program.any?{|e| e.attributes.include? :static_threads}
-      Bpl::Analysis::static_segments_sequentialize! program
-    else
-      EqrSequentialization.new(@rounds, @delays).sequentialize! program
-      # FlatSequentialization.new(@rounds,@delays,@unroll).sequentialize! program
+  if @output_file
+    timed('Writing transformed program') do
+      $temp.delete @output_file
+      File.write(@output_file, program)
     end
-  end if @sequentialization
-
-  timed 'Inspection' do
-    puts program.inspect
-    program.resolve! if @resolution
-    Bpl::Analysis::type_check program if @type_checking
-  end if @inspection
-
-  timed('Dumping sequentialized program') do
-    $temp.delete @output_file
-    File.write(@output_file, program)
-  end if @output_file
-
-  timed('Verification') do
-    trace = Bpl::Analysis::verify program, verifier: @verifier, \
-      unroll: @unroll, rounds: @rounds, delays: @delays, \
-      incremental: @incremental, parallel: @parallel, timeout: @timeout, \
-      debug_solver: @debug_solver
-  end if @verification
-
-  case @trace_file
-  when nil
-  when '-'; puts trace if trace
-  else File.write(@trace_file, trace || " ")
+  else
+    puts program
   end
 
 ensure

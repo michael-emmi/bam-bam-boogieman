@@ -1,5 +1,13 @@
 module Bpl
   module AST
+    class StaticSegments < Bpl::Transformation
+      def self.description
+        "I don’t know what this does."
+      end
+
+      def run! program
+      end
+    end
 
     class Program
       def static_segments_sequentialize!
@@ -7,7 +15,7 @@ module Bpl
         globals = global_variables
         gs = globals.map{|d| d.idents}.flatten
         return if gs.empty?
-        
+
         threads = []
         @declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration) && proc.body
@@ -42,7 +50,7 @@ module Bpl
           when ProcedureDeclaration
             next unless decl.body
 
-            mods = gs - decl.modifies 
+            mods = gs - decl.modifies
             decl.specifications << bpl("modifies #s, #d;")
             decl.specifications << bpl("modifies #{mods * ", "};") unless mods.empty?
 
@@ -50,12 +58,12 @@ module Bpl
               case elem
               when AssumeStatement
                 if elem.attributes.include? :startpoint
-                  next [ 
+                  next [
                     bpl("#s := 0;"),
                     bpl("#d := 0;"),
                     elem
                   ]
-                  
+
                 elsif elem.attributes.include? :endpoint
                   next [
                     elem,
@@ -76,7 +84,7 @@ module Bpl
                     end,
                     bpl("assume #s+1 == #S;")
                   ].flatten
-                  
+
                 elsif elem.attributes.include? :yield
                   seq_number = elem.attributes[:yield].first
                   next bpl(<<-end
@@ -95,7 +103,7 @@ module Bpl
 
                 end
               end
-              
+
               elem
             end
           end

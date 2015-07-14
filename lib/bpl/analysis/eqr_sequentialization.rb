@@ -30,17 +30,14 @@ module Bpl
   end
 
   module Analysis
-    class EqrSequentialization
-
-      include DFAsyncRemoval
-
-      attr_accessor :rounds, :delays
-
-      def initialize(rounds, delays)
-        @rounds = rounds
-        @delays = delays
-        @use_maps = false
+    class EqrSequentialization < Bpl::Transformation
+      def self.description
+        "The vectorization part of the EQR sequentialization."
       end
+
+      include DfAsyncRemoval
+
+      options :rounds, :delays
 
       def sequentialize! program
         vectorize! program
@@ -78,7 +75,7 @@ module Bpl
             )
           end
         end
-        
+
         program.declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration)
           scope = [proc.body, proc, program]
@@ -131,7 +128,7 @@ module Bpl
             end
           end
           proc.specifications = new_specs
-          
+
           next unless proc.body
 
           # # replace each global `g` by `g.split(@rounds)`
@@ -141,17 +138,17 @@ module Bpl
           #   when Trigger
           #     ignore = (phase == :pre)
           #     next nil # TODO don't throw away the triggers!
-          # 
+          #
           #   when AssignStatement
           #     ignore = (phase == :pre)
           #     elem.rhs.map! {|r| r.replace {|g| g.split(@rounds).resolve!(scope)}} unless ignore
-          # 
+          #
           #   when StorageIdentifier
           #     next elem.split(@rounds).resolve!(scope) unless ignore
           #   end
           #   elem
           # end
-          
+
           # NOTE times were slightly better when only LHS-accesses resulted
           # in copied statements.
 
@@ -161,7 +158,7 @@ module Bpl
               stmt.arguments << bpl("#k", scope: scope)
               stmt.assignments << bpl("#k", scope: scope) \
                 unless stmt.target && stmt.target.attributes.include?(:atomic)
-              
+
             when IfStatement, WhileStatement
               next unless stmt.condition.any?(&:is_global_var?)
               stmt.condition = stmt.condition.replace! {|g| g.split(@rounds).resolve!(scope)}

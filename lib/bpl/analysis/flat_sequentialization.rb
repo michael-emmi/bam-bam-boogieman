@@ -1,16 +1,14 @@
 module Bpl
   module Analysis
-    class FlatSequentialization
+    class FlatSequentialization < Bpl::Transformation
 
-      include DFAsyncRemoval
-
-      attr_accessor :rounds, :delays, :unroll
-
-      def initialize(rounds, delays, unroll)
-        @rounds = rounds
-        @delays = delays
-        @unroll = unroll
+      def self.description
+        "I don’t know what this does."
       end
+
+      include DfAsyncRemoval
+
+      options :rounds, :delays, :unroll
 
       def sequentialize! program
         globals = program.global_variables
@@ -48,7 +46,7 @@ module Bpl
           Bpl::Analysis::correct_modifies! program
         end
       end
-    
+
       def wrap_async_calls! program
         program.replace do |elem|
           case elem
@@ -86,7 +84,7 @@ module Bpl
 
       def is_global?(g) g.is_a?(StorageIdentifier) && g.is_variable? && g.is_global? end
       def index(g,i) is_global?(g) ? bpl("#{g}.r#{i}") : g end
-    
+
       def duplicate_blocks! program
 
         # first clone the blocks...

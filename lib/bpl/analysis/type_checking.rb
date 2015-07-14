@@ -1,9 +1,16 @@
 module Bpl
   module Analysis
-    def self.type_check program
-      program.type_check
+    class TypeChecking < Bpl::Transformation
+      def self.description
+        "Ensure correct typing."
+      end
+
+      def run! program
+        program.type_check
+      end
     end
   end
+
   module AST
     class Program
       def type_check

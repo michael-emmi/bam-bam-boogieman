@@ -1,12 +1,16 @@
 module Bpl
   module Analysis
-    module DFAsyncRemoval
+    module DfAsyncRemoval
+      def self.options; [] end
+      def self.description
+        "The async-to-call part of the EQR sequentialization."
+      end
 
-      def async_to_call! program        
+      def run! program
         return unless program.any? {|elem| elem.attributes.include?(:async)}
         globals = program.global_variables
         gs = globals.map(&:idents).flatten
-        
+
         if globals.empty?
           program.each {|elem| elem.attributes.delete(:async)}
           return
@@ -40,7 +44,7 @@ module Bpl
             proc.body.declarations <<
               bpl("var #{decl.names.map{|g| ["#{g}.save", "#{g}.guess"]}.flatten * ", "}: #{decl.type};")
           end if proc.body.any? {|elem| elem.attributes.include?(:async)}
-          
+
           scope = [proc.body, proc, program]
 
           proc.body.each do |stmt|
@@ -60,7 +64,7 @@ module Bpl
               #     gs.map{|g| bpl("#{g} := #{g}.next;")} +
               #     gs.map{|g| bpl("havoc #{g}.guess;")} +
               #     gs.map{|g| bpl("#{g}.next := #{g}.guess;")}
-              # 
+              #
               # elsif elem.attributes.include? :resume
               #   next gs.map{|g| bpl("assume #{g} == #{g}.guess;")} +
               #     gs.map{|g| bpl("#{g} := #{g}.save;")}
