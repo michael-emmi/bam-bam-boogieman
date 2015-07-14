@@ -229,7 +229,9 @@ begin
   program.source_file = src
 
   @stages.each do |analysis|
-    analysis.run! program
+    timed analysis.class.name.split('::').last do
+      analysis.run! program
+    end
   end
 
   if @output_file
