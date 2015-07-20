@@ -1,6 +1,6 @@
 module Bpl
   module Analysis
-    class TypeChecking < Bpl::Transformation
+    class TypeChecking < Bpl::Pass
       def self.description
         "Ensure correct typing."
       end

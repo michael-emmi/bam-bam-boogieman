@@ -14,6 +14,25 @@ rescue LoadError
     def blue; self end
     def light_black; self end
     def bold; self end
+    def classify
+      split('_').collect(&:capitalize).join
+    end
+    def unclassify
+      self.gsub(/::/, '/').
+      gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
+      gsub(/([a-z\d])([A-Z])/,'\1_\2').
+      tr("-", "_").
+      downcase
+    end
+    def hyphenate
+      split('_').join('-')
+    end
+    def unhyphenate
+      split('-').join('_')
+    end
+    def nounify
+      split('_').collect(&:capitalize).join(' ')
+    end
   end
 end
 
@@ -117,19 +136,21 @@ ARGV.select{|f| File.extname(f) == '.bpl' && File.exists?(f)}.map do |f|
   end
 end.flatten
 
-@modules = {}
+PASSES = [:analysis, :transformation]
+@passes = {}
 @stages = []
 @output_file = nil
 
 require_relative 'bpl/parser.tab'
-require_relative 'bpl/transformation'
+require_relative 'bpl/pass'
 
 root = File.expand_path(File.dirname(__FILE__))
-Dir.glob(File.join(root,'bpl','analysis','*.rb')).each do |lib|
+Dir.glob(File.join(root,'bpl',"{#{PASSES * ","}}",'*.rb')).each do |lib|
   require_relative lib
   name = File.basename(lib,'.rb')
-  klass = "Bpl::Analysis::#{name.split('_').collect(&:capitalize).join}"
-  @modules[name.to_sym] = Object.const_get(klass)
+  kind = File.basename File.dirname(lib)
+  klass = "Bpl::#{kind.capitalize}::#{name.classify}"
+  @passes[name.to_sym] = Object.const_get(klass)
 end
 
 OptionParser.new do |opts|
@@ -139,8 +160,14 @@ OptionParser.new do |opts|
   opts.separator ""
   opts.separator "Basic options:"
 
-  opts.on("-h", "--help", "Show this message") do
-    puts opts
+  opts.on("-h", "--help [PASS]", "Show this message") do |v|
+    if v.nil?
+      puts opts
+    elsif klass = @passes[v.unhyphenate.to_sym]
+      puts klass.help
+    else
+      puts "Unknown pass: #{v}"
+    end
     exit
   end
 
@@ -171,22 +198,25 @@ OptionParser.new do |opts|
     @output_file = f
   end
 
-  opts.separator ""
-  opts.separator "Staging options:"
+  PASSES.each do |kind|
+    opts.separator ""
+    opts.separator "#{kind.to_s.capitalize} passes:"
 
-  @modules.each do |name,klass|
-    str = "--#{name}"
-    str << " [#{klass.options.map{|o| "#{o}:_"} * ","}]" \
-      unless klass.options.empty?
-    opts.on(str, klass.description) do |args|
-      if klass.options.empty?
-        args = {}
-      else
-        args = args.split(',').map{|s| k,v = s.split(':'); [k.to_sym,v]}.to_h
+    @passes.each do |name,klass|
+      next unless klass.name.split("::")[0..-2].last.downcase.to_sym == kind
+      opts.on("--#{name.to_s.hyphenate}", klass.brief) do |args|
+        @stages << klass.new(case args
+          when String
+            (args || "").split(",").map{|s| k,v = s.split(":"); [k.to_sym,v]}.to_h
+          else {}
+          end)
       end
-      @stages << klass.new(args)
     end
   end
+
+  opts.separator ""
+  opts.separator "See --help PASS for more information about each pass."
+  opts.separator ""
 
 end.parse!
 

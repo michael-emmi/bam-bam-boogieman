@@ -1,6 +1,6 @@
 module Bpl
   module AST
-    class Resolution < Bpl::Transformation
+    class Resolution < Bpl::Pass
       def self.description
         "Resolve program identifiers and types."
       end

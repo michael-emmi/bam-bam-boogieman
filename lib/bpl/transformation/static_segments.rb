@@ -1,6 +1,6 @@
 module Bpl
-  module AST
-    class StaticSegments < Bpl::Transformation
+  module Transformation
+    class StaticSegments < Bpl::Pass
       def self.description
         "I don’t know what this does."
       end
@@ -8,7 +8,9 @@ module Bpl
       def run! program
       end
     end
+  end
 
+  module AST
     class Program
       def static_segments_sequentialize!
 

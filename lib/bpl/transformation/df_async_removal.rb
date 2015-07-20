@@ -1,7 +1,6 @@
 module Bpl
-  module Analysis
-    module DfAsyncRemoval
-      def self.options; [] end
+  module Transformation
+    class DfAsyncRemoval < Bpl::Pass
       def self.description
         "The async-to-call part of the EQR sequentialization."
       end

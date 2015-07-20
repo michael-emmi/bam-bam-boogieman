@@ -1,6 +1,6 @@
 module Bpl
-  module Analysis
-    class Desugaring < Bpl::Transformation
+  module Transformation
+    class Desugaring < Bpl::Pass
       def self.description
         "Get rid of structured control flow."
       end

@@ -1,11 +1,11 @@
 module Bpl
-  module Analysis
-    class Selection < Bpl::Transformation
+  module Transformation
+    class Selection < Bpl::Pass
       def self.description
         "Select declarations."
       end
 
-      options :expression
+      option :expression, "the selection pattern"
 
       def run! program
         program.declarations.select! do |d|

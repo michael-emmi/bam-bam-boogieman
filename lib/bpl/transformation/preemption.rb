@@ -1,6 +1,6 @@
 module Bpl
-  module Analysis
-    class Preemption < Bpl::Transformation
+  module Transformation
+    class Preemption < Bpl::Pass
       def self.description
         "Add preemptions."
       end

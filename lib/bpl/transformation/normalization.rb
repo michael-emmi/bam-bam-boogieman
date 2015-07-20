@@ -8,8 +8,8 @@ module Bpl
     end
   end
 
-  module Analysis
-    class Normalization < Bpl::Transformation
+  module Transformation
+    class Normalization < Bpl::Pass
       def self.description
         "Normalize..."
       end
