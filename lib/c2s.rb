@@ -4,6 +4,28 @@ require 'set'
 require 'optparse'
 require_relative 'c2s/version'
 
+class String
+  def classify
+    split('_').collect(&:capitalize).join
+  end
+  def unclassify
+    self.gsub(/::/, '/').
+    gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
+    gsub(/([a-z\d])([A-Z])/,'\1_\2').
+    tr("-", "_").
+    downcase
+  end
+  def hyphenate
+    split('_').join('-')
+  end
+  def unhyphenate
+    split('-').join('_')
+  end
+  def nounify
+    split('_').collect(&:capitalize).join(' ')
+  end
+end
+
 begin
   require 'colorize'
 rescue LoadError
@@ -14,25 +36,6 @@ rescue LoadError
     def blue; self end
     def light_black; self end
     def bold; self end
-    def classify
-      split('_').collect(&:capitalize).join
-    end
-    def unclassify
-      self.gsub(/::/, '/').
-      gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
-      gsub(/([a-z\d])([A-Z])/,'\1_\2').
-      tr("-", "_").
-      downcase
-    end
-    def hyphenate
-      split('_').join('-')
-    end
-    def unhyphenate
-      split('-').join('_')
-    end
-    def nounify
-      split('_').collect(&:capitalize).join(' ')
-    end
   end
 end
 
@@ -268,7 +271,7 @@ begin
       File.write(@output_file, program)
     end
   else
-    puts program
+    puts program.inspect
   end
 
 ensure

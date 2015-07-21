@@ -119,7 +119,7 @@ rule
   exprs: expr { [val[0]] } | expr ',' exprs { [val[0]] + val[2] }
   exprs_opt: { [] } | exprs
 
-  quantifier: 'forall' | 'exists'
+  quantifier: 'forall' {'forall'} | 'exists' {'exists'}
 
   attr: '{:' name enss_opt '}' { {val[1].to_sym => val[2]} }
   attrs: { {} } | attr attrs { val[0].merge(val[1]) }
