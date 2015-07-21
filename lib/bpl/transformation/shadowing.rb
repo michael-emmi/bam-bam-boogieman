@@ -42,12 +42,19 @@ module Bpl
           decl.returns.map!{|v| [v,decl(v)]}.flatten!
 
           next unless decl.body
+
           scope = [decl.body, decl, program]
+          last_assignment_var = nil
+
           decl.body.declarations.map!{|v| [v,decl(v)]}.flatten!
           decl.body.each do |stmt|
             case stmt
-            when AssignStatement, AssumeStatement
+            when AssumeStatement
               stmt.insert_after(bpl(stmt.to_s, scope: scope).replace!(&method(:expr)))
+            when AssignStatement
+              stmt.insert_after(bpl(stmt.to_s, scope: scope).replace!(&method(:expr)))
+              fail "Unexpected assignment statement: #{stmt}" unless stmt.lhs.length == 1
+              last_assignment_var = stmt.lhs.first
             when CallStatement
               if exempt?(stmt.procedure.name)
                 xs = stmt.assignments
@@ -56,6 +63,10 @@ module Bpl
                 stmt.arguments.map!{|v| [v,bpl(v.to_s, scope:scope).replace!(&method(:expr))]}.flatten!
                 stmt.assignments.map!{|v| [v,bpl(v.to_s, scope:scope).replace!(&method(:expr))]}.flatten!
               end
+            when GotoStatement
+              next if stmt.identifiers.length < 2
+              fail "Unexpected goto statement: #{stmt}" unless stmt.identifiers.length == 2
+              stmt.insert_before(bpl("assert {:shadow_condition} #{last_assignment_var} == #{shadow(last_assignment_var)};", scope:scope))
             end
           end
         end
