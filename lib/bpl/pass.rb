@@ -23,7 +23,7 @@ module Bpl
     CUTOFF = 40
 
     def self.brief
-      d = self.description
+      d = self.description.lines.first.strip
       d.length > CUTOFF ? d.slice(0,CUTOFF-3) + "..." : d
     end
 
@@ -33,7 +33,7 @@ module Bpl
 
 #{name.nounify}
 
-  #{description}
+#{description}
 
 Usage:
   --#{name.gsub('_','-')} #{options.empty? ? "" : "#{options.first.first}:_,..."}
