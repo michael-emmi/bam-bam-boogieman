@@ -44,17 +44,32 @@ module Bpl
           next unless decl.body
 
           scope = [decl.body, decl, program]
-          last_assignment_var = nil
+          last_lhs = nil
 
           decl.body.declarations.map!{|v| [v,decl(v)]}.flatten!
           decl.body.each do |stmt|
             case stmt
             when AssumeStatement
+
+              # TODO should we be shadowing assume statements?
               stmt.insert_after(bpl(stmt.to_s, scope: scope).replace!(&method(:expr)))
+
             when AssignStatement
-              stmt.insert_after(bpl(stmt.to_s, scope: scope).replace!(&method(:expr)))
+
               fail "Unexpected assignment statement: #{stmt}" unless stmt.lhs.length == 1
-              last_assignment_var = stmt.lhs.first
+
+              # ensure the indicies to loads and stores are equal
+              stmt.select{|e| e.is_a?(MapSelect)}.each do |ms|
+                ms.indexes.each do |idx|
+                  stmt.insert_before(bpl("assert #{idx} == #{shadow(idx)};"))
+                end
+              end
+
+              # shadow the assignment
+              stmt.insert_after(bpl(stmt.to_s, scope: scope).replace!(&method(:expr)))
+
+              last_lhs = stmt.lhs.first
+
             when CallStatement
               if exempt?(stmt.procedure.name)
                 xs = stmt.assignments
@@ -63,10 +78,11 @@ module Bpl
                 stmt.arguments.map!{|v| [v,bpl(v.to_s, scope:scope).replace!(&method(:expr))]}.flatten!
                 stmt.assignments.map!{|v| [v,bpl(v.to_s, scope:scope).replace!(&method(:expr))]}.flatten!
               end
+
             when GotoStatement
               next if stmt.identifiers.length < 2
               fail "Unexpected goto statement: #{stmt}" unless stmt.identifiers.length == 2
-              stmt.insert_before(bpl("assert {:shadow_condition} #{last_assignment_var} == #{shadow(last_assignment_var)};", scope:scope))
+              stmt.insert_before(bpl("assert #{last_lhs} == #{shadow(last_lhs)};", scope:scope))
             end
           end
         end
