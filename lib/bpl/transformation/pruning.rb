@@ -1,6 +1,6 @@
 module Bpl
-  module Analysis
-    class Pruning < Bpl::Transformation
+  module Transformation
+    class Pruning < Bpl::Pass
       def self.description
         "Delete unreachable declarations."
       end

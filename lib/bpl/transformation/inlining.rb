@@ -1,6 +1,6 @@
 module Bpl
-  module Analysis
-    class Inlining < Bpl::Transformation
+  module Transformation
+    class Inlining < Bpl::Pass
       def self.description
         "Inline procedures."
       end

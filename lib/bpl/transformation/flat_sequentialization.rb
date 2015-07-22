@@ -1,14 +1,14 @@
 module Bpl
-  module Analysis
-    class FlatSequentialization < Bpl::Transformation
+  module Transformation
+    class FlatSequentialization < Bpl::Pass
 
       def self.description
         "I don’t know what this does."
       end
 
-      include DfAsyncRemoval
-
-      options :rounds, :delays, :unroll
+      option :rounds, "the number of rounds"
+      option :delays, "the number of delays"
+      option :unroll, "the unrolling depth"
 
       def sequentialize! program
         globals = program.global_variables

@@ -1,44 +1,14 @@
 module Bpl
 
-  module AST
-    class Declaration
-      def is_entrypoint?
-        is_a?(ProcedureDeclaration) && attributes.has_key?(:entrypoint)
-      end
-    end
-  end
-
-  module Analysis
-    class Normalization < Bpl::Transformation
+  module Transformation
+    class Normalization < Bpl::Pass
       def self.description
         "Normalize..."
       end
 
       def run! program
-        locate_entrypoints! program
         sanity_check program
         uniq_starts_and_ends! program
-        # resolve! program
-      end
-
-      def self.is_default_entrypoint? name
-        name =~ /\bmain\b/i
-      end
-
-      def self.locate_entrypoints! program
-        eps = program.declarations.select(&:is_entrypoint?)
-
-        if eps.empty?
-          info "no entry points found; looking for the defaults..."
-          eps = program.declarations.select do |d|
-            d.is_a?(ProcedureDeclaration) && is_default_entrypoint?(d.name)
-          end
-          eps.each{|d| d.attributes[:entrypoint] = []}
-          info "using entry point#{'s' if eps.count > 1}: #{eps.map(&:name) * ", "}" \
-            unless eps.empty?
-        end
-
-        abort "no entry points found." if eps.empty?
       end
 
       def self.sanity_check program

@@ -1,6 +1,6 @@
 module Bpl
-  module AST
-    class Resolution < Bpl::Transformation
+  module Analysis
+    class Resolution < Bpl::Pass
       def self.description
         "Resolve program identifiers and types."
       end
@@ -9,7 +9,8 @@ module Bpl
         program.resolve!
       end
     end
-
+  end
+  module AST
     class Node
       def resolve! scope=nil
         scope ||= [self] if self.respond_to?(:resolve)

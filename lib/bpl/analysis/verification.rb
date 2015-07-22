@@ -1,14 +1,18 @@
 
 module Bpl
   module Analysis
-    class Verification < Bpl::Transformation
+    class Verification < Bpl::Pass
       def self.description
         "Verify the program."
       end
 
-      options :verifier, :incremental, :parallel, :unroll, :timeout
-      options :trace_file
-      options :debug_solver
+      option :verifier, "which verifier to use (boogie, corral, ...)"
+      option :incremental, "do incremental verification?"
+      option :parallel, "do verification in parallel?"
+      option :unroll, "the loop/procedure unrolling bound"
+      option :timeout, "verifier time limit"
+      option :trace_file, "file for storage of traces"
+      option :debug_solver, "enable solver debugging"
 
       def run!(program, options = {})
         if options[:incremental] && options[:parallel]

@@ -4,7 +4,7 @@ module Bpl
   module AST
     class Declaration < Node
     end
-    
+
     class TypeDeclaration < Declaration
       children :name, :arguments
       children :finite, :type
@@ -15,7 +15,7 @@ module Bpl
         "type #{show_attrs(&blk)} #{'finite' if @finite} #{@name} #{args} #{type};".fmt
       end
     end
-    
+
     class FunctionDeclaration < Declaration
       children :name, :type_arguments, :arguments, :return, :body
       def signature
@@ -29,15 +29,15 @@ module Bpl
         "function #{show_attrs(&blk)} #{@name}(#{args}) returns (#{ret})#{body}".fmt
       end
     end
-    
+
     class AxiomDeclaration < Declaration
       children :expression
       def show(&blk) "axiom #{show_attrs(&blk)} #{yield @expression};".fmt end
     end
-    
+
     class StorageDeclaration < Declaration
       children :names, :type, :where
-      def signature; "#{@names * ", "}: #{@type}" end      
+      def signature; "#{@names * ", "}: #{@type}" end
       def show(&blk)
         names = @names.empty? ? "" : (@names * ", " + ":")
         where = @where ? "where #{@where}" : ""
@@ -58,12 +58,12 @@ module Bpl
         end
       end
     end
-    
+
     class VariableDeclaration < StorageDeclaration
       def signature; "var #{@names * ", "}: #{@type}" end
       def show; "var #{super};" end
     end
-    
+
     class ConstantDeclaration < StorageDeclaration
       children :unique, :order_spec
       def signature; "const #{@names * ", "}: #{@type}" end
@@ -73,14 +73,14 @@ module Bpl
         if @order_spec && @order_spec[0]
           ord << ' <: '
           unless @order_spec[0].empty?
-            ord << @order_spec[0].map{|c,p| (c ? 'unique ' : '') + p.to_s } * ", " 
+            ord << @order_spec[0].map{|c,p| (c ? 'unique ' : '') + p.to_s } * ", "
           end
         end
         ord << ' complete' if @order_spec && @order_spec[1]
         "const #{show_attrs(&blk)} #{'unique' if @unique} #{names} #{yield @type}#{ord};".fmt
       end
     end
-    
+
     class ProcedureDeclaration < Declaration
       children :name, :type_arguments, :parameters, :returns
       children :specifications, :body
@@ -121,7 +121,7 @@ module Bpl
         end
       end
     end
-    
+
     class ImplementationDeclaration < ProcedureDeclaration
       attr_accessor :declaration
       def initialize(opts = {})

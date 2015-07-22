@@ -1,6 +1,6 @@
 module Bpl
   module Analysis
-    class Atomicity < Bpl::Transformation
+    class Atomicity < Bpl::Pass
       def self.description
         "Mark atomic procedures."
       end

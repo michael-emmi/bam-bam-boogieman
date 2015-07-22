@@ -29,15 +29,14 @@ module Bpl
     end
   end
 
-  module Analysis
-    class EqrSequentialization < Bpl::Transformation
+  module Transformation
+    class EqrSequentialization < Bpl::Pass
       def self.description
         "The vectorization part of the EQR sequentialization."
       end
 
-      include DfAsyncRemoval
-
-      options :rounds, :delays
+      option :rounds, "the number of rounds"
+      option :delays, "the number of delays"
 
       def sequentialize! program
         vectorize! program
