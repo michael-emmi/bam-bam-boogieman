@@ -177,7 +177,7 @@ module Bpl
 
       def self.verify_parallel_worklist(program, options = {})
         unroll_bound = options[:unroll] || Float::INFINITY
-        round_bound = options[:rounds] || Float::INFINITY
+        # round_bound = options[:rounds] || Float::INFINITY
 
         covered = []
         worklist = [{unroll: 0, rounds: 0}, {unroll: 1, rounds: 0}]
@@ -301,7 +301,7 @@ module Bpl
 
         cmd = "#{boogie} #{src} #{boogie_opts * " "} 1> #{trace_file}"
         puts cmd.bold if $verbose
-        t = Time.now
+        # t = Time.now
 
         system cmd
         output = File.read(trace_file).lines

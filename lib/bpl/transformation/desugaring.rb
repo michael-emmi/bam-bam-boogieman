@@ -18,7 +18,7 @@ module Bpl
 
             then_block = stmt.blocks.first
             then_block.unshift bpl("assume #{stmt.condition};", scope: stmt)
-            then_block.labels << Label.new(name: "$IF") if then_block.labels.empty?
+            then_block.names << "$IF" if then_block.names.empty?
             stmt.blocks.last << bpl("goto $CONTINUE;")
             new_blocks += stmt.blocks
 

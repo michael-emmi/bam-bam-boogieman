@@ -6,27 +6,30 @@ module Bpl
       end
 
       def run! program
-        program.type_check
+        program.each {|elem| elem.type_check if elem.respond_to?(:type_check)}
       end
     end
   end
 
   module AST
-    class Program
-      def type_check
-        each {|e| e.type_check if e.respond_to? :type_check unless e == self}
-      end
-    end
-
     class FunctionApplication
       def type_check
         return unless d = @function.declaration
 
-        params = d.arguments.map(&:flatten).flatten
-        unless params.count == @arguments.count &&
-        params.zip(@arguments).all?{|p,a| p.type.eql?(a.type)}
-          warn "incompatible arguments (#{@arguments * ","}) to function #{d.signature}\n  #{inspect}\n\n"
+        params = d.arguments # .map(&:flatten).flatten
+        unless params.count == arguments.count
+          warn "wrong number of arguments to function #{d.signature}" \
+            "\n  #{hilite.underline}"
         end
+
+        arguments.each.with_index do |a,i|
+          break unless i < params.count
+          unless params[i].type.expand.to_s == a.type.expand.to_s
+            warn "invalid type for argument #{i} in application of #{d.signature}" \
+              "\n  #{hilite.underline}"
+          end
+        end
+
       end
     end
 
@@ -34,18 +37,37 @@ module Bpl
       def type_check
         return unless d = @procedure.declaration
 
-        params = d.parameters.map(&:flatten).flatten
-        unless params.count == @arguments.count &&
-        params.zip(@arguments).all?{|p,a| p.type.eql?(a.type)}
-          warn "incompatible arguments (#{@arguments * ","}) to procedure #{d.signature}:\n  #{inspect}\n\n"
+        params = d.parameters # .map(&:flatten).flatten
+        rets = d.returns # .map(&:flatten).flatten
+
+        unless params.count == arguments.count
+          warn "wrong number of arguments in call of #{d.signature}" \
+            "\n  #{hilite.underline}"
         end
 
-        rets = d.returns.map(&:flatten).flatten
-        unless rets.count == @assignments.count &&
-        rets.zip(@assignments).all?{|r,a| r.type.eql?(a.type)}
-          warn "incompatible assignments (#{@assignments * ","}) from procedure #{d.signature}:\n  #{inspect}\n\n"
+        arguments.each.with_index do |a,i|
+          break unless i < params.count
+          unless params[i].type.expand.to_s == a.type.expand.to_s
+            warn "invalid type for argument #{i} in call of #{d.signature}" \
+              "\n  #{hilite.underline}"
+          end
         end
+
+        unless rets.count == assignments.count
+          warn "wrong number of return assignments in call of #{d.signature}" \
+            "\n  #{hilite.underline}"
+        end
+
+        assignments.each.with_index do |a,i|
+          break unless i < rets.count
+          unless rets[i].type.expand.to_s == a.type.expand.to_s
+            warn "invalid type for return assignment #{i} in call of #{d.signature}" \
+              "\n  #{hilite.underline}"
+          end
+        end
+
       end
     end
+
   end
 end

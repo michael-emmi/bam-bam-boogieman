@@ -6,7 +6,7 @@ module Bpl
       end
 
       def run! program
-        work_list = program.declarations.select(&:is_entrypoint?)
+        work_list = program.declarations.select{|d| d.attributes[:entrypoint]}
         until work_list.empty?
           decl = work_list.shift
           decl.attributes[:reachable] = []
@@ -30,7 +30,7 @@ module Bpl
           end
         end
 
-        program.declarations.select!{|d| d.attributes[:reachable]}
+        program.declarations.each {|d| d.remove unless d.attributes[:reachable]}
         program.each{|elem| elem.attributes.delete(:reachable)}
       end
     end

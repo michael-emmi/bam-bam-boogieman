@@ -20,8 +20,8 @@ module Bpl
         program.declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration)
           work_list << proc
-          proc.specifications.reject! do |sp|
-            sp.is_a?(ModifiesClause) || sp.is_a?(AccessesClause)
+          proc.specifications.dup.each do |sp|
+            sp.remove if sp.is_a?(ModifiesClause) || sp.is_a?(AccessesClause)
           end if proc.body
           mods = Set.new
           accs = Set.new
@@ -37,9 +37,11 @@ module Bpl
               mods += elem.assignments.map(&:ident).select(&:is_global?)
             end
           end
-          proc.specifications << ModifiesClause.new(identifiers: mods.to_a) \
+          proc.append_child(:specifications,
+            ModifiesClause.new(identifiers: mods.to_a)) \
             unless mods.empty?
-          proc.specifications << AccessesClause.new(identifiers: accs.to_a) \
+          proc.append_child(:specifications,
+            AccessesClause.new(identifiers: accs.to_a)) \
             unless accs.empty?
         end
 
@@ -50,9 +52,11 @@ module Bpl
           targets.each do |caller|
             mods = proc.modifies - caller.modifies
             accs = proc.accesses - caller.accesses
-            caller.specifications << ModifiesClause.new(identifiers: mods.to_a) \
+            caller.append_child(:specifications,
+              ModifiesClause.new(identifiers: mods.to_a)) \
               unless mods.empty?
-            caller.specifications << AccessesClause.new(identifiers: accs.to_a) \
+            caller.append_child(:specifications,
+              AccessesClause.new(identifiers: accs.to_a)) \
               unless accs.empty?
             work_list |= [caller] unless mods.empty? && accs.empty?
           end

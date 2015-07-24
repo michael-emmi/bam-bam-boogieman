@@ -8,8 +8,8 @@ module Bpl
       option :expression, "the selection pattern"
 
       def run! program
-        program.declarations.select! do |d|
-          d.respond_to?(:name) && /#{@expression}/.match(d.name)
+        program.declarations.each do |d|
+          d.remove unless d.respond_to?(:name) && /#{@expression}/.match(d.name)
         end
       end
 

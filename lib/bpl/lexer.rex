@@ -34,7 +34,7 @@ rule
           \d+               { [:NUMBER, text.to_i] }
           bv\d+\b           { [:BVTYPE, text[2..-1].to_i] }
 
-          {KEYWORD}         { [text, lineno] }
+          {KEYWORD}         { [text, Token.new(lineno)] }
 
           {IDENT}           { [:IDENTIFIER, text] }
           .                 { [text, text] }

@@ -1,4 +1,98 @@
 module Bpl
+
+  module AST
+
+    module Binding
+      def declaration
+        @declaration ||= nil
+      end
+      def bind(decl)
+        @declaration = decl
+        decl.bindings << self unless decl.nil?
+        decl
+      end
+      def unbind
+        return unless @declaration
+        @declaration.bindings.delete(self)
+        @declaration = nil
+      end
+    end
+
+    module Scope
+      MATCH = {
+        CustomType => TypeDeclaration,
+        LabelIdentifier => Block,
+        StorageIdentifier => StorageDeclaration,
+        FunctionIdentifier => FunctionDeclaration,
+        ProcedureIdentifier => ProcedureDeclaration,
+        ImplementationDeclaration => ProcedureDeclaration
+      }
+      def match?(id,decl)
+        decl.is_a?(MATCH[id.class]) &&
+        (decl.respond_to?(:names) && decl.names.include?(id.name)) ||
+        (decl.respond_to?(:name) && decl.name == id.name)
+      end
+      def resolve(id)
+        declarations.find{|d| match?(id,d)}
+      end
+    end
+
+    class Node
+      def resolve!
+        each do |elem|
+          elem.resolve_self! if elem.respond_to?(:resolve_self!)
+        end
+        self
+      end
+      def find_binding(elem,scope=self)
+        scope.respond_to?(:resolve) && scope.resolve(elem) ||
+        scope.parent && find_binding(elem,scope.parent)
+      end
+    end
+
+    class Identifier
+      def resolve_self!
+        bind(find_binding(self)) ||
+        warn("Could not resolve identifier #{self}")
+      end
+    end
+
+    class CustomType
+      def resolve_self!
+        bind(find_binding(self)) ||
+        warn("could not resolve type #{self}")
+      end
+    end
+  end
+
+  class ImplementationDeclaration
+    def resolve_self!
+      bind(find_binding(self)) ||
+      warn("could not resolve implementation #{name}")
+    end
+  end
+
+  # class CallStatement
+  #   def resolve!
+  #     ss = scope.find {|s| s.is_a?(ProcedureDeclaration)}
+  #     if ss && procedure.declaration
+  #       procedure.declaration.callers << ss
+  #     end
+  #   end
+  # end
+
+  # class GotoStatement
+  #   def resolve!(scope)
+  #     if ss = scope.find {|s| s.is_a?(Block)}
+  #       identifiers.each do |id|
+  #         if id.declaration
+  #           id.declaration.predecessors << ss
+  #         end
+  #       end
+  #     end
+  #   end
+  # end
+
   module Analysis
     class Resolution < Bpl::Pass
       def self.description
@@ -9,157 +103,5 @@ module Bpl
         program.resolve!
       end
     end
-  end
-  module AST
-    class Node
-      def resolve! scope=nil
-        scope ||= [self] if self.respond_to?(:resolve)
-        scope ||= []
-        scope = [scope] unless scope.is_a?(Array)
-        scope.select!{|s| s.respond_to?(:resolve)}
-
-        traverse do |elem,turn|
-          case elem
-          when ProcedureDeclaration, FunctionDeclaration, Body, QuantifiedExpression
-            case turn
-            when :pre then scope.unshift elem
-            else scope.shift
-            end
-            if elem.is_a?(ImplementationDeclaration)
-              elem.declaration = self.resolve(ProcedureIdentifier.new(name: elem.name))
-              warn "could not resolve implementation #{elem.name}" unless elem.declaration
-            end
-
-          when Block
-            case turn
-            when :pre
-              scope.unshift elem
-            else
-              scope.shift
-            end
-
-          when Identifier
-            case turn
-            when :pre
-              if s = scope.find {|s| s.resolve elem} then
-                elem.declaration = s.resolve elem
-
-                if elem.is_a?(LabelIdentifier) && src = scope.find{|b| b.is_a? Block}
-                  src.successors << elem.declaration.id
-                  elem.declaration.predecessors << src.id
-                end
-
-              else
-                elem.declaration = nil
-                warn "could not resolve identifier #{elem}"
-              end
-            end
-
-          when CustomType
-            case turn
-            when :pre
-              elem.declaration = scope.last.resolve(elem)
-              warn "could not resolve type #{elem}" unless elem.declaration
-            end
-
-          when Statement
-            if elem.is_a?(IfStatement) || elem.is_a?(WhileStatement)
-              case turn
-              when :pre then scope.unshift elem
-              else scope.shift
-              end
-            end
-            case turn
-            when :post
-              proc_decl = scope.find {|s| s.is_a?(ProcedureDeclaration)}
-              elem.parent = proc_decl
-
-              if elem.is_a?(CallStatement) && elem.target
-                elem.target.callers << proc_decl
-              end
-
-            end
-          end
-          elem
-        end
-      end
-    end
-
-    class Program
-      def resolve(id)
-        case id
-        when StorageIdentifier
-          @declarations.find{|d| d.is_a?(StorageDeclaration) && d.names.include?(id.name)}
-
-        when FunctionIdentifier
-          @declarations.find{|d| d.is_a?(FunctionDeclaration) && d.name == id.name}
-
-        when ProcedureIdentifier
-          @declarations.find{|d| d.is_a?(ProcedureDeclaration) && d.name == id.name}
-
-        when Type
-          @declarations.find{|d| d.is_a?(TypeDeclaration) && d.name == id.name}
-
-        else
-          nil
-        end
-      end
-    end
-
-    class ProcedureDeclaration
-      def resolve(id)
-        return unless id.is_a?(StorageIdentifier)
-        @parameters.find{|decl| decl.names.include? id.name} ||
-        @returns.find{|decl| decl.names.include? id.name}
-      end
-    end
-
-    class Body
-      def resolve(id)
-        case id
-        when StorageIdentifier
-          @declarations.find{|decl| decl.names.include? id.name}
-
-        when LabelIdentifier
-          ls = @blocks.find{|b| b.labels.find{|l| l.name == id.name}}
-          def ls.signature; "label" end if ls
-          ls
-
-        else
-          nil
-        end
-      end
-    end
-
-    class Block; def resolve(id) return end end
-
-    class IfStatement
-      def resolve(id)
-        return unless id.is_a?(LabelIdentifier)
-        @blocks.find{|b| b.labels.find{|l| l.name == id.name}} ||
-        @else && @else.is_a?(Enumerable) &&
-        @else.find{|b| b.labels.find{|l| l.name == id.name}}
-      end
-    end
-
-    class WhileStatement
-      def resolve(id)
-        return unless id.is_a?(LabelIdentifier)
-        @blocks.find{|b| b.labels.find{|l| l.name == id.name}}
-      end
-    end
-
-    class FunctionDeclaration
-      def resolve(id)
-        id.is_a?(StorageIdentifier) && @arguments.find{|d| d.names.include? id.name}
-      end
-    end
-
-    class QuantifiedExpression
-      def resolve(id)
-        id.is_a?(StorageIdentifier) && @variables.find{|d| d.names.include? id.name}
-      end
-    end
-
   end
 end

@@ -90,7 +90,7 @@ module Kernel
     case elem
     when Node; elem.resolve!(scope)
     when Array; elem.each {|e| e.resolve!(scope)}
-    end if scope
+    end if scope && elem.respond_to?(:resolve)
     elem
   end
   def bpl_expr(str, scope: nil)
@@ -207,7 +207,7 @@ OptionParser.new do |opts|
 
     @passes.each do |name,klass|
       next unless klass.name.split("::")[0..-2].last.downcase.to_sym == kind
-      opts.on("--#{name.to_s.hyphenate}", klass.brief) do |args|
+      opts.on("--#{name.to_s.hyphenate}#{" [OPTS]" unless klass.options.empty?}", klass.brief) do |args|
         @stages << klass.new(case args
           when String
             (args || "").split(",").map{|s| k,v = s.split(":"); [k.to_sym,v]}.to_h
@@ -273,7 +273,7 @@ begin
       File.write(@output_file, program)
     end
   else
-    puts program.inspect
+    puts program.hilite
   end
 
 ensure

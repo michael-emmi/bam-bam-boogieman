@@ -2,10 +2,28 @@ class String
   def fmt
     self.split.join(' ').gsub(/\s*;/, ';')
   end
+  def hilite
+    underline
+  end
+end
+
+class Symbol
+  def hilite
+    to_s.bold
+  end
 end
 
 module Bpl
   module AST
+    module Binding; end
+    module Scope; end
+
+    class Token
+      def initialize(line_number)
+        @line = line_number
+      end
+    end
+
     class Node
       include Enumerable
 
@@ -14,7 +32,10 @@ module Bpl
           @children ||= []
           @children += args
           args.each do |arg|
-            class_eval "attr_accessor :#{arg}"
+            define_method(arg) do
+              x = instance_variable_get("@#{arg}")
+              case x when Array then x.dup.freeze else x end
+            end
           end
           @children
         end
@@ -24,16 +45,26 @@ module Bpl
       end
 
       children :attributes
-      attr_accessor :parent
-      attr_accessor :line_number
+      attr_reader :parent
+      attr_reader :token
 
       def initialize(opts = {})
         @attributes = {}
-        @line_number = nil
+        @parent = nil
+        @token = nil
         opts.each do |k,v|
-          send("#{k}=",v) if respond_to?("#{k}=")
+          instance_variable_set("@#{k}",v) if respond_to?(k)
+          case v
+          when Node
+            v.link(self)
+          when Array
+            v.each {|x| x.link(self) if x.is_a?(Node)}
+          end
         end
       end
+
+      def link(parent) @parent = parent end
+      def unlink; @parent = nil end
 
       def show_attrs
         @attributes.map do |k,vs|
@@ -42,10 +73,8 @@ module Bpl
         end * " "
       end
 
-      def inspect; show &:inspect end
+      def hilite; show(&:hilite) end
       def to_s; show {|a| a} end
-
-      def +(n) [self] + case n when Array; n else [n] end end
 
       def traverse(&block)
         return self unless block_given?
@@ -68,16 +97,27 @@ module Bpl
           case child = instance_variable_get("@#{sym}")
           when Node
             c = child.replace!(&block)
-            instance_variable_set("@#{sym}",c) if c && c.is_a?(Node)
+            if c && c.is_a?(Node)
+              child.unlink
+              c.link(self)
+              instance_variable_set("@#{sym}",c)
+            end
 
           when Array
-            instance_variable_set("@#{sym}", child.reduce([]) do |cs,c|
-              cs + case cc = c.is_a?(Node) ? c.replace!(&block) : c
-              when Array; cc
-              when Node, c.class; [cc]
-              else []
+            ary = []
+            child.each do |elem|
+              ary << case elem
+              when Node
+                new_elem = elem.replace!(&block)
+                elem.unlink
+                new_elem.link(self)
+                new_elem
+              else
+                elem
               end
-            end)
+            end
+            instance_variable_set("@#{sym}",ary)
+
           end
         end
         block.call self
@@ -87,72 +127,47 @@ module Bpl
         traverse {|x,p| block.call x if p == :pre; x}
       end
 
-    end
-
-    module RelationalContainer
-      module ClassMethods
-        attr_accessor :container_array, :parent_field
-        attr_accessor :add_methods, :remove_methods
-
-        def container_relation(arr, parent)
-          @container_array = arr
-          @parent_field = parent
-        end
-
-        def add_methods(*args)
-          @add_methods ||= []
-          @add_methods += args
-        end
-
-        def remove_methods(*args)
-          @remove_methods ||= []
-          @remove_methods += args
-        end
-      end
-
-      def self.included(base)
-        base.extend(ClassMethods)
-      end
-
-      def method_missing(method, *elems, &block)
-        arr = instance_variable_get(self.class.container_array) if self.class.container_array
-        par = self.class.parent_field
-        if arr && par && self.class.add_methods.include?(method) then
-          elems.each do |elem|
-
-            next unless elem.is_a?(Node)
-
-            # Set the @parent_field
-            elem.instance_variable_set(par, self)
-
-            ## Have the element deleted from the @container_array whenever the
-            ## @parent_field is reassigned.
-            # (class << elem; self end).send(:define_method, "#{par}=".to_sym) do |p|
-            #   instance_variable_set(par,p)
-            #   arr.delete(self)
-            # end
+      def insert_children(name,where,*elems)
+        var = instance_variable_get("@#{name}")
+        if var && var.is_a?(Array)
+          case where
+          when :first
+            var.unshift(*elems)
+          else
+            var.push(*elems)
           end
-          arr.send(method,*elems,&block)
-
-        elsif arr && par && self.class.remove_methods.include?(method) then
-          elem = arr.send(method,*elems,&block)
-
-          # Unlink the element's @parent_field
-          if elem && elem.instance_variable_get(par) == self
-            elem.instance_variable_set(par, nil)
-          end
-
-          elem
-
-        else super
+          elems.each {|elem| elem.link(self) if elem.respond_to?(:link)}
         end
       end
 
-      def respond_to?(method)
-        return true if self.class.add_methods.include?(method)
-        return true if self.class.remove_methods.include?(method)
-        super
+      def prepend_child(name,elem) insert_children(name,:first,elem) end
+      def append_child(name,elem) insert_children(name,:last,elem) end
+
+      def insert_siblings(where,*elems)
+        parent.class.children.each do |sym|
+          ary = parent.instance_variable_get("@#{sym}")
+          next unless ary.is_a?(Array)
+          next unless idx = ary.index(self)
+          case where
+          when :before
+            ary.insert(idx,*elems)
+          when :after
+            ary.insert(idx+1,*elems)
+          when :inplace
+            ary.delete_at(idx)
+            self.unlink
+            ary.insert(idx,*elems)
+          end
+          elems.each {|elem| elem.link(parent)}
+        end if parent
+        self
       end
+
+      def insert_before(*elems) insert_siblings(:before,*elems) end
+      def insert_after(*elems) insert_siblings(:after,*elems) end
+      def replace_with(*elems) insert_siblings(:inplace,*elems) end
+      def remove; insert_siblings(:inplace) end
+
     end
 
   end

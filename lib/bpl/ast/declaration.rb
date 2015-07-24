@@ -2,21 +2,26 @@ require_relative 'node'
 
 module Bpl
   module AST
+
     class Declaration < Node
+      def bindings; @bindings ||= Set.new end
+      def unlink; super; bindings.each(&:unbind) end
     end
 
     class TypeDeclaration < Declaration
       children :name, :arguments
       children :finite, :type
-      def signature; "type #{@name}" end
+      def signature; "type #{yield @name}" end
       def show(&blk)
         args = @arguments.map{|a| yield a} * " "
-        type = @type ? " = #{yield @type}" : ""
-        "type #{show_attrs(&blk)} #{'finite' if @finite} #{@name} #{args} #{type};".fmt
+        "#{yield :type} #{show_attrs(&blk)} #{yield :finite if @finite} #{yield @name} #{args} #{@type ? " = #{yield @type}" : ""};".fmt
       end
     end
 
     class FunctionDeclaration < Declaration
+      include Scope
+      def declarations; @arguments end
+
       children :name, :type_arguments, :arguments, :return, :body
       def signature
         args = @arguments.map(&:flatten).flatten.map{|x|x.type} * ","
@@ -26,21 +31,23 @@ module Bpl
         args = @arguments.map{|a| yield a} * ", "
         ret = yield @return
         body = @body ? " { #{yield @body} }" : ";"
-        "function #{show_attrs(&blk)} #{@name}(#{args}) returns (#{ret})#{body}".fmt
+        "#{yield :function} #{show_attrs(&blk)} #{yield @name}(#{args}) #{yield :returns} (#{ret})#{body}".fmt
       end
     end
 
     class AxiomDeclaration < Declaration
       children :expression
-      def show(&blk) "axiom #{show_attrs(&blk)} #{yield @expression};".fmt end
+      def show(&blk)
+        "#{yield :axiom} #{show_attrs(&blk)} #{yield @expression};".fmt
+      end
     end
 
     class StorageDeclaration < Declaration
       children :names, :type, :where
       def signature; "#{@names * ", "}: #{@type}" end
       def show(&blk)
-        names = @names.empty? ? "" : (@names * ", " + ":")
-        where = @where ? "where #{@where}" : ""
+        names = @names.empty? ? "" : (@names.map(&blk) * ", " + ":")
+        where = @where ? "#{yield :where} #{@where}" : ""
         "#{show_attrs(&blk)} #{names} #{yield @type} #{where}".fmt
       end
       def flatten
@@ -61,14 +68,14 @@ module Bpl
 
     class VariableDeclaration < StorageDeclaration
       def signature; "var #{@names * ", "}: #{@type}" end
-      def show; "var #{super};" end
+      def show; "#{yield :var} #{super};" end
     end
 
     class ConstantDeclaration < StorageDeclaration
       children :unique, :order_spec
       def signature; "const #{@names * ", "}: #{@type}" end
       def show(&blk)
-        names = @names.empty? ? "" : (@names * ", " + ":")
+        names = @names.empty? ? "" : (@names.map(&blk) * ", " + ":")
         ord = ""
         if @order_spec && @order_spec[0]
           ord << ' <: '
@@ -77,18 +84,18 @@ module Bpl
           end
         end
         ord << ' complete' if @order_spec && @order_spec[1]
-        "const #{show_attrs(&blk)} #{'unique' if @unique} #{names} #{yield @type}#{ord};".fmt
+        "#{yield :const} #{show_attrs(&blk)} #{'unique' if @unique} #{names} #{yield @type}#{ord};".fmt
       end
     end
 
     class ProcedureDeclaration < Declaration
+      include Scope
+      def declarations; parameters + returns end
+      def callers; @callers ||= Set.new end
+
       children :name, :type_arguments, :parameters, :returns
       children :specifications, :body
-      attr_accessor :callers
-      def initialize(opts = {})
-        super(opts)
-        @callers = Set.new
-      end
+
       def modifies
         specifications.map{|s| s.is_a?(ModifiesClause) ? s.identifiers : []}.flatten
       end
@@ -102,8 +109,8 @@ module Bpl
       def fresh_label(prefix="$label") @body && @body.fresh_label(prefix) end
       def sig(&blk)
         params = @parameters.map{|a| yield a} * ", "
-        rets = @returns.empty? ? "" : "returns (#{@returns.map{|a| yield a} * ", "})"
-        "#{show_attrs(&blk)} #{@name}(#{params}) #{rets}".fmt
+        rets = @returns.empty? ? "" : "#{yield :returns} (#{@returns.map{|a| yield a} * ", "})"
+        "#{show_attrs(&blk)} #{yield @name}(#{params}) #{rets}".fmt
       end
       def signature
         "#{@name}(#{@parameters.map(&:type) * ","})" +
@@ -114,21 +121,22 @@ module Bpl
           (s.is_a?(AccessesClause) ? "// " : "") + "#{yield s}"
         end * "\n"
         specs = "\n" + specs unless specs.empty?
+        unless callers.empty?
+          calls = "\n// callers: #{callers.collect(&:name) * ", "}"
+        end
         if @body
-          "procedure #{sig(&block)}#{specs}\n#{yield @body}"
+          "#{yield :procedure} #{sig(&block)}#{specs}#{calls}\n#{yield @body}"
         else
-          "procedure #{sig(&block)};#{specs}"
+          "#{yield :procedure} #{sig(&block)};#{specs}#{calls}"
         end
       end
     end
 
     class ImplementationDeclaration < ProcedureDeclaration
-      attr_accessor :declaration
-      def initialize(opts = {})
-        super(opts)
-        @declaration = nil
+      include Binding
+      def show(&block)
+        "#{yield :implementation} #{sig(&block)}\n#{yield @body}"
       end
-      def show(&block); "implementation #{sig(&block)}\n#{yield @body}" end
     end
   end
 end

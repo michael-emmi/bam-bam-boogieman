@@ -132,36 +132,36 @@ rule
   enss_opt: { [] } | enss
 
   stmt:
-    'assert' attrs expr ';' { AssertStatement.new attributes: val[1], expression: val[2], line_number: val[0] }
-    | 'assume' attrs expr ';' { AssumeStatement.new attributes: val[1], expression: val[2], line_number: val[0] }
+    'assert' attrs expr ';' { AssertStatement.new attributes: val[1], expression: val[2], token: val[0] }
+    | 'assume' attrs expr ';' { AssumeStatement.new attributes: val[1], expression: val[2], token: val[0] }
     | 'havoc' idents ';' {
       ids = val[1].map{|id| StorageIdentifier.new id}
-      HavocStatement.new identifiers: ids, line_number: val[0]
+      HavocStatement.new identifiers: ids, token: val[0]
     }
     | lhss ':=' exprs ';' { AssignStatement.new lhs: val[0], rhs: val[2] }
     | 'call' attrs call_lhs '(' exprs_opt ')' ';' {
       CallStatement.new attributes: val[1], assignments: val[2][:rets],
-      procedure: val[2][:name], arguments: val[4], line_number: val[0]
+      procedure: val[2][:name], arguments: val[4], token: val[0]
     }
     | 'call' 'forall' ident '(' wc_exprs_opt ')' ';' {
       id = ProcedureIdentifier.new val[2]
       CallStatement.new assignments: nil, procedure: id, arguments: val[4],
-      line_number: val[0]
+      token: val[0]
     }
     | if_stmt
     | 'while' '(' wc_expr ')' loop_invs '{' blocks '}' {
       WhileStatement.new condition: val[2], invariants: val[4], blocks: val[6],
-      line_number: val[0]
+      token: val[0]
     }
     | 'break' idents_opt ';' {
       ids = val[1].map{|id| LabelIdentifier.new id}
-      BreakStatement.new identifiers: ids, line_number: val[0]
+      BreakStatement.new identifiers: ids, token: val[0]
     }
-    | 'return' ';' { ReturnStatement.new line_number: val[0] }
-    | 'return' expr ';' { ReturnStatement.new expression: val[1], line_number: val[0] }
+    | 'return' ';' { ReturnStatement.new token: val[0] }
+    | 'return' expr ';' { ReturnStatement.new expression: val[1], token: val[0] }
     | 'goto' idents ';' {
       ids = val[1].map{|id| LabelIdentifier.new id}
-      GotoStatement.new identifiers: ids, line_number: val[0]
+      GotoStatement.new identifiers: ids, token: val[0]
     }
   stmts:
     stmt { [val[0]] }
@@ -175,7 +175,7 @@ rule
       {name: id, rets: ids}
     }
 
-  if_stmt: 'if' '(' wc_expr ')' '{' blocks '}' else_stmt { IfStatement.new condition: val[2], blocks: val[5], else: val[7], line_number: val[0] }
+  if_stmt: 'if' '(' wc_expr ')' '{' blocks '}' else_stmt { IfStatement.new condition: val[2], blocks: val[5], else: val[7], token: val[0] }
   else_stmt: { nil } | 'else' '{' blocks '}' { val[1] } | 'else' if_stmt { val[2] }
 
   lhs: ident selects {
@@ -195,23 +195,21 @@ rule
   loop_invs: { [] } | loop_inv loop_invs { [val[0]] + val[1] }
   free_opt: { false } | 'free' { true }
 
-  label: name { Label.new name: val[0] }
-
   blocks:
-    { [Block.new] }
-    | label ':' blocks {
+    { [Block.new(names: [], statements: [])] }
+    | name ':' blocks {
       bs = val[2]
-      bs.first.labels.unshift val[0]
+      bs.first.prepend_child(:names,val[0])
       bs
     }
     | stmt blocks {
       bs = val[1]
-      bs.unshift(Block.new) unless bs.first.labels.empty?
-      bs.first.unshift val[0]
+      bs.unshift(Block.new(names: [], statements: [])) unless bs.first.names.empty?
+      bs.first.prepend_child(:statements,val[0])
       bs
     }
 
-  body: '{' var_decls blocks '}' { Body.new declarations: val[1], blocks: val[2] }
+  body: '{' var_decls blocks '}' { Body.new locals: val[1], blocks: val[2] }
 
   decl:
     type_decl
@@ -337,12 +335,12 @@ end
 
 ---- header
 require_relative 'lexer.rex'
-require_relative 'ast/type'
-require_relative 'ast/expression'
+require_relative 'ast/program'
+require_relative 'ast/declaration'
 require_relative 'ast/specification'
 require_relative 'ast/statement'
-require_relative 'ast/declaration'
-require_relative 'ast/program'
+require_relative 'ast/expression'
+require_relative 'ast/type'
 include Bpl::AST
 
 ---- inner
