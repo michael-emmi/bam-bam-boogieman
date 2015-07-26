@@ -7,6 +7,7 @@
 require 'racc/parser.rb'
 
 require_relative 'lexer.rex'
+require_relative 'ast/token'
 require_relative 'ast/program'
 require_relative 'ast/declaration'
 require_relative 'ast/specification'
@@ -17,7 +18,7 @@ include Bpl::AST
 
 class BoogieLanguage < Racc::Parser
 
-module_eval(<<'...end parser.racc/module_eval...', 'parser.racc', 347)
+module_eval(<<'...end parser.racc/module_eval...', 'parser.racc', 348)
 def parse(input)
   scan_str(input)
 end

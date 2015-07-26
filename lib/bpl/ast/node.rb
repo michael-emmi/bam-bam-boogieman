@@ -13,22 +13,10 @@ class Symbol
   end
 end
 
-# class Array
-#   def inspect
-#     "[#{map {|x| x.inspect} * ", "}]"
-#   end
-# end
-
 module Bpl
   module AST
-    module Binding; end
     module Scope; end
-
-    class Token
-      def initialize(line_number)
-        @line = line_number
-      end
-    end
+    module Binding; end
 
     class Node
       include Enumerable
@@ -60,6 +48,8 @@ module Bpl
         @token = nil
         opts.each do |k,v|
           instance_variable_set("@#{k}",v) if respond_to?(k)
+        end
+        opts.each do |k,v|
           case v
           when Node
             v.link(self)
@@ -71,8 +61,22 @@ module Bpl
 
       def link(parent)
         @parent = parent
+        each do |elem|
+          if elem.respond_to?(:bind) && elem.declaration.nil?
+            resolver = each_ancestor.find do |scope|
+              scope.respond_to?(:resolve) && scope.resolve(elem)
+            end
+            elem.bind(resolver.resolve(elem)) if resolver
+          end
+        end
       end
-      def unlink; @parent = nil end
+
+      def unlink
+        @parent = nil
+        each do |elem|
+          elem.unbind if elem.respond_to?(:unbind)
+        end
+      end
 
       def show_attrs
         @attributes.map do |k,vs|
@@ -116,6 +120,15 @@ module Bpl
         end
       end
 
+      def each_ancestor(&block)
+        enumerator = Enumerator.new {|y| enumerate_ancestors(y)}
+        if block_given?
+          enumerator.each(&block)
+        else
+          enumerator
+        end
+      end
+
       def prepend_child(name,elem) insert_children(name,:first,elem) end
       def append_child(name,elem) insert_children(name,:last,elem) end
 
@@ -147,6 +160,11 @@ module Bpl
             node.dup.each {|n| yielder.yield(n) if n.is_a?(Node)}
           end
         end
+      end
+
+      def enumerate_ancestors(yielder)
+        yielder.yield(self)
+        parent.enumerate_ancestors(yielder) if parent
       end
 
       def insert_children(name,where,*elems)

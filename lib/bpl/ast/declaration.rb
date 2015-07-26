@@ -96,6 +96,10 @@ module Bpl
       children :name, :type_arguments, :parameters, :returns
       children :specifications, :body
 
+      def is_entrypoint?
+        attributes[:entrypoint]
+      end
+
       def modifies
         specifications.map{|s| s.is_a?(ModifiesClause) ? s.identifiers : []}.flatten
       end

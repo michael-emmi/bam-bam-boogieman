@@ -24,7 +24,7 @@ module Bpl
         end
       end
 
-      def self.verify_one_shot(program, options = {})
+      def verify_one_shot(program, options = {})
         unroll = options[:unroll]
         rounds = options[:rounds]
 
@@ -58,7 +58,7 @@ module Bpl
         return trace
       end
 
-      def self.verify_incremental(program, options = {})
+      def verify_incremental(program, options = {})
         unroll_bound = options[:unroll] || Float::INFINITY
         rounds_bound = options[:rounds] || Float::INFINITY
 
@@ -106,7 +106,7 @@ module Bpl
         return trace
       end
 
-      def self.verify_parallel_accelerated(program, options = {})
+      def verify_parallel_accelerated(program, options = {})
         unroll_bound = options[:unroll] || Float::INFINITY
         rounds_bound = options[:rounds] || Float::INFINITY
 
@@ -175,7 +175,7 @@ module Bpl
         return trace
       end
 
-      def self.verify_parallel_worklist(program, options = {})
+      def verify_parallel_worklist(program, options = {})
         unroll_bound = options[:unroll] || Float::INFINITY
         # round_bound = options[:rounds] || Float::INFINITY
 
@@ -239,7 +239,7 @@ module Bpl
         return trace
       end
 
-      def self.vvvvv(program, options = {})
+      def vvvvv(program, options = {})
         boogie_opts = []
 
         orig = program.source_file || "a.bpl"
@@ -360,11 +360,11 @@ module Bpl
         # puts "Boogie finished in #{Time.now - t}s." unless @@quiet
       end
 
-      def self.prepare_for_boogie_fi! program, unroll
+      def prepare_for_boogie_fi! program, unroll
         add_inline_annotations! program, unroll
       end
 
-      def self.add_inline_annotations! program, unroll
+      def add_inline_annotations! program, unroll
         program.declarations.each do |d|
           if d.is_a?(ProcedureDeclaration) && d.body && !d.is_entrypoint?
             d.attributes[:inline] = [bpl("#{unroll || 1}")]
@@ -372,7 +372,7 @@ module Bpl
         end
       end
 
-      def self.prepare_for_boogie_si! program
+      def prepare_for_boogie_si! program
         program.declarations.each do |proc|
           next unless proc.is_entrypoint?
           proc.body.each do |stmt|

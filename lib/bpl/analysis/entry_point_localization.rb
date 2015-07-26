@@ -8,7 +8,7 @@ module Bpl
     end
   end
 
-  module Transformation
+  module Analysis
     class EntryPointLocalization < Bpl::Pass
       def self.description
         "Locate & annotate program entry points."

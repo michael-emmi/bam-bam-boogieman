@@ -145,6 +145,8 @@ PASSES = [:analysis, :transformation]
 @output_file = nil
 
 require_relative 'bpl/parser.tab'
+require_relative 'bpl/ast/scope'
+require_relative 'bpl/ast/binding'
 require_relative 'bpl/pass'
 
 root = File.expand_path(File.dirname(__FILE__))

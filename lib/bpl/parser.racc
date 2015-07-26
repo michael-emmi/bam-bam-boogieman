@@ -335,6 +335,7 @@ end
 
 ---- header
 require_relative 'lexer.rex'
+require_relative 'ast/token'
 require_relative 'ast/program'
 require_relative 'ast/declaration'
 require_relative 'ast/specification'
