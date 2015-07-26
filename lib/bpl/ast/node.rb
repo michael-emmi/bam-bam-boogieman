@@ -1,18 +1,3 @@
-class String
-  def fmt
-    self.split.join(' ').gsub(/\s*;/, ';')
-  end
-  def hilite
-    underline
-  end
-end
-
-class Symbol
-  def hilite
-    to_s.bold
-  end
-end
-
 module Bpl
   module AST
     module Scope; end

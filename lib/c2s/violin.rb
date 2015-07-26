@@ -1,6 +1,6 @@
 module C2S
   def self.violin_instrument! program, monitor
-    
+
     methods = {}
     monitor_vars = []
     specs = []
@@ -8,7 +8,7 @@ module C2S
 
     program.declarations +=
       BoogieLanguage.new.parse(File.read(monitor)).declarations
-    
+
     program.declarations.each do |decl|
       if decl.is_a?(AxiomDeclaration) && decl.attributes.include?(:method)
         ax = decl.attributes[:method]
@@ -24,26 +24,26 @@ module C2S
         inits << decl
       end
     end
-    
+
     program.declarations.each do |decl|
       case decl
       when ProcedureDeclaration
-        
+
         next unless decl.body
-        
+
         unless (new_mods = monitor_vars - decl.modifies).empty?
           decl.specifications << bpl("modifies #{new_mods * ", "};")
         end
 
         if methods.include?(decl.name)
-          
+
           params = decl.parameters.map{|p| p.names}.flatten
           rets = ["$myop"] + decl.returns.map{|r| r.names}.flatten
-          
+
           decl.body.declarations << bpl("var $myop: int;")
           decl.body.statements.unshift \
             bpl("call $myop := #{methods[decl.name]}.start(#{params * ","});")
-          
+
           decl.body.each do |stmt|
             if stmt.is_a?(ReturnStatement)
               stmt.insert_before \
@@ -51,7 +51,7 @@ module C2S
             end
           end
         end
-        
+
         decl.body.each do |stmt|
           case stmt
           when AssumeStatement
@@ -70,9 +70,9 @@ module C2S
           end
 
         end
-        
+
       end
     end
-    
+
   end
 end

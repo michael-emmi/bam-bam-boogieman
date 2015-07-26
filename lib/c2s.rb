@@ -3,132 +3,11 @@
 require 'set'
 require 'optparse'
 require_relative 'c2s/version'
-
-class String
-  def classify
-    split('_').collect(&:capitalize).join
-  end
-  def unclassify
-    self.gsub(/::/, '/').
-    gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
-    gsub(/([a-z\d])([A-Z])/,'\1_\2').
-    tr("-", "_").
-    downcase
-  end
-  def hyphenate
-    split('_').join('-')
-  end
-  def unhyphenate
-    split('-').join('_')
-  end
-  def nounify
-    split('_').collect(&:capitalize).join(' ')
-  end
-end
-
-begin
-  require 'colorize'
-rescue LoadError
-  class String
-    def yellow; self end
-    def red; self end
-    def green; self end
-    def blue; self end
-    def light_black; self end
-    def bold; self end
-  end
-end
-
-$warnings = Set.new
-$show_warnings = true
-$verbose = false
-$quiet = false
-$keep = false
-$temp = Set.new
-
-module Kernel
-
-  alias :old_abort :abort
-
-  def abort(str)
-    old_abort("Error: #{str}".red)
-  end
-
-  def info(*args)
-    args.each do |str|
-      puts "Info: #{str}".light_black unless $quiet
-    end
-  end
-
-  def warn(*args)
-    return unless $show_warnings
-    args.each do |str|
-      unless $warnings.include? str
-        $stderr.puts "Warning: #{str}".yellow
-        $warnings << str
-      end
-    end
-  end
-
-  def smack
-    abort "'smackgen.py' missing from executable path.\n" \
-      "The C/LLVM front end requires SMACK; please install it." \
-    if `which smackgen.py`.empty?
-    'smackgen.py --verifier=boogie-plain'
-  end
-
-  def boogie
-    ['Boogie','boogie','Boogie.exe','boogie.exe'].each do |b|
-      return "#{b}" if not `which #{b}`.empty?
-    end
-    abort "'Boogie' missing from executable path.\n" \
-      "Verification requires Boogie; please install it."
-  end
-
-  def bpl(str, scope: nil)
-    elem = BoogieLanguage.new.parse_str(str)
-    case elem
-    when Node; elem.resolve!(scope)
-    when Array; elem.each {|e| e.resolve!(scope)}
-    end if scope && elem.respond_to?(:resolve)
-    elem
-  end
-  def bpl_expr(str, scope: nil)
-    elem = BoogieLanguage.new.parse_expr(str)
-    case elem
-    when Node; elem.resolve!(scope)
-    when Array; elem.each {|e| e.resolve!(scope)}
-    end if scope
-    elem
-  end
-  def bpl_type(str, scope: nil)
-    elem = BoogieLanguage.new.parse_type(str)
-    case elem
-    when Node; elem.resolve!(scope)
-    when Array; elem.each {|e| e.resolve!(scope)}
-    end if scope
-    elem
-  end
-end
-
-class String
-  def to_range
-    case self
-    when /\d+\.\.\d+/
-      split(/\.\./).inject{|i,j| i.to_i..j.to_i}
-    else
-      to_i..to_i
-    end
-  end
-end
-
-def timed(desc = nil)
-  time = Time.now
-  res = yield if block_given?
-  time = (Time.now - time).round(2)
-  puts "#{desc} took #{time}s." if $verbose && desc
-  res
-end
+require_relative 'c2s/prelude'
+require_relative 'bpl/parser.tab'
+require_relative 'bpl/ast/scope'
+require_relative 'bpl/ast/binding'
+require_relative 'bpl/pass'
 
 # parse @c2s-options comments in the source file(s) for additional options
 ARGV.select{|f| File.extname(f) == '.bpl' && File.exists?(f)}.map do |f|
@@ -143,11 +22,6 @@ PASSES = [:analysis, :transformation]
 @passes = {}
 @stages = []
 @output_file = nil
-
-require_relative 'bpl/parser.tab'
-require_relative 'bpl/ast/scope'
-require_relative 'bpl/ast/binding'
-require_relative 'bpl/pass'
 
 root = File.expand_path(File.dirname(__FILE__))
 Dir.glob(File.join(root,'bpl',"{#{PASSES * ","}}",'*.rb')).each do |lib|
