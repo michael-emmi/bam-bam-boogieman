@@ -13,6 +13,12 @@ class Symbol
   end
 end
 
+# class Array
+#   def inspect
+#     "[#{map {|x| x.inspect} * ", "}]"
+#   end
+# end
+
 module Bpl
   module AST
     module Binding; end
@@ -63,7 +69,9 @@ module Bpl
         end
       end
 
-      def link(parent) @parent = parent end
+      def link(parent)
+        @parent = parent
+      end
       def unlink; @parent = nil end
 
       def show_attrs
@@ -73,58 +81,72 @@ module Bpl
         end * " "
       end
 
+      REFERENCES = [:@parent, :@declaration]
+      def inspect
+        if REFERENCES.any?{|v| instance_variable_get(v).is_a?(Node)}
+          node = clone
+          REFERENCES.each do |v|
+            n = node.instance_variable_get(v)
+            node.instance_variable_set(v,n.class) if n
+          end
+          node.inspect
+        else
+          return super
+        end
+      end
+
       def hilite; show(&:hilite) end
       def to_s; show {|a| a} end
 
-      def traverse(&block)
-        return self unless block_given?
-        block.call self, :pre
-        self.class.children.each do |sym|
-          case child = instance_variable_get("@#{sym}")
-          when Node; child.traverse(&block)
-          when Array
-            ## NOTE duplication avoids visiting newly-added children
-            child.dup.each {|n| n.traverse(&block) if n.is_a?(Node)}
-          end
-        end
-        block.call self, :post
-        self
-      end
-
-      def replace!(&block)
-        return self unless block_given?
-        self.class.children.each do |sym|
-          case child = instance_variable_get("@#{sym}")
-          when Node
-            c = child.replace!(&block)
-            if c && c.is_a?(Node)
-              child.unlink
-              c.link(self)
-              instance_variable_set("@#{sym}",c)
-            end
-
-          when Array
-            ary = []
-            child.each do |elem|
-              ary << case elem
-              when Node
-                new_elem = elem.replace!(&block)
-                elem.unlink
-                new_elem.link(self)
-                new_elem
-              else
-                elem
-              end
-            end
-            instance_variable_set("@#{sym}",ary)
-
-          end
-        end
-        block.call self
-      end
-
       def each(&block)
-        traverse {|x,p| block.call x if p == :pre; x}
+        enumerator = Enumerator.new {|y| enumerate(y)}
+        if block_given?
+          enumerator.each(&block)
+        else
+          enumerator
+        end
+      end
+
+      def each_child(&block)
+        enumerator = Enumerator.new {|y| enumerate_children(y)}
+        if block_given?
+          enumerator.each(&block)
+        else
+          enumerator
+        end
+      end
+
+      def prepend_child(name,elem) insert_children(name,:first,elem) end
+      def append_child(name,elem) insert_children(name,:last,elem) end
+
+      def insert_before(*elems) insert_siblings(:before,*elems) end
+      def insert_after(*elems) insert_siblings(:after,*elems) end
+      def replace_with(*elems) insert_siblings(:inplace,*elems) end
+      def remove; insert_siblings(:inplace) end
+
+      # the following could be private
+
+      def enumerate(yielder)
+        yielder.yield(self)
+        self.class.children.each do |sym|
+          case node = instance_variable_get("@#{sym}")
+          when Node
+            node.enumerate(yielder)
+          when Array
+            node.dup.each {|n| n.enumerate(yielder) if n.is_a?(Node)}
+          end
+        end
+      end
+
+      def enumerate_children(yielder)
+        self.class.children.each do |sym|
+          case node = instance_variable_get("@#{sym}")
+          when Node
+            yielder.yield(node)
+          when Array
+            node.dup.each {|n| yielder.yield(n) if n.is_a?(Node)}
+          end
+        end
       end
 
       def insert_children(name,where,*elems)
@@ -140,9 +162,6 @@ module Bpl
         end
       end
 
-      def prepend_child(name,elem) insert_children(name,:first,elem) end
-      def append_child(name,elem) insert_children(name,:last,elem) end
-
       def insert_siblings(where,*elems)
         parent.class.children.each do |sym|
           ary = parent.instance_variable_get("@#{sym}")
@@ -155,18 +174,13 @@ module Bpl
             ary.insert(idx+1,*elems)
           when :inplace
             ary.delete_at(idx)
-            self.unlink
             ary.insert(idx,*elems)
           end
           elems.each {|elem| elem.link(parent)}
+          self.unlink if where == :inplace
         end if parent
         self
       end
-
-      def insert_before(*elems) insert_siblings(:before,*elems) end
-      def insert_after(*elems) insert_siblings(:after,*elems) end
-      def replace_with(*elems) insert_siblings(:inplace,*elems) end
-      def remove; insert_siblings(:inplace) end
 
     end
 

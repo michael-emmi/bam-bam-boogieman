@@ -36,7 +36,9 @@ module Bpl
 
     class AssignStatement < Statement
       children :lhs, :rhs
-      def show; "#{@lhs.map{|a| yield a} * ", "} := #{@rhs.map{|a| yield a} * ", "};" end
+      def show
+        "#{@lhs.map{|a| yield a} * ", "} := #{@rhs.map{|a| yield a} * ", "};"
+      end
     end
 
     class GotoStatement < Statement

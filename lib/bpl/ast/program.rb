@@ -6,29 +6,14 @@ module Bpl
       include Scope
 
       children :declarations
-
-      def initialize(opts = {})
-        super(opts)
-        @declarations.each {|d| d.link(self)}
-      end
-
-      def add(decl)
-        decl.link(self)
-        @declarations << decl
-      end
-
-      alias_method :<<, :add
-
-      def remove(decl)
-        decl.unlink
-        @declarations.delete(decl)
-      end
-
       attr_accessor :source_file
-      def show; @declarations.map{|d| yield d} * "\n" end
-      def global_variables; @declarations.select{|d| d.is_a?(VariableDeclaration)} end
-      def name
-        "THE PROGRAM W/ NO NAME"
+
+      def show
+        @declarations.map{|d| yield d} * "\n"
+      end
+
+      def global_variables
+        each_child.select{|d| d.is_a?(VariableDeclaration)}
       end
 
       def fresh_var(prefix,type)

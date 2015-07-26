@@ -11,13 +11,16 @@ module Bpl
       def decl(v)
         v.class.new(names: v.names.map(&method(:shadow)), type: v.type)
       end
-      def shadow_expr(e)
-        return e unless e.is_a?(StorageIdentifier)
-        return e if e.declaration && e.declaration.is_a?(ConstantDeclaration)
-        StorageIdentifier.new(name: shadow(e))
-      end
+
       def shadow_copy(node)
-        bpl(node.to_s).replace!(&method(:shadow_expr))
+        copy = bpl(node.to_s)
+        copy.each do |expr|
+          next unless expr.is_a?(StorageIdentifier)
+          next if expr.declaration &&
+                  expr.declaration.is_a?(ConstantDeclaration)
+          expr.replace_with(StorageIdentifier.new(name: shadow(expr)))
+        end
+        copy
       end
 
       EXEMPTION_LIST = [
@@ -38,9 +41,8 @@ module Bpl
         program.global_variables.each {|v| v.insert_after(decl(v))}
 
         # duplicate parameters, returns, and local variables
-        program.declarations.each do |decl|
-          next unless decl.is_a?(ProcedureDeclaration)
-          next if exempt?(decl.name)
+        program.each_child do |decl|
+          next unless decl.is_a?(ProcedureDeclaration) && !exempt?(decl.name)
 
           return_variables = decl.returns.map{|v| v.names}.flatten
 

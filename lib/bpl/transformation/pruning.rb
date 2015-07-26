@@ -5,6 +5,9 @@ module Bpl
         "Delete unreachable declarations."
       end
 
+      # TODO remove variables that are never read
+      # TODO remove reads that are never used
+
       def run! program
         work_list = program.declarations.select{|d| d.attributes[:entrypoint]}
         until work_list.empty?
