@@ -1,5 +1,5 @@
-module C2S
-  
+module BAM
+
   def self.process_source_file(src)
     case File.extname src
     when '.c', '.o', '.bc', '.ll'

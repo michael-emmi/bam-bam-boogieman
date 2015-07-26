@@ -2,9 +2,9 @@
 
 require 'set'
 require 'optparse'
-require_relative 'c2s/version'
-require_relative 'c2s/prelude'
-require_relative 'c2s/frontend'
+require_relative 'bam/version'
+require_relative 'bam/prelude'
+require_relative 'bam/frontend'
 require_relative 'bpl/parser.tab'
 require_relative 'bpl/ast/scope'
 require_relative 'bpl/ast/binding'
@@ -12,10 +12,10 @@ require_relative 'bpl/ast/trace'
 require_relative 'bpl/pass'
 require_relative 'z3/model'
 
-# parse @c2s-options comments in the source file(s) for additional options
+# parse @bam-options comments in the source file(s) for additional options
 ARGV.select{|f| File.extname(f) == '.bpl' && File.exists?(f)}.map do |f|
-  File.readlines(f).grep(/@c2s-options (.*)/) do |line|
-    line.gsub(/.* @c2s-options (.*)/,'\1').split.reverse.each do |arg|
+  File.readlines(f).grep(/@bam-options (.*)/) do |line|
+    line.gsub(/.* @bam-options (.*)/,'\1').split.reverse.each do |arg|
       ARGV.unshift arg
     end
   end
@@ -36,7 +36,8 @@ Dir.glob(File.join(root,'bpl',"{#{PASSES * ","}}",'*.rb')).each do |lib|
 end
 
 unless $quiet
-  info "c2s version #{C2S::VERSION}, copyright (c) 2014, Michael Emmi".bold
+  info "BAM! BAM! Boogieman version #{BAM::VERSION}".bold,
+    "#{" " * 20}copyright (c) 2015, Michael Emmi".bold
   info "parameters: #{ARGV * " "}"
 end
 
@@ -59,7 +60,7 @@ OptionParser.new do |opts|
   end
 
   opts.on("--version", "Show version") do
-    puts "#{File.basename $0} version #{C2S::VERSION || "??"}"
+    puts "#{File.basename $0} version #{BAM::VERSION || "??"}"
     exit
   end
 
@@ -113,7 +114,7 @@ begin
   abort "Source file '#{src}' does not exist." unless File.exists?(src)
 
   src = timed 'Front-end' do
-    C2S::process_source_file(src)
+    BAM::process_source_file(src)
   end
 
   program = timed 'Parsing' do

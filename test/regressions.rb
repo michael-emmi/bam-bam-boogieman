@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'optparse'
-require_relative '../lib/c2s/version'
+require_relative '../lib/bam/version'
 
 begin
   require 'colorize'
@@ -16,7 +16,7 @@ rescue LoadError
   end
 end
 
-def c2s; "../lib/c2s.rb" end
+def bam; "../lib/bam.rb" end
 $verbose = false
 $quiet = false
 $keep = false
@@ -51,7 +51,7 @@ OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename $0} [options]"
   opts.separator ""
   opts.separator "Basic options:"
-  
+
   opts.on("-h", "--help", "Show this message") do
     puts opts
     exit
@@ -86,7 +86,7 @@ OptionParser.new do |opts|
 end.parse!
 
 begin
-  puts "c2s #{C2S::VERSION} REGRESSION TESTS".bold \
+  puts "bam #{BAM::VERSION} REGRESSION TESTS".bold \
     unless $quiet
 
   if $run
@@ -94,19 +94,19 @@ begin
       lines = File.readlines('regressions.dat')
       lines.map! {|l| l.chomp + " -"}
       lines[0].chop!
-      lines[0] += "#{C2S::VERSION}"
+      lines[0] += "#{BAM::VERSION}"
       File.write('regressions.dat', lines.join("\n"))
     end
 
     Dir.glob("./regressions/**/*.bpl").each do |source_file|
 
-      # parse @c2s-expected comments in the source file
-      expected = File.readlines(source_file).grep(/@c2s-expected (.*)/) do |line|
-        line.gsub(/.* @c2s-expected (.*)/,'\1').chomp
+      # parse @bam-expected comments in the source file
+      expected = File.readlines(source_file).grep(/@bam-expected (.*)/) do |line|
+        line.gsub(/.* @bam-expected (.*)/,'\1').chomp
       end.flatten.map{|ex| /#{ex}/}
 
       $temp << output_file = "regression.#{Time.now.to_f}.output"
-      cmd = "#{c2s} #{source_file} 1> #{output_file} 2>&1"
+      cmd = "#{bam} #{source_file} 1> #{output_file} 2>&1"
       print "#{File.basename(source_file)} : "
       t = Time.now
       system cmd

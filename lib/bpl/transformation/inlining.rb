@@ -6,8 +6,8 @@ module Bpl
       end
 
       def run! program
-        $temp << source = "c2s.#{Time.now.to_f}.bpl"
-        $temp << inlined = "c2s.inlined.#{Time.now.to_f}.bpl"
+        $temp << source = "bam.#{Time.now.to_f}.bpl"
+        $temp << inlined = "bam.inlined.#{Time.now.to_f}.bpl"
 
         File.write(source,program)
         cmd = "#{boogie} /noVerify /printInlined #{source} 1> #{inlined} 2>&1"

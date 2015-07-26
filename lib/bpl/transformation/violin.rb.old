@@ -1,4 +1,4 @@
-module C2S
+module BAM
   def self.violin_instrument! program, monitor
 
     methods = {}

@@ -252,7 +252,7 @@ module Bpl
 
         orig = program.source_file || "a.bpl"
         base = File.basename(orig).chomp(File.extname(orig))
-        $temp << src = "#{base}.c2s.#{Time.now.to_f}.bpl"
+        $temp << src = "#{base}.bam.#{Time.now.to_f}.bpl"
         $temp << model_file = src.chomp('.bpl') + '.model'
         $temp << trace_file = src.chomp('.bpl') + '.trace'
 
