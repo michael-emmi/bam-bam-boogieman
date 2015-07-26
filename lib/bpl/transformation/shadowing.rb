@@ -46,8 +46,8 @@ module Bpl
 
           return_variables = decl.returns.map{|v| v.names}.flatten
 
-          decl.parameters.dup.each {|d| d.insert_after(decl(d))}
-          decl.returns.dup.each {|d| d.insert_after(decl(d))}
+          decl.parameters.each {|d| d.insert_after(decl(d))}
+          decl.returns.each {|d| d.insert_after(decl(d))}
 
           next unless decl.body
 
@@ -74,7 +74,7 @@ module Bpl
 
           last_lhs = nil
 
-          decl.body.locals.dup.each {|d| d.insert_after(decl(d))}
+          decl.body.locals.each {|d| d.insert_after(decl(d))}
 
           decl.body.each do |stmt|
             case stmt
@@ -101,12 +101,9 @@ module Bpl
 
             when CallStatement
               if exempt?(stmt.procedure.name)
-                xs = stmt.assignments
-                unless xs.empty?
-                  stmt.insert_after
-                    bpl("#{xs.map{|v| shadow(v.name)} * ", "} := #{xs* ", "};")
+                stmt.assignments.each do |x|
+                  stmt.insert_after("#{x} := #{shadow(x)}")
                 end
-
               else
                 (stmt.arguments + stmt.assignments).each do |arg|
                   arg.insert_after(shadow_copy(arg))
