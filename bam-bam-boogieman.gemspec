@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
   s.authors     = ['Michael Emmi']
   s.email       = 'michael.emmi@gmail.com'
   s.homepage    = 'https://github.com/michael-emmi/bam-bam-boogieman'
-  s.summary     = File.read('README.md').lines.first.split('--')[1].strip
+  s.summary     = "Boogie AST Manipulator"
   s.description = File.read('README.md').lines.drop(1).take_while{|line| line !~ /##/}.join.strip
   s.files       = `git ls-files`.split("\n")
   s.executables = ['bam']
