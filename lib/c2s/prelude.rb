@@ -38,18 +38,20 @@ class Symbol
   end
 end
 
+class String
+  def yellow; self end
+  def red; self end
+  def green; self end
+  def blue; self end
+  def light_black; self end
+  def bold; self end
+  def underline; self end
+end
+
 begin
   require 'colorize'
 rescue LoadError
-  class String
-    def yellow; self end
-    def red; self end
-    def green; self end
-    def blue; self end
-    def light_black; self end
-    def bold; self end
-  end
-end
+end if $stdout.tty?
 
 $warnings = Set.new
 $show_warnings = true
@@ -68,7 +70,7 @@ module Kernel
 
   def info(*args)
     args.each do |str|
-      puts "Info: #{str}".light_black unless $quiet
+      puts "#{"// " unless $stdout.tty?}#{str}".light_black unless $quiet
     end
   end
 
@@ -140,6 +142,6 @@ def timed(desc = nil)
   time = Time.now
   res = yield if block_given?
   time = (Time.now - time).round(2)
-  puts "#{desc} took #{time}s." if $verbose && desc
+  info "#{desc} took #{time}s." if $verbose && desc
   res
 end

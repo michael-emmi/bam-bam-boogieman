@@ -15,6 +15,14 @@ module Bpl
       option :debug_solver, "enable solver debugging"
 
       def run!(program, options = {})
+
+        # begin
+        #   require 'eventmachine'
+        # rescue LoadError
+        #   warn "Parallel verification requires the eventmachine gem; disabling." if @parallel
+        #   @parallel = false
+        # end
+
         if options[:incremental] && options[:parallel]
           verify_parallel_accelerated program, options
         elsif options[:incremental]

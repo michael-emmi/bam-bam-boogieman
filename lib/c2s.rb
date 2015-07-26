@@ -4,10 +4,13 @@ require 'set'
 require 'optparse'
 require_relative 'c2s/version'
 require_relative 'c2s/prelude'
+require_relative 'c2s/frontend'
 require_relative 'bpl/parser.tab'
 require_relative 'bpl/ast/scope'
 require_relative 'bpl/ast/binding'
+require_relative 'bpl/ast/trace'
 require_relative 'bpl/pass'
+require_relative 'z3/model'
 
 # parse @c2s-options comments in the source file(s) for additional options
 ARGV.select{|f| File.extname(f) == '.bpl' && File.exists?(f)}.map do |f|
@@ -30,6 +33,11 @@ Dir.glob(File.join(root,'bpl',"{#{PASSES * ","}}",'*.rb')).each do |lib|
   kind = File.basename File.dirname(lib)
   klass = "Bpl::#{kind.capitalize}::#{name.classify}"
   @passes[name.to_sym] = Object.const_get(klass)
+end
+
+unless $quiet
+  info "c2s version #{C2S::VERSION}, copyright (c) 2014, Michael Emmi".bold
+  info "parameters: #{ARGV * " "}"
 end
 
 OptionParser.new do |opts|
@@ -100,32 +108,9 @@ OptionParser.new do |opts|
 end.parse!
 
 begin
-  puts "c2s version #{C2S::VERSION}, copyright (c) 2014, Michael Emmi".bold \
-    unless $quiet
-
   abort "Must specify a single source file." unless ARGV.size == 1
   src = ARGV[0]
   abort "Source file '#{src}' does not exist." unless File.exists?(src)
-
-  require_relative 'bpl/ast/trace'
-  require_relative 'z3/model'
-  require_relative 'c2s/frontend'
-
-  include Bpl::Analysis
-
-  # begin
-  #   require 'eventmachine'
-  # rescue LoadError
-  #   warn "Parallel verification requires the eventmachine gem; disabling." if @parallel
-  #   @parallel = false
-  # end
-
-  # @type_checking = false unless @resolution
-  # @sequentialization = false unless @resolution
-  # @atomicity = @sequentialization
-  # @normalization = @sequentialization || @verification
-  # @modifies_correction = @sequentialization
-  # @rounds ||= @delays + 1
 
   src = timed 'Front-end' do
     C2S::process_source_file(src)
