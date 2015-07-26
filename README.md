@@ -1,4 +1,6 @@
-# BAM! BAM! Boogieman: Boogie AST Manipulator
+# BAM! BAM! Boogieman
+
+## The Boogie AST Manipulator
 
 BAM! BAM! Boogieman implements various code analyses and transformations for
 the [Boogie][bpl] intermediate verification language, including the construction
