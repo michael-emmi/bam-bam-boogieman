@@ -122,6 +122,7 @@ module Bpl
       end
 
       option :index, "The index of abstractable program elements to abstract."
+      option :count, "Just return the number of abstractable program elements."
 
       def each_abstraction(program)
         Enumerator.new do |y|
@@ -134,11 +135,19 @@ module Bpl
       end
 
       def run! program
+
+        # Just return the number of abstractable elements (?)
+        if count
+          n = each_abstraction(program).count
+          program.each_child {|c| c.remove }
+          program.append_child(:declarations, bpl("assume {:count #{n}} true;"))
+        end
+
         break_at_index = index ? [index.to_i,0].max : rand(1000)
         each_abstraction(program).cycle.each_with_index do |elem_n_abs,idx|
           if idx == break_at_index
             elem, *abs = elem_n_abs
-            info "ABSTRACTING"
+            info "ABSTRACTING (idx = #{idx})"
             info elem.to_s.indent
             info "#{"ON LINE #{elem.token}, " if elem.token}WITH"
             info abs.map(&:to_s).join("\n").indent
