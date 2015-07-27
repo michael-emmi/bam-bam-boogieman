@@ -18,7 +18,9 @@ module Bpl
 
     class BitvectorType < Type
       attr_accessor :width
-      def show; yield "bv#{@width}".to_sym end
+      def show
+        "#{yield("bv#{@width}".to_sym)}"
+      end
       # def eql?(ty)
       #   ty = ty.is_a?(CustomType) ? ty.base : ty
       #   ty.is_a?(BitvectorType) &&
