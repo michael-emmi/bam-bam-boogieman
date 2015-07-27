@@ -5,7 +5,7 @@ branch = `git rev-parse --abbrev-ref HEAD`.chomp
 release = `git describe --abbrev=0`.chomp
 revision = `git rev-parse --short HEAD`.chomp
 
-version_file = File.join(root,'lib/c2s/version.rb')
+version_file = File.join(root,'lib/bam/version.rb')
 
 current =
   File.read(version_file).lines.grep(/VERSION/).first[/= (.*)/,1].gsub('"','')
@@ -20,7 +20,7 @@ version =
   end
 
 File.write(version_file, <<-eee)
-module C2S
+module BAM
   VERSION = "#{version}"
 end
 eee

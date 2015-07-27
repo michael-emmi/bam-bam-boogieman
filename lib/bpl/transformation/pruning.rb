@@ -1,0 +1,41 @@
+module Bpl
+  module Transformation
+    class Pruning < Bpl::Pass
+      def self.description
+        "Delete unreachable declarations."
+      end
+
+      # TODO remove variables that are never read
+      # TODO remove reads that are never used
+
+      def run! program
+        work_list = program.declarations.select{|d| d.attributes[:entrypoint]}
+        until work_list.empty?
+          decl = work_list.shift
+          decl.attributes[:reachable] = []
+          decl.each do |elem|
+            case elem
+            when Identifier, CustomType
+              d = elem.declaration
+              work_list |= [d] unless d.nil? || d.attributes[:reachable]
+            end
+          end
+        end
+
+        # Axiom declarations which reference reachable functions are reachable.
+        program.declarations.each do |decl|
+          next unless decl.is_a?(AxiomDeclaration)
+          decl.attributes[:reachable] = [] if decl.any? do |elem|
+            case elem
+            when Identifier
+              elem.declaration && elem.declaration.attributes[:reachable]
+            end
+          end
+        end
+
+        program.declarations.each {|d| d.remove unless d.attributes[:reachable]}
+        program.each{|elem| elem.attributes.delete(:reachable)}
+      end
+    end
+  end
+end

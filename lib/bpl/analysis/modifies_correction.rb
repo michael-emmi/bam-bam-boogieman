@@ -1,48 +1,65 @@
 module Bpl
+
   module AST
-    class ProcedureDeclaration
-      attr_accessor :accesses
+    class Identifier < Expression
+      def ident; self end
+    end
+    class MapSelect < Expression
+      def ident; @map.ident end
     end
   end
 
   module Analysis
-
-    def self.correct_modifies! program
-      globals = program.global_variables.map(&:names).flatten
-      work_list = []
-      program.declarations.each do |proc|
-        next unless proc.is_a?(ProcedureDeclaration)
-        work_list << proc
-        proc.specifications.reject!{|sp| sp.is_a?(ModifiesClause)} if proc.body
-        mods = Set.new
-        accs = Set.new
-        proc.each do |elem|
-          case elem
-          when StorageIdentifier
-            accs << elem if elem.is_variable? && elem.is_global?
-          when HavocStatement
-            mods += elem.identifiers.map(&:name) & globals
-          when AssignStatement
-            mods += elem.lhs.map(&:name) & globals
-          when CallStatement
-            mods += elem.assignments.map(&:name) & globals
-            elem.declaration.callers << proc
-          end
-        end
-        proc.specifications << bpl("modifies #{mods.to_a * ", "};") \
-          unless mods.empty?
-        proc.accesses = accs.to_a
+    class ModifiesCorrection < Bpl::Pass
+      def self.description
+        "Correct procedure modifies annotations."
       end
 
-      until work_list.empty?
-        proc = work_list.shift
-        proc.callers.each do |caller|
-          mods = proc.modifies - caller.modifies
-          accs = proc.accesses - caller.accesses
-          caller.specifications << bpl("modifies #{mods.to_a * ", "};") unless mods.empty?
-          caller.accesses |= accs
-          work_list << caller \
-            unless mods.empty? && accs.empty? || work_list.include?(caller)
+      def run! program
+        work_list = []
+        program.declarations.each do |proc|
+          next unless proc.is_a?(ProcedureDeclaration)
+          work_list << proc
+          proc.specifications.dup.each do |sp|
+            sp.remove if sp.is_a?(ModifiesClause) || sp.is_a?(AccessesClause)
+          end if proc.body
+          mods = Set.new
+          accs = Set.new
+          proc.each do |elem|
+            case elem
+            when StorageIdentifier
+              accs << elem if elem.is_global?
+            when HavocStatement
+              mods += elem.identifiers.select(&:is_global?)
+            when AssignStatement
+              mods += elem.lhs.map(&:ident).select(&:is_global?)
+            when CallStatement
+              mods += elem.assignments.map(&:ident).select(&:is_global?)
+            end
+          end
+          proc.append_child(:specifications,
+            ModifiesClause.new(identifiers: mods.to_a)) \
+            unless mods.empty?
+          proc.append_child(:specifications,
+            AccessesClause.new(identifiers: accs.to_a)) \
+            unless accs.empty?
+        end
+
+        until work_list.empty?
+          proc = work_list.shift
+          targets = proc.callers
+          targets << proc.declaration if proc.respond_to?(:declaration) && proc.declaration
+          targets.each do |caller|
+            mods = proc.modifies - caller.modifies
+            accs = proc.accesses - caller.accesses
+            caller.append_child(:specifications,
+              ModifiesClause.new(identifiers: mods.to_a)) \
+              unless mods.empty?
+            caller.append_child(:specifications,
+              AccessesClause.new(identifiers: accs.to_a)) \
+              unless accs.empty?
+            work_list |= [caller] unless mods.empty? && accs.empty?
+          end
         end
       end
     end

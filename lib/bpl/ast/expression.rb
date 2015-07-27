@@ -7,14 +7,14 @@ module Bpl
       Wildcard = Expression.new
       def Wildcard.show; "*" end
     end
-    
+
     class Literal < Expression
       attr_accessor :value
     end
 
     class BooleanLiteral < Literal
       def eql?(bool) bool.is_a?(BooleanLiteral) && bool.value == @value end
-      def show; @value ? "true" : "false" end
+      def show; "#{yield (@value ? :true : :false)}" end
       def type; Type::Boolean end
     end
 
@@ -30,35 +30,38 @@ module Bpl
       def show; "#{@value}bv#{@base}" end
       def type; BitvectorType.new @base end
     end
-    
+
     class Identifier < Expression
+      include Binding
       attr_accessor :name
-      attr_accessor :declaration
-      def hash; name.hash end
-      def <=>(id)  @name <=> id.name end
-      def eql?(id) id.is_a?(self.class) && id.name == @name end
+
+      # XXX identifiers should be unique so that we can distinguish between
+      # bindings, for example
+      # def hash; name.hash end
+      # def <=>(id)  @name <=> id.name end
+      # def eql?(id) id.is_a?(self.class) && id.name == @name end
+
       def type
-        @declaration.type if @declaration.respond_to? :type
+        declaration.type if declaration.respond_to? :type
       end
-      def show; @name end
-      def inspect
-        (@declaration ? @name.green : @name.red) +
-        (type ? ":#{type.inspect.yellow}" : "")
-      end
-    end
-    
-    class StorageIdentifier < Identifier
       def is_variable?
-        @declaration && @declaration.is_a?(VariableDeclaration)
+        declaration && declaration.is_a?(VariableDeclaration) || false
       end
       def is_global?
-        @declaration && @declaration.parent && @declaration.parent.is_a?(Program)
+        declaration && declaration.parent && declaration.parent.is_a?(Program) || false
+      end
+      def show; @name end
+      def hilite
+        (declaration ? (is_global? ? @name.blue : @name.green) : @name.red) +
+        (type ? ":#{type.hilite}" : "")
       end
     end
+
+    class StorageIdentifier < Identifier; end
     class ProcedureIdentifier < Identifier; end
     class FunctionIdentifier < Identifier; end
     class LabelIdentifier < Identifier; end
-    
+
     class FunctionApplication < Expression
       children :function, :arguments
       def eql?(fa)
@@ -67,35 +70,35 @@ module Bpl
         fa.arguments.eql?(@arguments)
       end
       def show; "#{yield @function}(#{@arguments.map{|a| yield a} * ","})" end
-      def inspect
-        "#{@function.inspect}(#{@arguments.map(&:inspect) * ", "})" +
-        (type ? ":#{type.inspect.yellow}" : "")
+      def hilite
+        "#{@function.hilite}(#{@arguments.map(&:hilite) * ", "})" +
+        (type ? ":#{type.hilite}" : "")
       end
       def type
         @function.declaration && @function.declaration.return.type
       end
     end
-    
+
     class UnaryExpression < Expression
       children :expression
       def eql?(ue) ue.is_a?(self.class) && ue.expression.eql?(@expression) end
     end
-    
+
     class OldExpression < UnaryExpression
       def show; "old(#{yield @expression})" end
       def type; @expression.type end
-    end    
-    
+    end
+
     class LogicalNegation < UnaryExpression
       def show; "!#{yield @expression}" end
       def type; Type::Boolean end
     end
-    
+
     class ArithmeticNegation < UnaryExpression
       def show; "-#{yield @expression}" end
       def type; Type::Integer end
     end
-    
+
     class BinaryExpression < Expression
       children :lhs, :op, :rhs
       def eql?(be)
@@ -116,10 +119,30 @@ module Bpl
         end
       end
     end
-    
+
+    class IfExpression < Expression
+      children :condition, :then, :else
+      def eql?(ie)
+        ie.is_a?(IfExpression) &&
+        ie.condition.eql?(@condition) &&
+        ie.then.eql?(@then) &&
+        ie.else.eql?(@else)
+      end
+      def show
+        "(#{yield :if} #{yield @condition} #{yield :then} #{yield @then} #{yield :else} #{yield @else})"
+      end
+      def type; @then.type end
+    end
+
+    class CodeExpression < Expression
+      children :block
+      def eql?(ce) ce.is_a?(CodeExpression) && ce.block.eql?(@block) end
+      def show; "|#{yield @block}|" end
+      def type; Type::Boolean end
+    end
+
     class MapSelect < Expression
       children :map, :indexes
-      def name; @map.name end
       def eql?(ms)
         ms.is_a?(MapSelect) &&
         ms.map.eql?(@map) && ms.indexes.eql?(@indexes)
@@ -127,7 +150,7 @@ module Bpl
       def show; "#{yield @map}[#{@indexes.map{|a| yield a} * ","}]" end
       def type; @map.type.is_a?(MapType) && @map.type.range end
     end
-    
+
     class MapUpdate < Expression
       children :map, :indexes, :value
       def eql?(ms)
@@ -137,7 +160,7 @@ module Bpl
       def show; "#{yield @map}[#{@indexes.map{|a| yield a} * ","} := #{yield @value}]" end
       def type; @map.type end
     end
-    
+
     class BitvectorExtract < Expression
       children :bitvector, :msb, :lsb
       def eql?(bve)
@@ -147,8 +170,11 @@ module Bpl
       def show; "#{yield @bitvector}[#{@msb}:#{@lsb}]" end
       def type; BitvectorType.new width: (@msb - @lsb) end
     end
-    
+
     class QuantifiedExpression < Expression
+      include Scope
+      def declarations; @variables end
+
       children :quantifier, :type_arguments, :variables, :expression, :triggers
       def eql?(qe)
         qe.is_a?(QuantifiedExpression) &&
@@ -171,7 +197,7 @@ module Bpl
       end
       def type; Type::Boolean end
     end
-    
+
     class Trigger < Expression
       children :expressions
       def eql?(t) t.is_a?(Trigger) && t.expressions.eql(@expressions) end
