@@ -1,28 +1,26 @@
 #!/usr/bin/env ruby
 
-root = `git rev-parse --show-toplevel`.chomp
-branch = `git rev-parse --abbrev-ref HEAD`.chomp
-release = `git describe --abbrev=0`.chomp
-revision = `git rev-parse --short HEAD`.chomp
+ROOT = `git rev-parse --show-toplevel`.chomp
+BRANCH = `git rev-parse --abbrev-ref HEAD`.chomp
+GIT_VERSION = `git describe`.chomp
+VERSION_FILE = File.join(ROOT,'lib/bam/version.rb')
 
-version_file = File.join(root,'lib/bam/version.rb')
+LAST_VERSION =
+  File.read(VERSION_FILE).lines.grep(/VERSION/).first[/= (.*)/,1].gsub('"','')
 
-current =
-  File.read(version_file).lines.grep(/VERSION/).first[/= (.*)/,1].gsub('"','')
+abort "Invalid version number; please update #{VERSION_FILE}." \
+  if BRANCH == 'master' && LAST_VERSION !~ /^\d+(\.\d+)*$/
 
-abort "Invalid version number; please update #{version_file}." \
-  if branch == 'master' && current !~ /^\d+(\.\d+)*$/
-
-version =
-  case branch
-  when 'master'; current
-  else "#{release}-#{branch}-#{revision}++"
+VERSION =
+  case BRANCH
+  when 'master' then LAST_VERSION
+  else GIT_VERSION
   end
 
-File.write(version_file, <<-eee)
+File.write(VERSION_FILE, <<-eee)
 module BAM
-  VERSION = "#{version}"
+  VERSION = "#{VERSION}"
 end
 eee
 
-`git add #{version_file}`
+`git add #{VERSION_FILE}`
