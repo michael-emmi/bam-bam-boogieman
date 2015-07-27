@@ -38,7 +38,6 @@ end
 unless $quiet
   info "BAM! BAM! Boogieman version #{BAM::VERSION}".bold,
     "#{" " * 20}copyright (c) 2015, Michael Emmi".bold
-  info "parameters: #{ARGV * " "}"
 end
 
 OptionParser.new do |opts|
@@ -134,8 +133,12 @@ begin
       $temp.delete @output_file
       File.write(@output_file, program)
     end
-  else
+  elsif $stdout.tty?
+    puts "--- "
     puts program.hilite
+  else
+    puts "--- ".comment
+    puts program
   end
 
 ensure

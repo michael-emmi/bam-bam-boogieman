@@ -1,7 +1,7 @@
 # BAM! BAM! Boogieman
 
-BAM! BAM! Boogieman is a **Boogie AST manipulator** which implements various
-code analyses and transformations for the [Boogie][bpl] intermediate
+BAM! BAM! Boogieman is a **B**oogie **A**ST **M**anipulator which implements
+various code analyses and transformations for the [Boogie][bpl] intermediate
 verification language, including the construction of call graphs and
 control-flow graphs, pruning of unreachable code, and various code
 simplifications. Boogie code is parsed into an abstract-syntax tree (AST) with
@@ -11,8 +11,8 @@ an expressive API which facilitates the creation of new AST passes.
 
 ## Requirements
 
-A recent version of [Ruby](https://www.ruby-lang.org) -- I'm using 2.2.0 and
-I'm guessing you'll need at least 1.9.
+A recent version of [Ruby](https://www.ruby-lang.org) — I’m using 2.2.0 and
+I’m guessing you’ll need at least 1.9.
 
 Optionally, you may also fancy:
 
@@ -38,7 +38,7 @@ gem with the command (substituting `X.Y.Z` with the actual version number),
     gem install bam-bam-boogieman-X.Y.Z.gem
 
 If you have not used gems before, you may need to add the gem installation path
-to your executable path in order to locate the `bam` executable; if you've
+to your executable path in order to locate the `bam` executable; if you’ve
 installed Ruby with [Homebrew](http://brew.sh) like I have, adding the following
 line to your `~/.profile` might work.
 

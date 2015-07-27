@@ -1,4 +1,13 @@
 class String
+  def to_range
+    case self
+    when /\d+\.\.\d+/
+      split(/\.\./).inject{|i,j| i.to_i..j.to_i}
+    else
+      to_i..to_i
+    end
+  end
+
   def classify
     split('_').collect(&:capitalize).join
   end
@@ -25,6 +34,14 @@ class String
 
   def fmt
     self.split.join(' ').gsub(/\s*;/, ';')
+  end
+
+  def indent(n = 2)
+    (" " * n) + gsub(/[\r\n]/,"\n#{" " * n}")
+  end
+
+  def comment
+    "// " + gsub(/[\r\n]/,"\n// ")
   end
 
   def hilite
@@ -70,7 +87,7 @@ module Kernel
 
   def info(*args)
     args.each do |str|
-      puts "#{"// " unless $stdout.tty?}#{str}".light_black unless $quiet
+      puts ($stdout.tty? ? str.light_black : str.comment) unless $quiet
     end
   end
 
@@ -124,17 +141,6 @@ module Kernel
     when Array; elem.each {|e| e.resolve!(scope)}
     end if scope
     elem
-  end
-end
-
-class String
-  def to_range
-    case self
-    when /\d+\.\.\d+/
-      split(/\.\./).inject{|i,j| i.to_i..j.to_i}
-    else
-      to_i..to_i
-    end
   end
 end
 

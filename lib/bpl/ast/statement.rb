@@ -8,7 +8,8 @@ module Bpl
 
     module Printing
       def self.indent(str)
-        str.gsub(/^(.*)$/,"  \\1").gsub(/^\s+(#{Bpl::IDENTIFIER}:[^=].*)$/,"\\1")
+        str.gsub(/^(.*)$/,"  \\1").
+        gsub(/^\s+(#{Bpl::IDENTIFIER}:[^=].*)$/,"\\1")
       end
       def self.braces(str) "{\n" + indent(str) + "\n}" end
     end

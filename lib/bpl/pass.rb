@@ -33,7 +33,7 @@ module Bpl
 
 #{name.nounify}
 
-#{description}
+#{description.indent}
 
 Usage:
   --#{name.gsub('_','-')} #{options.empty? ? "" : "#{options.first.first}:_,..."}
