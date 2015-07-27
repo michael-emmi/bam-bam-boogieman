@@ -105,10 +105,17 @@ module Bpl
               end
             end
           end
-          y.yield HavocStatement.new(
-            attributes: attributes,
-            identifiers: ids
-          )
+          if ids.empty?
+            y.yield AssumeStatement.new(
+              attributes: attributes,
+              expression: BooleanLiteral.new(value: true)
+            )
+          else
+            y.yield HavocStatement.new(
+              attributes: attributes,
+              identifiers: ids
+            )
+          end
         end
       end
     end
