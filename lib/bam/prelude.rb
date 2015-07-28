@@ -116,31 +116,16 @@ module Kernel
       "Verification requires Boogie; please install it."
   end
 
-  def bpl(str, scope: nil)
-    elem = BoogieLanguage.new.parse_str(str)
-    case elem
-    when Node; elem.resolve!(scope)
-    when Array; elem.each {|e| e.resolve!(scope)}
-    end if scope && elem.respond_to?(:resolve)
-    elem
+  def bpl(str)
+    BoogieLanguage.new.parse_str(str)
   end
 
-  def bpl_expr(str, scope: nil)
-    elem = BoogieLanguage.new.parse_expr(str)
-    case elem
-    when Node; elem.resolve!(scope)
-    when Array; elem.each {|e| e.resolve!(scope)}
-    end if scope
-    elem
+  def bpl_expr(str)
+    BoogieLanguage.new.parse_expr(str)
   end
 
-  def bpl_type(str, scope: nil)
-    elem = BoogieLanguage.new.parse_type(str)
-    case elem
-    when Node; elem.resolve!(scope)
-    when Array; elem.each {|e| e.resolve!(scope)}
-    end if scope
-    elem
+  def bpl_type(str)
+    BoogieLanguage.new.parse_type(str)
   end
 end
 

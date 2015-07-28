@@ -28,20 +28,20 @@ module Bpl
           proc.each do |elem|
             case elem
             when StorageIdentifier
-              accs << elem if elem.is_global?
+              accs << elem.name if elem.is_global?
             when HavocStatement
-              mods += elem.identifiers.select(&:is_global?)
+              mods += elem.identifiers.select(&:is_global?).map(&:name)
             when AssignStatement
-              mods += elem.lhs.map(&:ident).select(&:is_global?)
+              mods += elem.lhs.map(&:ident).select(&:is_global?).map(&:name)
             when CallStatement
-              mods += elem.assignments.map(&:ident).select(&:is_global?)
+              mods += elem.assignments.map(&:ident).select(&:is_global?).map(&:name)
             end
           end
-          proc.append_child(:specifications,
-            ModifiesClause.new(identifiers: mods.to_a)) \
+          proc.append_children(:specifications,
+            ModifiesClause.new(identifiers: mods.map{|id| bpl(id)})) \
             unless mods.empty?
-          proc.append_child(:specifications,
-            AccessesClause.new(identifiers: accs.to_a)) \
+          proc.append_children(:specifications,
+            AccessesClause.new(identifiers: accs.map{|id| bpl(id)})) \
             unless accs.empty?
         end
 
@@ -50,13 +50,13 @@ module Bpl
           targets = proc.callers
           targets << proc.declaration if proc.respond_to?(:declaration) && proc.declaration
           targets.each do |caller|
-            mods = proc.modifies - caller.modifies
-            accs = proc.accesses - caller.accesses
-            caller.append_child(:specifications,
-              ModifiesClause.new(identifiers: mods.to_a)) \
+            mods = proc.modifies.map(&:name) - caller.modifies.map(&:name)
+            accs = proc.accesses.map(&:name) - caller.accesses.map(&:name)
+            caller.append_children(:specifications,
+              ModifiesClause.new(identifiers: mods.map{|id| bpl(id)})) \
               unless mods.empty?
-            caller.append_child(:specifications,
-              AccessesClause.new(identifiers: accs.to_a)) \
+            caller.append_children(:specifications,
+              AccessesClause.new(identifiers: accs.map{|id| bpl(id)})) \
               unless accs.empty?
             work_list |= [caller] unless mods.empty? && accs.empty?
           end

@@ -87,6 +87,10 @@ module Bpl
       def hilite; show(&:hilite) end
       def to_s; show {|a| a} end
 
+      def copy
+        bpl(to_s)
+      end
+
       def each(&block)
         enumerator = Enumerator.new {|y| enumerate(y)}
         if block_given?
@@ -114,8 +118,9 @@ module Bpl
         end
       end
 
-      def prepend_child(name,elem) insert_children(name,:first,elem) end
-      def append_child(name,elem) insert_children(name,:last,elem) end
+      def prepend_children(name,*elems) insert_children(name,:before,*elems) end
+      def append_children(name,*elems) insert_children(name,:after,*elems) end
+      def replace_children(name,*elems) insert_children(name,:inplace,*elems) end
 
       def insert_before(*elems) insert_siblings(:before,*elems) end
       def insert_after(*elems) insert_siblings(:after,*elems) end
@@ -153,16 +158,32 @@ module Bpl
       end
 
       def insert_children(name,where,*elems)
+        fail "invalid child #{name}" unless self.class.children.include?(name)
+
         var = instance_variable_get("@#{name}")
+
         if var && var.is_a?(Array)
           case where
-          when :first
-            var.unshift(*elems)
-          else
+          when :before then var.unshift(*elems)
+          when :after  then var.push(*elems)
+          when :inplace
+            var.each {|elem| elem.unlink}
+            var.clear
             var.push(*elems)
           end
-          elems.each {|elem| elem.link(self) if elem.respond_to?(:link)}
+
+        else
+          fail "cannot insert multiple #{name} children" \
+            unless elems.count == 1
+
+          fail "child #{name} already exists" \
+            unless var.nil? || where == :inplace
+
+          instance_variable_set("@#{name}", elems.first)
         end
+
+        elems.each {|elem| elem.link(self) if elem.respond_to?(:link)}
+        self
       end
 
       def insert_siblings(where,*elems)
@@ -171,10 +192,8 @@ module Bpl
           next unless ary.is_a?(Array)
           next unless idx = ary.index(self)
           case where
-          when :before
-            ary.insert(idx,*elems)
-          when :after
-            ary.insert(idx+1,*elems)
+          when :before then ary.insert(idx,*elems)
+          when :after  then ary.insert(idx+1,*elems)
           when :inplace
             ary.delete_at(idx)
             ary.insert(idx,*elems)

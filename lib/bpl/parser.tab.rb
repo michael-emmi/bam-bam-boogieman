@@ -39,10 +39,10 @@ def parse_type(str) parse_special(str, :type) end
 
 def parse_str(str)
   case str
-  when /\b(requires|ensures|modifies|invariant)\b/
-    parse_spec(str)
   when /\b(type|const|function|axiom|var|procedure|implementation)\b/
     parse_decl(str)
+  when /\b(requires|ensures|modifies|invariant)\b/
+    parse_spec(str)
   when /\A\s*#{Bpl::IDENTIFIER}:.*;.*\s+#{Bpl::IDENTIFIER}:/m
     parse_blocks(str)
   when /\A\s*#{Bpl::IDENTIFIER}:.*;/m
@@ -1811,7 +1811,7 @@ module_eval(<<'.,.,', 'parser.racc', 198)
 module_eval(<<'.,.,', 'parser.racc', 200)
   def _reduce_127(val, _values)
           bs = val[2]
-      bs.first.prepend_child(:names,val[0])
+      bs.first.prepend_children(:names,val[0])
       bs
     
   end
@@ -1821,7 +1821,7 @@ module_eval(<<'.,.,', 'parser.racc', 205)
   def _reduce_128(val, _values)
           bs = val[1]
       bs.unshift(Block.new(names: [], statements: [])) unless bs.first.names.empty?
-      bs.first.prepend_child(:statements,val[0])
+      bs.first.prepend_children(:statements,val[0])
       bs
     
   end

@@ -8,11 +8,7 @@ module Bpl
       def abstractions
         Enumerator.new do |y|
           unless body.nil?
-            y.yield FunctionDeclaration.new(
-              attributes: attributes, name: name,
-              type_arguments: type_arguments, arguments: arguments,
-              return: self.return
-            )
+            y.yield copy.replace_children(:body,nil)
           end
         end
       end
@@ -22,10 +18,7 @@ module Bpl
       def abstractions
         Enumerator.new do |y|
           unless expression.is_a?(BooleanLiteral)
-            y.yield AxiomDeclaration.new(
-              attributes: attributes,
-              expression: BooleanLiteral.new(value: true)
-            )
+            y.yield copy.replace_children(:expression,bpl("true"))
           end
         end
       end
@@ -35,12 +28,7 @@ module Bpl
       def abstractions
         Enumerator.new do |y|
           unless attributes[:entrypoint] || body.nil?
-            y.yield ProcedureDeclaration.new(
-              attributes: attributes,
-              name: name, type_arguments: type_arguments,
-              parameters: parameters, returns: returns,
-              specifications: specifications
-            )
+            y.yield copy.replace_children(:body,nil)
           end
         end
       end
@@ -50,10 +38,7 @@ module Bpl
       def abstractions
         Enumerator.new do |y|
           unless expression.is_a?(BooleanLiteral)
-            y.yield AssertStatement.new(
-              attributes: attributes,
-              expression: BooleanLiteral.new(value: false)
-            )
+            y.yield copy.replace_children(:expression,bpl("false"))
           end
         end
       end
@@ -63,10 +48,7 @@ module Bpl
       def abstractions
         Enumerator.new do |y|
           unless expression.is_a?(BooleanLiteral)
-            y.yield AssumeStatement.new(
-              attributes: attributes,
-              expression: BooleanLiteral.new(value: true)
-            )
+            y.yield copy.replace_children(:expression,bpl("true"))
           end
         end
       end
@@ -75,17 +57,18 @@ module Bpl
     class AssignStatement
       def abstractions
         Enumerator.new do |y|
-          lvalues = lhs.map do |expr|
+          ids = lhs.map do |expr|
             loop do
               break if expr.is_a?(Identifier)
               expr = expr.map
             end
             expr
           end
-          y.yield HavocStatement.new(
-            attributes: attributes,
-            identifiers: lvalues
-          )
+          if ids.empty?
+            y.yield bpl("assume true;")
+          else
+            y.yield bpl("havoc #{ids * ", "};")
+          end
         end
       end
     end
@@ -93,28 +76,23 @@ module Bpl
     class CallStatement
       def abstractions
         Enumerator.new do |y|
-          return unless procedure.declaration
-          ids = procedure.declaration.modifies
-          assignments.each do |expr|
-            loop do
-              if expr.is_a?(Identifier)
-                ids << expr
-                break
-              else
-                expr = expr.map
+          if procedure.declaration
+            ids = procedure.declaration.modifies
+            assignments.each do |expr|
+              loop do
+                if expr.is_a?(Identifier)
+                  ids << expr
+                  break
+                else
+                  expr = expr.map
+                end
               end
             end
-          end
-          if ids.empty?
-            y.yield AssumeStatement.new(
-              attributes: attributes,
-              expression: BooleanLiteral.new(value: true)
-            )
-          else
-            y.yield HavocStatement.new(
-              attributes: attributes,
-              identifiers: ids
-            )
+            if ids.empty?
+              y.yield bpl("assume true;")
+            else
+              y.yield bpl("havoc #{ids * ", "};")
+            end
           end
         end
       end
