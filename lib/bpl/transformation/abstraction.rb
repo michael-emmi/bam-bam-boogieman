@@ -125,7 +125,7 @@ module Bpl
         if count
           n = each_abstraction(program).count
           program.each_child {|c| c.remove }
-          program.append_child(:declarations, bpl("assume {:count #{n}} true;"))
+          program.append_children(:declarations, bpl("assume {:count #{n}} true;"))
         end
 
         break_at_index = index ? [index.to_i,0].max : rand(1000)
