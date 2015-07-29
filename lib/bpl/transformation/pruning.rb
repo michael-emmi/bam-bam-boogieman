@@ -23,18 +23,29 @@ module Bpl
         end
 
         # Axiom declarations which reference reachable functions are reachable.
-        program.declarations.each do |decl|
-          next unless decl.is_a?(AxiomDeclaration)
-          decl.attributes[:reachable] = [] if decl.any? do |elem|
-            case elem
-            when Identifier
-              elem.declaration && elem.declaration.attributes[:reachable]
-            end
-          end
+        program.declarations.each do |axiom|
+          next unless axiom.is_a?(AxiomDeclaration)
+          next if silly_expression?(axiom.expression)
+          axiom.attributes[:reachable] = []
         end
 
         program.declarations.each {|d| d.remove unless d.attributes[:reachable]}
         program.each{|elem| elem.attributes.delete(:reachable)}
+      end
+
+      def silly_expression?(expr)
+        case expr
+        when QuantifiedExpression
+          silly_expression?(expr.expression)
+        when BinaryExpression
+          silly_expression?(expr.lhs) || silly_expression?(expr.rhs)
+        when FunctionApplication
+          silly_expression?(expr.function)
+        when Identifier
+          expr.declaration.nil? || expr.declaration.attributes[:reachable].nil?
+        else
+          false
+        end
       end
     end
   end
