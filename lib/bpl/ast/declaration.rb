@@ -4,6 +4,7 @@ module Bpl
   module AST
 
     class Declaration < Node
+      def names; respond_to?(:name) && [name] || [] end
       def bindings; @bindings ||= Set.new end
       def unlink; super; bindings.each(&:unbind) end
     end

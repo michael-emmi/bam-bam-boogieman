@@ -6,6 +6,10 @@ module Bpl
     class Node
       include Enumerable
 
+      def self.observers
+        @@observers ||= []
+      end
+
       class << self
         def children(*args)
           @children ||= []
@@ -46,21 +50,16 @@ module Bpl
 
       def link(parent)
         @parent = parent
-        each do |elem|
-          if elem.respond_to?(:bind) && elem.declaration.nil?
-            resolver = each_ancestor.find do |scope|
-              scope.respond_to?(:resolve) && scope.resolve(elem)
-            end
-            elem.bind(resolver.resolve(elem)) if resolver
-          end
+        self.class.observers.each do |obs|
+          obs.notify(:link,parent,self) if obs.respond_to?(:notify)
         end
       end
 
       def unlink
-        @parent = nil
-        each do |elem|
-          elem.unbind if elem.respond_to?(:unbind)
+        self.class.observers.each do |obs|
+          obs.notify(:unlink,parent,self)
         end
+        @parent = nil
       end
 
       def show_attrs
