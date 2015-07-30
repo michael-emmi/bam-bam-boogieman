@@ -5,6 +5,8 @@ module Bpl
         "Delete unreachable declarations."
       end
 
+      depends :resolution, :entry_point_localization
+
       # TODO remove variables that are never read
       # TODO remove reads that are never used
 
@@ -29,7 +31,15 @@ module Bpl
           axiom.attributes[:reachable] = []
         end
 
-        program.declarations.each {|d| d.remove unless d.attributes[:reachable]}
+        program.declarations.each do |d|
+          unless d.attributes[:reachable]
+            info "PRUNING UNUSED DECLARATION"
+            info d.to_s.indent
+            info
+            d.remove
+          end
+        end
+
         program.each{|elem| elem.attributes.delete(:reachable)}
       end
 

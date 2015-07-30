@@ -86,6 +86,7 @@ module Kernel
   end
 
   def info(*args)
+    args = [""] if args.empty?
     args.each do |str|
       puts ($stdout.tty? ? str.light_black : str.comment) unless $quiet
     end

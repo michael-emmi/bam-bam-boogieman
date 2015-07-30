@@ -6,6 +6,8 @@ module Bpl
         "Create a shadow program."
       end
 
+      depends :resolution
+
       def shadow(x) "#{x}.shadow" end
       def shadow_eq(x) "#{x} == #{shadow(x)}" end
       def decl(v)

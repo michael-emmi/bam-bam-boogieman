@@ -11,8 +11,15 @@ module Bpl
         class_eval "attr_accessor :#{name}"
       end
 
+      def depends(*passes)
+        @depends ||= []
+        @depends += passes
+        @depends
+      end
+
       def inherited(subclass)
         subclass.instance_variable_set("@options",@options)
+        subclass.instance_variable_set("@depends",@depends)
       end
     end
 

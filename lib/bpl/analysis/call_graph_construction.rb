@@ -5,6 +5,8 @@ module Bpl
         "Construct the call graph."
       end
 
+      depends :resolution
+
       def run! program
         program.each do |elem|
           next unless elem.is_a?(CallStatement)

@@ -42,6 +42,20 @@ def source_file_options(files)
   opts
 end
 
+def add_pass(klass,args)
+  klass.depends.each do |pass_name|
+    fail "Unkonwn pass #{pass_name}" unless @passes[pass_name]
+    add_pass(@passes[pass_name],{})
+  end
+
+  prior_stages =
+    @stages.reverse.take_while{|s| s.class.name =~ /::Analysis::/}.reverse
+
+  unless prior_stages.any?{|s| s.class == klass}
+    @stages << klass.new(args)
+  end
+
+end
 
 def command_line_options
   OptionParser.new do |opts|
@@ -96,11 +110,12 @@ def command_line_options
       @passes.each do |name,klass|
         next unless klass.name.split("::")[0..-2].last.downcase.to_sym == kind
         opts.on("--#{name.to_s.hyphenate}#{" [OPTS]" unless klass.options.empty?}", klass.brief) do |args|
-          @stages << klass.new(case args
+          args = case args
             when String
               (args || "").split(",").map{|s| k,v = s.split(":"); [k.to_sym,v]}.to_h
             else {}
-            end)
+            end
+          add_pass(klass,args)
         end
       end
     end
@@ -121,6 +136,7 @@ begin
   unless $quiet
     info "BAM! BAM! Boogieman version #{BAM::VERSION}".bold,
       "#{" " * 20}copyright (c) 2015, Michael Emmi".bold
+    info
   end
 
   load_passes

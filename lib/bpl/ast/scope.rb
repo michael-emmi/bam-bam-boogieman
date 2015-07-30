@@ -24,7 +24,7 @@ module Bpl
           parent, child = args
           if child.is_a?(Declaration)
             child.names.each do |name|
-              parent.lookup_table(KIND[child.class])[name] = child
+              parent.lookup_table(KIND[child.class],name) << child
             end
           end
 
@@ -32,7 +32,7 @@ module Bpl
           parent, child = args
           if child.is_a?(Declaration)
             child.names.each do |name|
-              parent.lookup_table(KIND[child.class]).delete(name)
+              parent.lookup_table(KIND[child.class],name).delete(child)
             end
           end
         end
@@ -40,13 +40,14 @@ module Bpl
 
       Node.observers << self
 
-      def lookup_table(kind)
+      def lookup_table(kind,name)
         @lookup_table ||= {}
         @lookup_table[kind] ||= {}
+        @lookup_table[kind][name] ||= Set.new
       end
 
       def resolve(id)
-        lookup_table(KIND[id.class])[id.name]
+        lookup_table(KIND[id.class],id.name).first
       end
 
     end

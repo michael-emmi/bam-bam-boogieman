@@ -8,7 +8,10 @@ module Bpl
       def abstractions
         Enumerator.new do |y|
           unless body.nil?
-            y.yield copy.replace_children(:body,nil)
+            y.yield({
+              elems: [copy.replace_children(:body,nil)],
+              weight: 10
+            })
           end
         end
       end
@@ -18,7 +21,10 @@ module Bpl
       def abstractions
         Enumerator.new do |y|
           unless expression.is_a?(BooleanLiteral)
-            y.yield copy.replace_children(:expression,bpl("true"))
+            y.yield({
+              elems: [copy.replace_children(:expression,bpl("true"))],
+              weight: 10
+            })
           end
         end
       end
@@ -27,8 +33,14 @@ module Bpl
     class ProcedureDeclaration
       def abstractions
         Enumerator.new do |y|
-          unless attributes[:entrypoint] || body.nil?
-            y.yield copy.replace_children(:body,nil)
+          unless attributes[:entrypoint] ||
+                 attributes[:has_assertion] ||
+                 body.nil?
+
+            y.yield({
+              elems: [copy.replace_children(:body,nil)],
+              weight: 100
+            })
           end
         end
       end
@@ -38,7 +50,10 @@ module Bpl
       def abstractions
         Enumerator.new do |y|
           unless expression.is_a?(BooleanLiteral)
-            y.yield copy.replace_children(:expression,bpl("false"))
+            y.yield({
+              elems: [copy.replace_children(:expression,bpl("false"))],
+              weight: 100
+            })
           end
         end
       end
@@ -48,7 +63,10 @@ module Bpl
       def abstractions
         Enumerator.new do |y|
           unless expression.is_a?(BooleanLiteral)
-            y.yield copy.replace_children(:expression,bpl("true"))
+            y.yield({
+              elems: [copy.replace_children(:expression,bpl("true"))],
+              weight: 10
+            })
           end
         end
       end
@@ -65,9 +83,9 @@ module Bpl
             expr
           end
           if ids.empty?
-            y.yield bpl("assume true;")
+            y.yield({elems: [bpl("assume true;")], weight: 3})
           else
-            y.yield bpl("havoc #{ids * ", "};")
+            y.yield({elems: [bpl("havoc #{ids * ", "};")], weight: 3})
           end
         end
       end
@@ -76,7 +94,9 @@ module Bpl
     class CallStatement
       def abstractions
         Enumerator.new do |y|
-          if procedure.declaration
+          if procedure.declaration &&
+             procedure.declaration.attributes[:has_assertion].nil?
+
             ids = procedure.declaration.modifies
             assignments.each do |expr|
               loop do
@@ -89,9 +109,9 @@ module Bpl
               end
             end
             if ids.empty?
-              y.yield bpl("assume true;")
+              y.yield({elems: [bpl("assume true;")], weight: 10})
             else
-              y.yield bpl("havoc #{ids * ", "};")
+              y.yield({elems: [bpl("havoc #{ids * ", "};")], weight: 10})
             end
           end
         end
@@ -108,12 +128,14 @@ module Bpl
 
       option :index, "The index of abstractable program elements to abstract."
       option :count, "Just return the number of abstractable program elements."
+      depends :resolution, :call_graph_construction, :modifies_correction
+      depends :assertion_localization
 
       def each_abstraction(program)
         Enumerator.new do |y|
           program.each do |elem|
-            elem.abstractions.each do |*abs|
-              y.yield elem, *abs
+            elem.abstractions.each do |abs|
+              y.yield abs.merge({original: elem})
             end
           end
         end
@@ -129,14 +151,18 @@ module Bpl
         end
 
         break_at_index = index ? [index.to_i,0].max : rand(1000)
-        each_abstraction(program).cycle.each_with_index do |elem_n_abs,idx|
+
+        each_abstraction(program).sort{|a,b| a[:weight] <=> b[:weight]}.reverse.
+        cycle.each_with_index do |abs,idx|
           if idx == break_at_index
-            elem, *abs = elem_n_abs
+            elem = abs[:original]
+            repl = abs[:elems]
             info "ABSTRACTING (idx = #{idx})"
             info elem.to_s.indent
             info "#{"ON LINE #{elem.token}, " if elem.token}WITH"
-            info abs.map(&:to_s).join("\n").indent
-            elem.replace_with(*abs)
+            info repl.map(&:to_s).join("\n").indent
+            info
+            elem.replace_with(*repl)
             break
           end
         end

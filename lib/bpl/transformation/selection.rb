@@ -6,6 +6,7 @@ module Bpl
       end
 
       option :expression, "the selection pattern"
+      depends :resolution
 
       def run! program
         program.declarations.each do |d|

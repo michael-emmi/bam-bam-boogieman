@@ -15,6 +15,8 @@ module Bpl
         "Correct procedure modifies annotations."
       end
 
+      depends :call_graph_construction
+
       def run! program
         work_list = []
         program.declarations.each do |proc|
