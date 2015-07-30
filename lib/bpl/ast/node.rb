@@ -37,13 +37,9 @@ module Bpl
         @token = nil
         opts.each do |k,v|
           instance_variable_set("@#{k}",v) if respond_to?(k)
-        end
-        opts.each do |k,v|
           case v
-          when Node
-            v.link(self)
-          when Array
-            v.each {|x| x.link(self) if x.is_a?(Node)}
+          when Node then v.link(self)
+          when Array then v.each {|x| x.link(self) if x.is_a?(Node)}
           end
         end
       end
