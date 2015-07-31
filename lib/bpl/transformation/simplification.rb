@@ -56,7 +56,10 @@ module Bpl
             if elem.statements.count == 1 &&
                elem.statements.first.is_a?(GotoStatement) &&
                elem.statements.first.identifiers.count == 1 &&
-               elem.predecessors.count == 1
+               elem.predecessors.count == 1 &&
+               elem.predecessors.first.statements.last.is_a?(GotoStatement) &&
+               elem.predecessors.first.statements.last.identifiers.count == 1
+
               info "REMOVING TRIVIAL BLOCK"
               info elem.to_s.indent
               info
