@@ -9,7 +9,7 @@ module Bpl
         eos
       end
 
-      depends :resolution, :modifies_correction
+      depends :resolution, :modifies_correction, :cfg_construction
 
       def run! program
         program.each do |elem|
@@ -49,6 +49,18 @@ module Bpl
               info "REMOVING TRIVIAL STATEMENT"
               info elem.to_s.indent
               info
+              elem.remove
+            end
+
+          when Block
+            if elem.statements.count == 1 &&
+               elem.statements.first.is_a?(GotoStatement) &&
+               elem.statements.first.identifiers.count == 1 &&
+               elem.predecessors.count == 1
+              info "REMOVING TRIVIAL BLOCK"
+              info elem.to_s.indent
+              info
+              elem.predecessors.first.statements.last.replace_with(elem.statements.last)
               elem.remove
             end
 
