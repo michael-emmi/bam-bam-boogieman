@@ -104,9 +104,6 @@ module Bpl
       def modifies
         specifications.map{|s| s.is_a?(ModifiesClause) ? s.identifiers : []}.flatten
       end
-      def accesses
-        specifications.map{|s| s.is_a?(AccessesClause) ? s.identifiers : []}.flatten
-      end
       def fresh_var(prefix="",type)
         taken = @parameters.map{|x| x.names}.flatten + @returns.map{|x| x.names}.flatten
         @body && @body.fresh_var(prefix,type,taken)
@@ -122,17 +119,12 @@ module Bpl
         (@returns.empty? ? "" : ":#{@returns.map(&:type) * ","}")
       end
       def show(&block)
-        specs = @specifications.map do |s|
-          (s.is_a?(AccessesClause) ? "// " : "") + "#{yield s}"
-        end * "\n"
+        specs = @specifications.map{|s| yield s} * "\n"
         specs = "\n" + specs unless specs.empty?
-        unless callers.empty?
-          calls = "\n// callers: #{callers.collect(&:name) * ", "}"
-        end
         if @body
-          "#{yield :procedure} #{sig(&block)}#{specs}#{calls}\n#{yield @body}"
+          "#{yield :procedure} #{sig(&block)}#{specs}\n#{yield @body}"
         else
-          "#{yield :procedure} #{sig(&block)};#{specs}#{calls}"
+          "#{yield :procedure} #{sig(&block)};#{specs}"
         end
       end
     end

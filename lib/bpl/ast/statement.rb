@@ -125,6 +125,10 @@ module Bpl
       def name; names.first || "?" end
       def id; LabelIdentifier.new(name: name, declaration: self) end
 
+      def copy
+        Block.new(names: names.dup, statements: statements.map(&:copy))
+      end
+
       def show
         unless predecessors.empty?
           preds = " // preds: " + predecessors.map(&:name) * ", "

@@ -27,13 +27,6 @@ module Bpl
       end
     end
 
-    class AccessesClause < Specification
-      children :identifiers
-      def show
-        "#{yield :free if @free} #{yield :accesses} #{@identifiers.map{|a| yield a} * ", "};".fmt
-      end
-    end
-
     class EnsuresClause < Specification
       children :expression
       def show

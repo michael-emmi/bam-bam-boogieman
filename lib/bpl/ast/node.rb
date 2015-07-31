@@ -83,7 +83,16 @@ module Bpl
       def to_s; show {|a| a} end
 
       def copy
-        bpl(to_s)
+        other = bpl(to_s)
+        each.zip(other.each).each do |mine,theirs|
+          unless mine.class == theirs.class
+            fail "#{mine.class} != #{theirs.class} !?!?"
+          end
+          if theirs.respond_to?(:bind) && mine.declaration
+            theirs.bind(mine.declaration)
+          end
+        end
+        other
       end
 
       def each(&block)

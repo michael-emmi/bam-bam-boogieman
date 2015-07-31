@@ -23,14 +23,11 @@ module Bpl
           next unless proc.is_a?(ProcedureDeclaration)
           work_list << proc
           proc.specifications.dup.each do |sp|
-            sp.remove if sp.is_a?(ModifiesClause) || sp.is_a?(AccessesClause)
+            sp.remove if sp.is_a?(ModifiesClause)
           end if proc.body
           mods = Set.new
-          accs = Set.new
           proc.each do |elem|
             case elem
-            when StorageIdentifier
-              accs << elem.name if elem.is_global?
             when HavocStatement
               mods += elem.identifiers.select(&:is_global?).map(&:name)
             when AssignStatement
@@ -42,9 +39,6 @@ module Bpl
           proc.append_children(:specifications,
             ModifiesClause.new(identifiers: mods.map{|id| bpl(id)})) \
             unless mods.empty?
-          proc.append_children(:specifications,
-            AccessesClause.new(identifiers: accs.map{|id| bpl(id)})) \
-            unless accs.empty?
         end
 
         until work_list.empty?
@@ -53,14 +47,10 @@ module Bpl
           targets << proc.declaration if proc.respond_to?(:declaration) && proc.declaration
           targets.each do |caller|
             mods = proc.modifies.map(&:name) - caller.modifies.map(&:name)
-            accs = proc.accesses.map(&:name) - caller.accesses.map(&:name)
             caller.append_children(:specifications,
               ModifiesClause.new(identifiers: mods.map{|id| bpl(id)})) \
               unless mods.empty?
-            caller.append_children(:specifications,
-              AccessesClause.new(identifiers: accs.map{|id| bpl(id)})) \
-              unless accs.empty?
-            work_list |= [caller] unless mods.empty? && accs.empty?
+            work_list |= [caller] unless mods.empty?
           end
         end
       end

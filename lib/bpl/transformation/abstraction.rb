@@ -4,13 +4,21 @@ module Bpl
       def abstractions; Enumerator.new {} end
     end
 
+    class VariableDeclaration
+      def abstractions
+        Enumerator.new do |y|
+          # TODO remove the declaration, and all bindings (?)
+        end
+      end
+    end
+
     class FunctionDeclaration
       def abstractions
         Enumerator.new do |y|
           unless body.nil?
             y.yield({
               elems: [copy.replace_children(:body,nil)],
-              weight: 10
+              weight: count
             })
           end
         end
@@ -23,7 +31,7 @@ module Bpl
           unless expression.is_a?(BooleanLiteral)
             y.yield({
               elems: [copy.replace_children(:expression,bpl("true"))],
-              weight: 10
+              weight: count
             })
           end
         end
@@ -39,9 +47,30 @@ module Bpl
 
             y.yield({
               elems: [copy.replace_children(:body,nil)],
-              weight: 100
+              weight: body.count * 10
             })
           end
+        end
+      end
+    end
+
+    class Block
+      def abstractions
+        Enumerator.new do |y|
+          abstracted = false
+          abs_block = copy
+          abs_block.statements.each do |stmt|
+            if stmt.is_a?(CallStatement)
+            end
+            if abs_stmt = stmt.abstractions.first
+              abstracted = true
+              stmt.replace_with(*abs_stmt[:elems])
+            end
+          end
+          y.yield({
+            elems: [abs_block],
+            weight: count * 10
+          }) if abstracted
         end
       end
     end
@@ -65,7 +94,7 @@ module Bpl
           unless expression.is_a?(BooleanLiteral)
             y.yield({
               elems: [copy.replace_children(:expression,bpl("true"))],
-              weight: 10
+              weight: count
             })
           end
         end
@@ -82,11 +111,10 @@ module Bpl
             end
             expr
           end
-          if ids.empty?
-            y.yield({elems: [bpl("assume true;")], weight: 3})
-          else
-            y.yield({elems: [bpl("havoc #{ids * ", "};")], weight: 3})
-          end
+          y.yield({
+            elems: ids.map{|id| bpl("havoc #{id};")},
+            weight: count
+          })
         end
       end
     end
@@ -108,11 +136,10 @@ module Bpl
                 end
               end
             end
-            if ids.empty?
-              y.yield({elems: [bpl("assume true;")], weight: 10})
-            else
-              y.yield({elems: [bpl("havoc #{ids * ", "};")], weight: 10})
-            end
+            y.yield({
+              elems: ids.map{|id| bpl("havoc #{id};")},
+              weight: procedure.declaration.count
+            })
           end
         end
       end
@@ -157,7 +184,7 @@ module Bpl
           if idx == break_at_index
             elem = abs[:original]
             repl = abs[:elems]
-            info "ABSTRACTING (idx = #{idx})"
+            info "ABSTRACTING (idx = #{idx}, weight = #{abs[:weight]})"
             info elem.to_s.indent
             info "#{"ON LINE #{elem.token}, " if elem.token}WITH"
             info repl.map(&:to_s).join("\n").indent
