@@ -23,6 +23,8 @@ module Bpl
         when :link
           parent, child = args
           if child.is_a?(Declaration)
+            fail "declaration parent #{parent.class} not a scope" \
+              unless parent.respond_to?(:lookup_table)
             child.names.each do |name|
               parent.lookup_table(KIND[child.class],name) << child
             end
@@ -31,6 +33,8 @@ module Bpl
         when :unlink
           parent, child = args
           if child.is_a?(Declaration)
+            fail "declaration parent #{parent.class} not a scope" \
+              unless parent.respond_to?(:lookup_table)
             child.names.each do |name|
               parent.lookup_table(KIND[child.class],name).delete(child)
             end

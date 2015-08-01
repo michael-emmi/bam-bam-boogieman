@@ -177,11 +177,8 @@ module Bpl
           end
 
         else
-          fail "cannot insert multiple #{name} children" \
-            unless elems.count == 1
-
-          fail "child #{name} already exists" \
-            unless var.nil? || where == :inplace
+          fail "cannot insert multiple #{name} children" if elems.count > 1
+          fail "child #{name} already exists" if var && where != :inplace
 
           instance_variable_set("@#{name}", elems.first)
         end
@@ -191,20 +188,29 @@ module Bpl
       end
 
       def insert_siblings(where,*elems)
-        parent.class.children.each do |sym|
+        fail "unknown parent of #{self}" unless parent
+        fail "unknown child" unless parent.class.children.any? do |sym|
           ary = parent.instance_variable_get("@#{sym}")
-          next unless ary.is_a?(Array)
-          next unless idx = ary.index(self)
-          case where
-          when :before then ary.insert(idx,*elems)
-          when :after  then ary.insert(idx+1,*elems)
-          when :inplace
-            ary.delete_at(idx)
-            ary.insert(idx,*elems)
+          if ary.is_a?(Array) && idx = ary.index(self)
+            case where
+            when :before then ary.insert(idx,*elems)
+            when :after  then ary.insert(idx+1,*elems)
+            when :inplace
+              ary.delete_at(idx)
+              ary.insert(idx,*elems)
+            end
+            true
+          elsif ary == self
+            fail "cannot insert multiple #{sym} children" if elems.count > 1
+            fail "child #{sym} already exists" unless where == :inplace
+            instance_variable_set("@#{sym}",elems.first)
+            true
+          else
+            false
           end
-          elems.each {|elem| elem.link(parent)}
-          self.unlink if where == :inplace
-        end if parent
+        end
+        elems.each {|elem| elem.link(parent)}
+        self.unlink if where == :inplace
         self
       end
 

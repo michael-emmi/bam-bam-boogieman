@@ -132,7 +132,7 @@ module Bpl
           updated = false
           program.each do |elem|
             elem.simplify do |x|
-              info x[:message].upcase
+              info "SIMPLIFICATION * #{x[:message]}"
               info elem.to_s.indent
               info
               x[:action].call()

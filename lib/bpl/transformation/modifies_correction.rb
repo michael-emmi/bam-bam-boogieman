@@ -37,8 +37,7 @@ module Bpl
             end
           end
           proc.append_children(:specifications,
-            ModifiesClause.new(identifiers: mods.map{|id| bpl(id)})) \
-            unless mods.empty?
+            bpl("modifies #{mods.to_a * ", "};")) unless mods.empty?
         end
 
         until work_list.empty?
@@ -48,8 +47,7 @@ module Bpl
           targets.each do |caller|
             mods = proc.modifies.map(&:name) - caller.modifies.map(&:name)
             caller.append_children(:specifications,
-              ModifiesClause.new(identifiers: mods.map{|id| bpl(id)})) \
-              unless mods.empty?
+              bpl("modifies #{mods.to_a * ", "};")) unless mods.empty?
             work_list |= [caller] unless mods.empty?
           end
         end

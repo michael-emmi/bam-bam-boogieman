@@ -1,148 +1,176 @@
 module Bpl
   module AST
     class Node
-      def abstractions; Enumerator.new {} end
+      def abstract
+      end
+
+      def abstractions
+        Enumerator.new do |y|
+          abstract{|abs| y.yield abs}
+        end
+      end
     end
 
     class VariableDeclaration
-      def abstractions
-        Enumerator.new do |y|
-          # TODO remove the declaration, and all bindings (?)
-        end
+      def abstract
+        yield({
+          description: "abstracting variable",
+          weight: 1000000,
+          action: Proc.new do
+            bindings.each do |b|
+
+              next if b.parent.is_a?(ModifiesClause)
+              next if b.parent.is_a?(HavocStatement)
+
+              ok = b.each_ancestor.any? do |a|
+                case a
+                when AssignStatement, AssumeStatement, AssertStatement
+                  if abs = a.abstractions.first
+                    abs[:action].call
+                    true
+                  end
+                else
+                  false
+                end
+              end
+
+              next if ok
+
+              fail "unxpected binding: #{b.parent}"
+            end
+          end
+        })
       end
     end
 
     class FunctionDeclaration
-      def abstractions
-        Enumerator.new do |y|
-          unless body.nil?
-            y.yield({
-              elems: [copy.replace_children(:body,nil)],
-              weight: count
-            })
-          end
-        end
-      end
-    end
-
-    class AxiomDeclaration
-      def abstractions
-        Enumerator.new do |y|
-          unless expression.is_a?(BooleanLiteral)
-            y.yield({
-              elems: [copy.replace_children(:expression,bpl("true"))],
-              weight: count
-            })
-          end
-        end
-      end
-    end
-
-    class ProcedureDeclaration
-      def abstractions
-        Enumerator.new do |y|
-          unless attributes[:entrypoint] ||
-                 attributes[:has_assertion] ||
-                 body.nil?
-
-            y.yield({
-              elems: [copy.replace_children(:body,nil)],
-              weight: body.count * 10
-            })
-          end
-        end
-      end
-    end
-
-    class Block
-      def abstractions
-        Enumerator.new do |y|
-          abstracted = false
-          abs_block = copy
-          abs_block.statements.each do |stmt|
-            if stmt.is_a?(CallStatement)
+      def abstract
+        unless body.nil?
+          yield({
+            description: "removing function body",
+            weight: count,
+            action: Proc.new do
+              replace_children(:body,nil)
             end
-            if abs_stmt = stmt.abstractions.first
-              abstracted = true
-              stmt.replace_with(*abs_stmt[:elems])
-            end
-          end
-          y.yield({
-            elems: [abs_block],
-            weight: count * 10
-          }) if abstracted
-
-          # TODO chop up big blocks too
-        end
-      end
-    end
-
-    class AssertStatement
-      def abstractions
-        Enumerator.new do |y|
-          unless expression.is_a?(BooleanLiteral)
-            y.yield({
-              elems: [copy.replace_children(:expression,bpl("false"))],
-              weight: 100
-            })
-          end
-        end
-      end
-    end
-
-    class AssumeStatement
-      def abstractions
-        Enumerator.new do |y|
-          unless expression.is_a?(BooleanLiteral)
-            y.yield({
-              elems: [copy.replace_children(:expression,bpl("true"))],
-              weight: count
-            })
-          end
-        end
-      end
-    end
-
-    class AssignStatement
-      def abstractions
-        Enumerator.new do |y|
-          ids = lhs.map do |expr|
-            loop do
-              break if expr.is_a?(Identifier)
-              expr = expr.map
-            end
-            expr
-          end
-          y.yield({
-            elems: ids.map{|id| bpl("havoc #{id};")},
-            weight: count
           })
         end
       end
     end
 
-    class CallStatement
-      def abstractions
-        Enumerator.new do |y|
-          if procedure.declaration &&
-             procedure.declaration.attributes[:has_assertion].nil?
+    class AxiomDeclaration
+      def abstract
+        unless expression.is_a?(BooleanLiteral)
+          yield({
+            description: "weakening axiom",
+            weight: count,
+            action: Proc.new do
+              replace_children(:expression, bpl("true"))
+            end
+          })
+        end
+      end
+    end
 
-            ids = procedure.declaration.modifies
-            assignments.each do |expr|
-              loop do
-                if expr.is_a?(Identifier)
-                  ids << expr
-                  break
-                else
-                  expr = expr.map
-                end
+    class ProcedureDeclaration
+      def abstract
+        unless attributes[:entrypoint] ||
+               attributes[:has_assertion] ||
+               body.nil?
+          yield({
+            description: "removing procedure body",
+            weight: body.count * 10,
+            action: Proc.new do
+              replace_children(:body,nil)
+            end
+          })
+        end
+      end
+    end
+
+    class Block
+      def abstract
+        abss = statements.map {|s| s.abstractions.first}.compact
+        yield({
+          description: "abstracting block’s statements",
+          weight: count * 10,
+          action: Proc.new do
+            abss.each {|abs| abs[:action].call}
+          end
+        }) unless abss.empty?
+
+        # TODO chop up big blocks too
+      end
+    end
+
+    class AssertStatement
+      def abstract
+        unless expression.is_a?(BooleanLiteral)
+          yield({
+            description: "strengthening assertion",
+            weight: 100,
+            action: Proc.new do
+              replace_children(:expression, bpl("false"))
+            end
+          })
+        end
+      end
+    end
+
+    class AssumeStatement
+      def abstract
+        unless expression.is_a?(BooleanLiteral)
+          yield({
+            description: "weakening assumption",
+            weight: count,
+            action: Proc.new do
+              replace_children(:expression, bpl("true"))
+            end
+          })
+        end
+      end
+    end
+
+    class AssignStatement
+      def abstract
+        ids = lhs.map do |expr|
+          loop do
+            break if expr.is_a?(Identifier)
+            expr = expr.map
+          end
+          expr
+        end
+        yield({
+          description: "havocing assigned variables",
+          weight: count,
+          action: Proc.new do
+            replace_with(*ids.map{|id| bpl("havoc #{id};")})
+          end
+        })
+      end
+    end
+
+    class CallStatement
+      def abstract
+        if procedure.declaration &&
+           procedure.declaration.attributes[:has_assertion].nil?
+          ids = procedure.declaration.modifies
+          assignments.each do |expr|
+            loop do
+              if expr.is_a?(Identifier)
+                ids << expr
+                break
+              else
+                expr = expr.map
               end
             end
-            y.yield({
-              elems: ids.map{|id| bpl("havoc #{id};")},
-              weight: procedure.declaration.count
-            })
           end
+          yield({
+            description: "havocing assignments and modifies",
+            weight: procedure.declaration.count,
+            action: Proc.new do
+              replace_with(*ids.map{|id| bpl("havoc #{id};")})
+            end
+          })
         end
       end
     end
@@ -157,8 +185,10 @@ module Bpl
 
       option :index, "The index of abstractable program elements to abstract."
       option :count, "Just return the number of abstractable program elements."
-      depends :resolution, :call_graph_construction, :modifies_correction
+
+      depends :call_graph_construction, :modifies_correction
       depends :assertion_localization
+      depends :resolution
 
       def each_abstraction(program)
         Enumerator.new do |y|
@@ -175,7 +205,7 @@ module Bpl
         # Just return the number of abstractable elements (?)
         if count
           n = each_abstraction(program).count
-          program.each_child {|c| c.remove }
+          program.each_child(&:remove)
           program.append_children(:declarations, bpl("assume {:count #{n}} true;"))
         end
 
@@ -184,14 +214,10 @@ module Bpl
         each_abstraction(program).sort{|a,b| a[:weight] <=> b[:weight]}.reverse.
         cycle.each_with_index do |abs,idx|
           if idx == break_at_index
-            elem = abs[:original]
-            repl = abs[:elems]
-            info "ABSTRACTING (idx = #{idx}, weight = #{abs[:weight]})"
-            info elem.to_s.indent
-            info "#{"ON LINE #{elem.token}, " if elem.token}WITH"
-            info repl.map(&:to_s).join("\n").indent
+            info "ABSTRACTION * #{abs[:description]}"
+            info abs[:original].to_s.indent
             info
-            elem.replace_with(*repl)
+            abs[:action].call
             break
           end
         end

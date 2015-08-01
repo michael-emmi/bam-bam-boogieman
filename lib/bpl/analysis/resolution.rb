@@ -6,8 +6,14 @@ module Bpl
       end
 
       def run! program
+
         program.each do |elem|
-          next unless elem.respond_to?(:declaration)
+          elem.bindings.clear if elem.respond_to?(:bindings)
+          elem.unbind if elem.respond_to?(:unbind)
+        end
+
+        program.each do |elem|
+          next unless elem.respond_to?(:bind)
 
           resolver = elem.each_ancestor.find do |scope|
             scope.respond_to?(:resolve) && scope.resolve(elem)

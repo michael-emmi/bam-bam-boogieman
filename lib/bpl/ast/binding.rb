@@ -19,20 +19,17 @@ module Bpl
         @declaration = nil
       end
 
-      # XXX
-      # maybe this is not really necessary
-      #
-      # def self.notify(msg,*args)
-      #   case msg
-      #   when :unlink
-      #     _, child = args
-      #     child.each do |node|
-      #       node.unbind if node.respond_to?(:unbind)
-      #     end
-      #   end
-      # end
-      #
-      # Node.observers << self
+      def self.notify(msg,*args)
+        case msg
+        when :unlink
+          _, child = args
+          child.each do |node|
+            node.unbind if node.respond_to?(:unbind)
+          end
+        end
+      end
+
+      Node.observers << self
 
     end
   end
