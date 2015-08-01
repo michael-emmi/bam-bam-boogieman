@@ -71,6 +71,8 @@ module Bpl
             elems: [abs_block],
             weight: count * 10
           }) if abstracted
+
+          # TODO chop up big blocks too
         end
       end
     end

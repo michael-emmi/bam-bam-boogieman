@@ -130,10 +130,7 @@ module Bpl
       end
 
       def show
-        unless predecessors.empty?
-          preds = " // preds: " + predecessors.map(&:name) * ", "
-        end
-        (names.empty? ? "" : "#{name}:#{preds}\n") +
+        (names.empty? ? "" : "#{name}:\n") +
         (names.drop(1) + statements).map{|s| yield s} * "\n"
       end
     end

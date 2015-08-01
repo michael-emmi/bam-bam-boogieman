@@ -56,6 +56,9 @@ Usage:
       end
     end
 
+    def self.destructive?; name =~ /::Transformation::/ end
+    def destructive?; self.class.destructive? end    
+
     def run! program
       fail "#{self.class} must implement :run instance method."
     end

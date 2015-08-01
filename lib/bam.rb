@@ -43,18 +43,18 @@ def source_file_options(files)
 end
 
 def add_pass(klass,args)
-  klass.depends.each do |pass_name|
+  # NOTE: run dependent tranformations before dependent analyses
+
+  depss = klass.depends.map do |pass_name|
     fail "Unkonwn pass #{pass_name}" unless @passes[pass_name]
-    add_pass(@passes[pass_name],{})
-  end
+    @passes[pass_name]
+  end.partition{|p| p.destructive?}
 
-  prior_stages =
-    @stages.reverse.take_while{|s| s.class.name =~ /::Analysis::/}.reverse
+  depss.each {|deps| deps.each {|pass| add_pass(pass,{})}}
 
-  unless prior_stages.any?{|s| s.class == klass}
+  if @stages.reverse.take_while{|s| !s.destructive?}.none?{|s| s.class == klass}
     @stages << klass.new(args)
   end
-
 end
 
 def command_line_options
@@ -127,7 +127,6 @@ def command_line_options
 end
 
 begin
-
 
   @passes = {}
   @stages = []

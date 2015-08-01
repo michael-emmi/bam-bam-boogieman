@@ -9,7 +9,7 @@ module Bpl
     end
   end
 
-  module Analysis
+  module Transformation
     class ModifiesCorrection < Bpl::Pass
       def self.description
         "Correct procedure modifies annotations."

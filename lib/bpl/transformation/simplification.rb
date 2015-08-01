@@ -31,15 +31,21 @@ module Bpl
               elem.replace_children(:body,nil)
             end
 
-          when VariableDeclaration, ConstantDeclaration
+          when VariableDeclaration
             if elem.bindings.all? do |b|
-              b.parent.is_a?(HavocStatement) &&
-              b.parent.identifiers.count == 1
+              b.parent.is_a?(HavocStatement) ||
+              b.parent.is_a?(ModifiesClause)
             end then
               info "REMOVING UNUSED VARIABLE"
               info elem.to_s.indent
               info
-              elem.bindings.each{|b| b.parent.remove}
+              elem.bindings.each do |b|
+                if b.parent.identifiers.count == 1
+                  b.parent.remove
+                else
+                  b.remove
+                end
+              end
               elem.remove
             end
 
