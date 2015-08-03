@@ -43,7 +43,8 @@ module Bpl
 
     class ProcedureDeclaration
       def simplify
-        if modifies.empty? && returns.empty? && body
+        if modifies.empty? && returns.empty? && body &&
+           !attributes[:has_assertion]
           yield({
             message: "simplifying trivial procedure",
             action: Proc.new do
@@ -102,7 +103,10 @@ module Bpl
     class CallStatement
       def simplify
         decl = procedure.declaration
-        if decl.modifies.empty? && decl.returns.empty?
+        if decl.modifies.empty? &&
+           decl.returns.empty? &&
+           !decl.attributes[:has_assertion]
+
           yield({
             message: "removing trivial call",
             action: Proc.new do
@@ -126,6 +130,7 @@ module Bpl
       end
 
       depends :resolution, :modifies_correction, :cfg_construction
+      depends :assertion_localization
 
       def run! program
         loop do

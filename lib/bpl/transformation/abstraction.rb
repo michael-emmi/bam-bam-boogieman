@@ -15,29 +15,22 @@ module Bpl
       def abstract
         yield({
           description: "abstracting variable",
-          weight: 1000000,
+          weight: parent.is_a?(Program) ? 100000 : bindings.count,
           action: Proc.new do
-            bindings.each do |b|
 
+            stmts = Set.new
+
+            bindings.each do |b|
               next if b.parent.is_a?(ModifiesClause)
               next if b.parent.is_a?(HavocStatement)
 
-              ok = b.each_ancestor.any? do |a|
-                case a
-                when AssignStatement, AssumeStatement, AssertStatement
-                  if abs = a.abstractions.first
-                    abs[:action].call
-                    true
-                  end
-                else
-                  false
-                end
-              end
-
-              next if ok
-
-              fail "unxpected binding: #{b.parent}"
+              stmts << b.each_ancestor.find {|a| a.is_a?(Statement)}
             end
+
+            stmts.each do |stmt|
+              stmt.abstractions.first[:action].call
+            end
+
           end
         })
       end
@@ -90,15 +83,29 @@ module Bpl
     class Block
       def abstract
         abss = statements.map {|s| s.abstractions.first}.compact
-        yield({
-          description: "abstracting block’s statements",
-          weight: count * 10,
-          action: Proc.new do
-            abss.each {|abs| abs[:action].call}
-          end
-        }) unless abss.empty?
+        unless abss.empty?
+          yield({
+            description: "abstracting block",
+            weight: count * 10,
+            action: Proc.new do
+              abss.each {|abs| abs[:action].call}
+            end
+          })
+        end
 
-        # TODO chop up big blocks too
+        statements.each_slice(10) do |ss|
+          abss2 = ss.map {|s| s.abstractions.first}.compact
+          unless abss2.empty?
+            yield({
+              description: "abstracting block slice",
+              weight: ss.map(&:count).inject(:+) * 10,
+              action: Proc.new do
+                abss2.each {|abs| abs[:action].call}
+              end
+            })
+          end
+        end
+
       end
     end
 
