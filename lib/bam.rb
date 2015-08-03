@@ -42,20 +42,14 @@ def source_file_options(files)
   opts
 end
 
-def add_pass(klass,args)
-  # NOTE: run dependent tranformations before dependent analyses
 
-  depss = klass.depends.map do |pass_name|
-    fail "Unkonwn pass #{pass_name}" unless @passes[pass_name]
-    @passes[pass_name]
-  end.partition{|p| p.destructive?}
-
-  depss.each {|deps| deps.each {|pass| add_pass(pass,{})}}
-
-  if @stages.reverse.take_while{|s| !s.destructive?}.none?{|s| s.class == klass}
-    @stages << klass.new(args)
-  end
+def dependencies(pass)
+  pass.class.depends.map do |p|
+    fail "Unknown pass #{p}" unless @passes[p]
+    dependencies(@passes[p].new)
+  end.flatten + [pass]
 end
+
 
 def command_line_options
   OptionParser.new do |opts|
@@ -115,7 +109,7 @@ def command_line_options
               (args || "").split(",").map{|s| k,v = s.split(":"); [k.to_sym,v]}.to_h
             else {}
             end
-          add_pass(klass,args)
+          @stages << klass.new(args)
         end
       end
     end
@@ -156,9 +150,26 @@ begin
 
   program.source_file = src
 
-  @stages.each do |analysis|
-    timed analysis.class.name.split('::').last do
-      analysis.run! program
+  already_run = Set.new
+
+  @stages.each do |pass|
+    dependencies(pass).each do |dep|
+      name = dep.class.name.split('::').last
+      timed "#{name}" do
+        post = dep.run!(program) || []
+
+        if dep.destructive?
+          already_run.clear
+        else
+          already_run << name
+        end
+
+        post = [post] unless post.is_a?(Array)
+        post.each do |pp|
+          @stages << @passes[pp].new if @passes[pp]
+        end
+
+      end unless already_run.include?(name)
     end
   end
 
