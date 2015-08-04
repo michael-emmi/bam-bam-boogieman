@@ -60,7 +60,26 @@ module Bpl
     class Body
       def simplify
         blocks.each do |bb|
-          if bb.successors.count == 2 &&
+          if bb.successors.count == 1 &&
+            bb.statements.last.is_a?(GotoStatement) &&
+            bb.statements.last.identifiers.count == 1
+          then
+            b = bb.successors.first
+            if b.predecessors.count == 1 &&
+               b.statements.count == 1 &&
+               b.statements.last.is_a?(GotoStatement)
+            then
+              yield({
+                description: "merging trivial block",
+                elems: [bb,b],
+                action: Proc.new do
+                  bb.statements.last.replace_with(b.statements.last.copy)
+                  b.remove
+                end
+              })
+            end
+
+          elsif bb.successors.count == 2 &&
              bb.statements.last.is_a?(GotoStatement) &&
              bb.statements.last.identifiers.count == 2
           then
@@ -74,7 +93,7 @@ module Bpl
                b2.statements.last.is_a?(GotoStatement)
             then
               yield({
-                description: "cutting unnecessary branch",
+                description: "merging trivial branch",
                 elems: [bb,b1,b2],
                 action: Proc.new do
                   bb.statements.last.replace_with(b1.statements.last.copy)

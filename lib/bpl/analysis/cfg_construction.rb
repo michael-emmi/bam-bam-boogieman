@@ -39,8 +39,12 @@ module Bpl
             cfg = ::GraphViz.new(decl.name, type: :digraph)
             cfg.add_nodes(decl.body.blocks.map(&:name), shape: :rect)
             decl.body.blocks.each do |b|
-              cfg.add_edges("start", b.name) if b.predecessors.empty?
-              cfg.add_edges(b.name, "return") if b.statements.last.is_a?(ReturnStatement)
+              cfg.add_edges("entry", b.name) if b.predecessors.empty?
+              if b.statements.last.is_a?(ReturnStatement) ||
+                !b.statements.last.is_a?(GotoStatement) && b.successors.empty?
+              then
+                cfg.add_edges(b.name, "return")
+              end
               b.successors.each do |c|
                 cfg.add_edges(b.name,c.name)
               end

@@ -122,7 +122,7 @@ module Bpl
       def predecessors; @predecessors ||= Set.new end
       def successors; @successors ||= Set.new end
 
-      def name; names.first || "?" end
+      def name; names.first || "" end
       def id; LabelIdentifier.new(name: name, declaration: self) end
 
       def copy
