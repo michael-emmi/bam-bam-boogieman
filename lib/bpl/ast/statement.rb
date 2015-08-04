@@ -148,8 +148,8 @@ module Bpl
       def fresh_var(prefix,type,taken=[])
         taken += @locals.map{|d| d.names}.flatten
         name = fresh_from(prefix || "$var", taken)
-        @locals << decl = VariableDeclaration.new(names: [name], type: type)
-        return StorageIdentifier.new(name: name, declaration: decl)
+        append_children(:locals, bpl("var #{name}: #{type};"))
+        bpl(name)
       end
 
       def fresh_label(prefix)
