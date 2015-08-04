@@ -22,7 +22,7 @@ module Bpl
 
         yield({
           description: "abstracting variable",
-          weight: parent.is_a?(Program) ? 100000 : bindings.count,
+          weight: parent.is_a?(Program) ? 10e6 : bindings.count,
           elems: [self] + stmts.to_a,
           action: Proc.new do
             stmts.each do |stmt|
@@ -35,15 +35,19 @@ module Bpl
 
     class FunctionDeclaration
       def abstract
-        unless body.nil?
-          yield({
-            description: "removing function body",
-            weight: count,
-            action: Proc.new do
-              replace_children(:body,nil)
-            end
-          })
-        end
+        # XXX
+        # not clear this one is useful
+        # XXX
+        #
+        # unless body.nil?
+        #   yield({
+        #     description: "removing function body",
+        #     weight: count,
+        #     action: Proc.new do
+        #       replace_children(:body,nil)
+        #     end
+        #   })
+        # end
       end
     end
 
@@ -68,12 +72,53 @@ module Bpl
                body.nil?
           yield({
             description: "removing procedure body",
-            weight: body.count * 10,
+            weight: body.count * 10e2,
             action: Proc.new do
               replace_children(:body,nil)
             end
           })
         end
+
+        parameters.each_with_index do |x,i|
+          yield({
+            description: "removing paramter to #{name}",
+            elems: [x],
+            weight: 10e3,
+            action: Proc.new do
+              bindings.each do |b|
+                stmt = b.parent
+                fail "expected call" unless stmt.is_a?(CallStatement)
+                stmt.arguments[i].remove
+              end
+              v = fresh_var(x.type)
+              x.bindings.each do |b|
+                b.replace_with(v)
+              end
+              x.remove
+            end
+          })
+        end
+
+        returns.each_with_index do |x,i|
+          yield({
+            description: "removing return from #{name}",
+            elems: [x],
+            weight: 10e3,
+            action: Proc.new do
+              bindings.each do |b|
+                stmt = b.parent
+                fail "expected call" unless stmt.is_a?(CallStatement)
+                stmt.assignments[i].remove
+              end
+              v = fresh_var(x.type)
+              x.bindings.each do |b|
+                b.replace_with(v)
+              end
+              x.remove
+            end
+          })
+        end
+
       end
     end
 

@@ -204,7 +204,7 @@ module Bpl
           elsif ary == self
             fail "cannot insert multiple #{sym} children" if elems.count > 1
             fail "child #{sym} already exists" unless where == :inplace
-            instance_variable_set("@#{sym}",elems.first)
+            parent.instance_variable_set("@#{sym}",elems.first)
             true
           else
             false
