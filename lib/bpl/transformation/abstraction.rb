@@ -13,24 +13,21 @@ module Bpl
 
     class VariableDeclaration
       def abstract
+        stmts = Set.new
+        bindings.each do |b|
+          next if b.parent.is_a?(ModifiesClause)
+          next if b.parent.is_a?(HavocStatement)
+          stmts << b.each_ancestor.find {|a| a.is_a?(Statement)}
+        end
+
         yield({
           description: "abstracting variable",
           weight: parent.is_a?(Program) ? 100000 : bindings.count,
+          elems: [self] + stmts.to_a,
           action: Proc.new do
-
-            stmts = Set.new
-
-            bindings.each do |b|
-              next if b.parent.is_a?(ModifiesClause)
-              next if b.parent.is_a?(HavocStatement)
-
-              stmts << b.each_ancestor.find {|a| a.is_a?(Statement)}
-            end
-
             stmts.each do |stmt|
               stmt.abstractions.first[:action].call
             end
-
           end
         })
       end
@@ -158,26 +155,40 @@ module Bpl
 
     class CallStatement
       def abstract
-        if procedure.declaration &&
-           procedure.declaration.attributes[:has_assertion].nil?
-          ids = procedure.declaration.modifies
-          assignments.each do |expr|
-            loop do
-              if expr.is_a?(Identifier)
-                ids << expr
-                break
-              else
-                expr = expr.map
+        if procedure.declaration
+          if procedure.declaration.attributes[:has_assertion].nil?
+            ids = procedure.declaration.modifies
+            assignments.each do |expr|
+              loop do
+                if expr.is_a?(Identifier)
+                  ids << expr
+                  break
+                else
+                  expr = expr.map
+                end
               end
             end
+            yield({
+              description: "havocing assignments and modifies",
+              weight: procedure.declaration.count,
+              action: Proc.new do
+                replace_with(*ids.map{|id| bpl("havoc #{id};")})
+              end
+            })
+
+          else
+            decl = each_ancestor.find{|d| d.is_a?(ProcedureDeclaration)}
+            yield({
+              description: "detaching arguments and returns",
+              weight: 0,
+              action: Proc.new do
+                (arguments + assignments).each do |x|
+                  v = decl.fresh_var(x.declaration.type)
+                  x.replace_with(v)
+                end
+              end
+            })
           end
-          yield({
-            description: "havocing assignments and modifies",
-            weight: procedure.declaration.count,
-            action: Proc.new do
-              replace_with(*ids.map{|id| bpl("havoc #{id};")})
-            end
-          })
         end
       end
     end
@@ -201,7 +212,7 @@ module Bpl
         Enumerator.new do |y|
           program.each do |elem|
             elem.abstractions.each do |abs|
-              y.yield abs.merge({original: elem})
+              y.yield(abs[:elems] ? abs : abs.merge({elems: [elem]}))
             end
           end
         end
@@ -221,8 +232,11 @@ module Bpl
         each_abstraction(program).sort{|a,b| a[:weight] <=> b[:weight]}.reverse.
         cycle.each_with_index do |abs,idx|
           if idx == break_at_index
-            info "ABSTRACTION * #{abs[:description]}"
-            info abs[:original].to_s.indent
+            info "ABSTRACTION * #{abs[:description]} (weight=#{abs[:weight]})"
+            abs[:elems].each do |elem|
+              info
+              info Printing.indent(elem.to_s).indent
+            end
             info
             abs[:action].call
             break
