@@ -83,7 +83,7 @@ module Bpl
           yield({
             description: "removing paramter to #{name}",
             elems: [x],
-            weight: 10e3,
+            weight: 10e2,
             action: Proc.new do
               bindings.each do |b|
                 stmt = b.parent
@@ -103,7 +103,7 @@ module Bpl
           yield({
             description: "removing return from #{name}",
             elems: [x],
-            weight: 10e3,
+            weight: 10e2,
             action: Proc.new do
               bindings.each do |b|
                 stmt = b.parent
@@ -156,7 +156,7 @@ module Bpl
         unless expression.is_a?(BooleanLiteral)
           yield({
             description: "strengthening assertion",
-            weight: 100,
+            weight: 10e3,
             action: Proc.new do
               replace_children(:expression, bpl("false"))
             end
