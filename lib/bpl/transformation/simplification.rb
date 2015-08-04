@@ -25,7 +25,7 @@ module Bpl
           b.parent.is_a?(HavocStatement) || b.parent.is_a?(ModifiesClause)
         end then
           yield({
-            description: "removing unused variable",
+            description: "removing unused variable(s) #{names * ", "}",
             action: Proc.new do
               bindings.each do |b|
                 if b.parent.identifiers.count == 1
@@ -43,10 +43,12 @@ module Bpl
 
     class ProcedureDeclaration
       def simplify
-        if modifies.empty? && returns.empty? && body &&
-           !attributes[:has_assertion]
+        if body && !attributes[:has_assertion] &&
+           modifies.empty? &&
+           returns.all? {|r| r.bindings.all? {|b| b.parent.is_a?(HavocStatement)}}
+        then
           yield({
-            description: "simplifying trivial procedure",
+            description: "removing body of procedure #{name}",
             action: Proc.new do
               replace_children(:body,nil)
             end
@@ -168,7 +170,7 @@ module Bpl
         program.each do |elem|
           elem.simplify do |x|
             info "SIMPLIFICATION * #{x[:description]}"
-            (x[:elems]||[elem]).each {|e| info Printing.indent(e.to_s).indent}
+            (x[:elems]||[elem]).each {|e| info; info Printing.indent(e.to_s).indent}
             info
             x[:action].call()
             updated = true
