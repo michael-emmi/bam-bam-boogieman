@@ -1,9 +1,14 @@
+
+
 module Bpl
   module Analysis
     class CfgConstruction < Bpl::Pass
       def self.description
         "Construct control-flow graphs for each procedure."
       end
+
+      option :print, "Print out the CFGs?"
+      depends :resolution
 
       def run! program
         program.each do |blk|
@@ -24,6 +29,26 @@ module Bpl
             end
           end
         end
+
+        if print
+          require 'graphviz'
+
+          program.each_child do |decl|
+            next unless decl.is_a?(ProcedureDeclaration)
+            next unless decl.body
+            cfg = ::GraphViz.new(decl.name, type: :digraph)
+            cfg.add_nodes(decl.body.blocks.map(&:name), shape: :rect)
+            decl.body.blocks.each do |b|
+              cfg.add_edges("start", b.name) if b.predecessors.empty?
+              cfg.add_edges(b.name, "return") if b.statements.last.is_a?(ReturnStatement)
+              b.successors.each do |c|
+                cfg.add_edges(b.name,c.name)
+              end
+            end
+            cfg.output(pdf: "#{decl.name}.cfg.pdf")
+          end
+        end
+
       end
     end
   end
