@@ -22,18 +22,16 @@ module Bpl
               work_list |= [d] unless d.nil? || d.attributes[:reachable]
             end
           end
-        end
-
-        # Axiom declarations which reference reachable functions are reachable.
-        program.declarations.each do |axiom|
-          next unless axiom.is_a?(AxiomDeclaration)
-          next if silly_expression?(axiom.expression)
-          axiom.attributes[:reachable] = []
+          decl.bindings.each do |elem|
+            ax = elem.each_ancestor.find{|d| d.is_a?(AxiomDeclaration)}
+            work_list |= [ax] unless ax.nil? || ax.attributes[:reachable]
+          end
         end
 
         program.declarations.each do |d|
           unless d.attributes[:reachable]
             info "PRUNING UNUSED DECLARATION"
+            info
             info d.to_s.indent
             info
             d.remove
@@ -48,11 +46,11 @@ module Bpl
         when QuantifiedExpression
           silly_expression?(expr.expression)
         when BinaryExpression
-          silly_expression?(expr.lhs) || silly_expression?(expr.rhs)
+          silly_expression?(expr.lhs) && silly_expression?(expr.rhs)
         when FunctionApplication
           silly_expression?(expr.function)
         when Identifier
-          expr.declaration.nil? || expr.declaration.attributes[:reachable].nil?
+          !expr.declaration.attributes[:reachable]
         else
           false
         end
