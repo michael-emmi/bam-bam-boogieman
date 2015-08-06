@@ -1,5 +1,4 @@
 require_relative 'node'
-require 'Forwardable'
 
 module Bpl
   module AST
