@@ -39,14 +39,18 @@ module Bpl
 
       def run! program
 
-        return
-
         # duplicate global variables
         program.global_variables.each {|v| v.insert_after(decl(v))}
 
         # duplicate parameters, returns, and local variables
         program.each_child do |decl|
           next unless decl.is_a?(ProcedureDeclaration) && !exempt?(decl.name)
+
+          public_inputs = decl.parameters.select{|p| p.attributes[:public_in]}
+          public_outputs = decl.parameters.select{|p| p.attributes[:public_out]}
+          declassified_outputs = decl.parameters.select{|p| p.attributes[:declassified_out]}
+          public_returns = decl.returns.select{|p| p.attributes[:public_return]}
+          declassified_returns = decl.returns.select{|p| p.attributes[:declassified_return]}
 
           return_variables = decl.returns.map{|v| v.names}.flatten
 
@@ -55,19 +59,28 @@ module Bpl
 
           next unless decl.body
 
-          public_inputs = Set.new
-          public_outputs = Set.new
-          declassified_outputs = Set.new
+          # TODO assume equality at entry points on public inputs
+          # TODO assume equality at exit points on public outputs
+          # TODO assume equality at exit points on declassified outputs
 
-          decl.body.each do |s|
-            (s.attributes[:public_input] || []).each(&public_inputs.method(:add))
-            (s.attributes[:declassified_output] || []).each(&declassified_outputs.method(:add))
-            (s.attributes[:public_output] || []).each(&public_outputs.method(:add))
+          public_inputs.each do |p|
+            length = p.attributes[:public_in].first
+            p.names.each do |x|
+              decl.append_children(:specifications,
+                if length then
+                  # NOTE we must know how to access this memory too...
+                  # $load(_, x + 0) == $load(_, x.shadow + 0)
+                  # $load(_, x + 1) == $load(_, x.shadow + 1)
+                  # etc.
+                  bpl("requires true;")
+                else
+                  bpl("requires #{shadow_eq x};")
+                end
+              )
+            end
           end
 
-          public_inputs.each do |x|
-            decl.append_child(:specifications, bpl("requires #{shadow_eq x};"))
-          end
+          next # TODO RESUME RESTORATION FROM HERE TODO
 
           unless public_outputs.empty?
             lhs = declassified_outputs.map(&method(:shadow_eq)) * " && "
