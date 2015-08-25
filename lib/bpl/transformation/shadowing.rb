@@ -6,7 +6,7 @@ module Bpl
         "Create a shadow program."
       end
 
-      depends :resolution
+      depends :resolution, :ct_annotation
 
       def shadow(x) "#{x}.shadow" end
       def shadow_eq(x) "#{x} == #{shadow(x)}" end
@@ -38,6 +38,8 @@ module Bpl
       end
 
       def run! program
+
+        return
 
         # duplicate global variables
         program.global_variables.each {|v| v.insert_after(decl(v))}
