@@ -52,12 +52,14 @@ module Bpl
               address = aliases[address.name] until address.nil? ||
                 parameters.include?(address.declaration)
               regions[stmt.assignments.first.name] = [address, length]
+              # stmt.remove
 
             elsif stmt.procedure.name =~ /of_var/
               address = stmt.arguments.first
               address = aliases[address.name] until address.nil? ||
                 parameters.include?(address.declaration)
               regions[stmt.assignments.first.name] = [address]
+              # stmt.remove
 
             elsif stmt.procedure.name =~ /public_in|declassified_out/
               region = stmt.arguments.first
@@ -65,6 +67,8 @@ module Bpl
               attr = stmt.procedure.name.to_sym
               val = if length then [length] else [] end
               address.declaration.attributes[attr] = val
+              # stmt.remove
+
             end
           end
 

@@ -15,14 +15,20 @@ module Bpl
       end
 
       def shadow_copy(node)
-        copy = bpl(node.to_s)
-        copy.each do |expr|
+        shadow = node.copy
+        shadow.each do |expr|
           next unless expr.is_a?(StorageIdentifier)
           next if expr.declaration &&
                   expr.declaration.is_a?(ConstantDeclaration)
-          expr.replace_with(StorageIdentifier.new(name: shadow(expr)))
+          # expr.replace_with(StorageIdentifier.new(name: shadow(expr)))
+          expr.name = shadow(expr)
         end
-        copy
+        shadow
+      end
+
+      def memory_equality(addr)
+        # FIXME this should depend on the type and region, obviously! FIXME
+        "$load.i32($M.0,#{addr}) == $load.i32($M.0.shadow,#{addr})"
       end
 
       EXEMPTION_LIST = [
@@ -44,50 +50,30 @@ module Bpl
 
         # duplicate parameters, returns, and local variables
         program.each_child do |decl|
-          next unless decl.is_a?(ProcedureDeclaration) && !exempt?(decl.name)
+          next unless decl.is_a?(ProcedureDeclaration)
+          next if exempt?(decl.name)
 
-          public_inputs = decl.parameters.select{|p| p.attributes[:public_in]}
-          public_outputs = decl.parameters.select{|p| p.attributes[:public_out]}
-          declassified_outputs = decl.parameters.select{|p| p.attributes[:declassified_out]}
-          public_returns = decl.returns.select{|p| p.attributes[:public_return]}
-          declassified_returns = decl.returns.select{|p| p.attributes[:declassified_return]}
+          public_inputs =
+            decl.parameters.select{|p| p.attributes[:public_in]}
+
+          public_outputs =
+            decl.parameters.select{|p| p.attributes[:public_out]}
+
+          declassified_outputs =
+            decl.parameters.select{|p| p.attributes[:declassified_out]}
+
+          public_returns =
+            decl.returns.select{|p| p.attributes[:public_return]}
+
+          declassified_returns =
+            decl.returns.select{|p| p.attributes[:declassified_return]}
 
           return_variables = decl.returns.map{|v| v.names}.flatten
 
-          decl.parameters.each {|d| d.insert_after(decl(d))}
-          decl.returns.each {|d| d.insert_after(decl(d))}
+          # Shadow the parameters and returns
+          (decl.parameters + decl.returns).each {|d| d.insert_after(decl(d))}
 
           next unless decl.body
-
-          # TODO assume equality at entry points on public inputs
-          # TODO assume equality at exit points on public outputs
-          # TODO assume equality at exit points on declassified outputs
-
-          public_inputs.each do |p|
-            length = p.attributes[:public_in].first
-            p.names.each do |x|
-              decl.append_children(:specifications,
-                if length then
-                  # NOTE we must know how to access this memory too...
-                  # $load(_, x + 0) == $load(_, x.shadow + 0)
-                  # $load(_, x + 1) == $load(_, x.shadow + 1)
-                  # etc.
-                  bpl("requires true;")
-                else
-                  bpl("requires #{shadow_eq x};")
-                end
-              )
-            end
-          end
-
-          next # TODO RESUME RESTORATION FROM HERE TODO
-
-          unless public_outputs.empty?
-            lhs = declassified_outputs.map(&method(:shadow_eq)) * " && "
-            lhs = if declassified_outputs.empty? then "" else "#{lhs} ==>" end
-            rhs = public_outputs.map(&method(:shadow_eq)) * " && "
-            decl.specifications << bpl("ensures #{lhs} #{rhs};")
-          end
 
           last_lhs = nil
 
@@ -140,6 +126,49 @@ module Bpl
               end
 
             end
+          end
+
+          # Restrict to equality on public inputs
+          public_inputs.each do |p|
+            length = p.attributes[:public_in].first
+            p.names.each do |x|
+              if length && length.is_a?(IntegerLiteral)
+                length.value.times.each do |offset|
+                  # NOTE we must know how to access this memory too...
+                  decl.append_children(:specifications,
+                    bpl("requires #{memory_equality("#{x}+#{offset}")};"))
+                end
+              else
+                decl.append_children(:specifications,
+                  bpl("requires #{shadow_eq x};"))
+              end
+            end
+          end
+
+          # Restrict to equality on public / declassified outputs
+          decl.body.each do |ret|
+            next unless ret.is_a?(ReturnStatement)
+            (public_outputs | declassified_outputs).each do |p|
+              length = p.attributes[:declassified_out].first ||
+                p.attributes[:public_out].first
+              p.names.each do |x|
+                if length && length.is_a?(IntegerLiteral)
+                  length.value.times.each do |offset|
+                    ret.insert_before(bpl("assume #{memory_equality("#{x}+#{offset}")};"))
+                  end
+                else
+                  ret.insert_before(bpl("assume #{shadow_eq x};"))
+                end
+              end
+            end
+          end
+
+          # Ensure public outputs are equal, contingent on declassified outputs
+          unless public_outputs.empty?
+            lhs = declassified_outputs.map(&method(:shadow_eq)) * " && "
+            lhs = if declassified_outputs.empty? then "" else "#{lhs} ==>" end
+            rhs = public_outputs.map(&method(:shadow_eq)) * " && "
+            decl.specifications << bpl("ensures #{lhs} #{rhs};")
           end
         end
       end
