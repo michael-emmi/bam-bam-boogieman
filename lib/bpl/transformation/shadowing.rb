@@ -26,9 +26,22 @@ module Bpl
         shadow
       end
 
+      def accesses(stmt)
+        Enumerator.new do |y|
+          stmt.each do |expr|
+            next unless expr.is_a?(FunctionApplication)
+            next unless expr.function.is_a?(Identifier)
+            next unless expr.function.name =~ /\$(load|store)/
+            y.yield expr.arguments[1]
+          end
+        end
+      end
+
+      ACCESS_SIZE = 32
+
       def memory_equality(addr)
         # FIXME this should depend on the type and region, obviously! FIXME
-        "$load.i32($M.0,#{addr}) == $load.i32($M.0.shadow,#{addr})"
+        "$load.i#{ACCESS_SIZE}($M.0,#{addr}) == $load.i#{ACCESS_SIZE}($M.0.shadow,#{addr})"
       end
 
       EXEMPTION_LIST = [
@@ -47,6 +60,7 @@ module Bpl
 
         # duplicate global variables
         program.global_variables.each {|v| v.insert_after(decl(v))}
+        program.global_variables.last.insert_after(bpl("var $shadow_ok: bool;"))
 
         # duplicate parameters, returns, and local variables
         program.each_child do |decl|
@@ -91,10 +105,9 @@ module Bpl
               fail "Unexpected assignment statement: #{stmt}" unless stmt.lhs.length == 1
 
               # ensure the indicies to loads and stores are equal
-              stmt.select{|e| e.is_a?(MapSelect)}.each do |ms|
-                ms.indexes.each do |idx|
-                  stmt.insert_before(bpl("assert #{shadow_eq idx};"))
-                end
+              accesses(stmt).each do |idx|
+                stmt.insert_before(
+                  bpl("$shadow_ok := $shadow_ok && #{shadow_eq idx};"))
               end
 
               # shadow the assignment
@@ -118,11 +131,13 @@ module Bpl
               unless stmt.identifiers.length == 2
                 fail "Unexpected goto statement: #{stmt}"
               end
-              stmt.insert_before(bpl("assert #{shadow_eq last_lhs};"))
+              stmt.insert_before(
+                bpl("$shadow_ok := $shadow_ok && #{shadow_eq last_lhs};"))
 
             when ReturnStatement
               return_variables.each do |v|
-                stmt.insert_before(bpl("assert #{shadow_eq v};"))
+                stmt.insert_before(
+                  bpl("$shadow_ok := $shadow_ok && #{shadow_eq v};"))
               end
 
             end
@@ -153,7 +168,7 @@ module Bpl
                 p.attributes[:public_out].first
               p.names.each do |x|
                 if length && length.is_a?(IntegerLiteral)
-                  length.value.times.each do |offset|
+                  (length.value * 8 / ACCESS_SIZE).times.each do |offset|
                     ret.insert_before(bpl("assume #{memory_equality("#{x}+#{offset}")};"))
                   end
                 else
@@ -170,6 +185,14 @@ module Bpl
             rhs = public_outputs.map(&method(:shadow_eq)) * " && "
             decl.specifications << bpl("ensures #{lhs} #{rhs};")
           end
+
+          if decl.attributes[:entrypoint]
+            decl.body.blocks.first.statements.first.insert_before(
+              bpl("$shadow_ok := true;"))
+            decl.body.select{|r| r.is_a?(ReturnStatement)}.
+              each{|r| r.insert_before(bpl("assert $shadow_ok;"))}
+          end
+
         end
       end
     end
