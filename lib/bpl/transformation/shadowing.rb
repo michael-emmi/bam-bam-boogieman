@@ -39,6 +39,10 @@ module Bpl
 
       ACCESS_SIZE = 32
 
+      def word_length(parameter, attribute)
+        parameter.attributes[attribute].first.value * 8 / ACCESS_SIZE
+      end
+
       def memory_equality(addr)
         # FIXME this should depend on the type and region, obviously! FIXME
         "$load.i#{ACCESS_SIZE}($M.0,#{addr}) == $load.i#{ACCESS_SIZE}($M.0.shadow,#{addr})"
@@ -56,6 +60,27 @@ module Bpl
         EXEMPTIONS.match(decl) && true
       end
 
+
+      ANNOTATIONS = [
+        :public_in, :public_in_reg,
+        :public_out, :public_out_reg,
+        :declassified_out, :declassified_out_reg,
+        :public_return, :public_return_reg,
+        :declassified_return, :declassified_return_reg
+      ]
+
+      def annotated_parameters(proc_decl)
+        hash = ANNOTATIONS.map{|ax| [ax,[]]}.to_h
+        (proc_decl.parameters + proc_decl.returns).each do |p|
+          hash.keys.each {|ax| hash[ax] << p if p.attributes[ax]}
+        end
+        hash
+      end
+
+      def shadow_assert(expr)
+        bpl("$shadow_ok := $shadow_ok && #{expr};")
+      end
+
       def run! program
 
         # duplicate global variables
@@ -67,20 +92,7 @@ module Bpl
           next unless decl.is_a?(ProcedureDeclaration)
           next if exempt?(decl.name)
 
-          public_inputs =
-            decl.parameters.select{|p| p.attributes[:public_in]}
-
-          public_outputs =
-            decl.parameters.select{|p| p.attributes[:public_out]}
-
-          declassified_outputs =
-            decl.parameters.select{|p| p.attributes[:declassified_out]}
-
-          public_returns =
-            decl.returns.select{|p| p.attributes[:public_return]}
-
-          declassified_returns =
-            decl.returns.select{|p| p.attributes[:declassified_return]}
+          params = annotated_parameters(decl)
 
           return_variables = decl.returns.map{|v| v.names}.flatten
 
@@ -106,8 +118,7 @@ module Bpl
 
               # ensure the indicies to loads and stores are equal
               accesses(stmt).each do |idx|
-                stmt.insert_before(
-                  bpl("$shadow_ok := $shadow_ok && #{shadow_eq idx};"))
+                stmt.insert_before(shadow_assert(shadow_eq(idx)))
               end
 
               # shadow the assignment
@@ -131,31 +142,31 @@ module Bpl
               unless stmt.identifiers.length == 2
                 fail "Unexpected goto statement: #{stmt}"
               end
-              stmt.insert_before(
-                bpl("$shadow_ok := $shadow_ok && #{shadow_eq last_lhs};"))
+              stmt.insert_before(shadow_assert(shadow_eq(last_lhs)))
 
             when ReturnStatement
               return_variables.each do |v|
-                stmt.insert_before(
-                  bpl("$shadow_ok := $shadow_ok && #{shadow_eq v};"))
+                stmt.insert_before(shadow_assert(shadow_eq(v)))
               end
 
             end
           end
 
           # Restrict to equality on public inputs
-          public_inputs.each do |p|
-            length = p.attributes[:public_in].first
+          params[:public_in].each do |p|
             p.names.each do |x|
-              if length && length.is_a?(IntegerLiteral)
-                length.value.times.each do |offset|
-                  # NOTE we must know how to access this memory too...
-                  decl.append_children(:specifications,
-                    bpl("requires #{memory_equality("#{x}+#{offset}")};"))
-                end
-              else
+              decl.append_children(:specifications,
+                bpl("requires #{shadow_eq x};"))
+            end
+          end
+
+          params[:public_in_reg].each do |p|
+            p.names.each do |x|
+              word_length(p, :public_in_reg).times.each do |offset|
+                addr = "#{x} + #{offset}"
+                # NOTE we must know how to access this memory too...
                 decl.append_children(:specifications,
-                  bpl("requires #{shadow_eq x};"))
+                  bpl("requires #{memory_equality(addr)};"))
               end
             end
           end
@@ -163,27 +174,47 @@ module Bpl
           # Restrict to equality on public / declassified outputs
           decl.body.each do |ret|
             next unless ret.is_a?(ReturnStatement)
-            (public_outputs | declassified_outputs).each do |p|
-              length = p.attributes[:declassified_out].first ||
-                p.attributes[:public_out].first
-              p.names.each do |x|
-                if length && length.is_a?(IntegerLiteral)
-                  (length.value * 8 / ACCESS_SIZE).times.each do |offset|
-                    ret.insert_before(bpl("assume #{memory_equality("#{x}+#{offset}")};"))
+
+            [:public_out, :public_return].each do |ax|
+              params[ax].each do |p|
+                p.names.each do |x|
+                  ret.insert_before(shadow_assert(shadow_eq(x)))
+                end
+              end
+            end
+
+            [:public_out_reg, :public_return_reg].each do |ax|
+              params[ax].each do |p|
+                p.names.each do |x|
+                  word_length(p, ax).times.each do |offset|
+                    addr = "#{x} + #{offset}"
+                    # NOTE we must know how to access this memory too...
+                    ret.insert_before(shadow_assert(memory_equality(addr)))
                   end
-                else
+                end
+              end
+            end
+
+            [:declassified_out, :declassified_return].each do |ax|
+              params[ax].each do |p|
+                p.names.each do |x|
                   ret.insert_before(bpl("assume #{shadow_eq x};"))
                 end
               end
             end
-          end
 
-          # Ensure public outputs are equal, contingent on declassified outputs
-          unless public_outputs.empty?
-            lhs = declassified_outputs.map(&method(:shadow_eq)) * " && "
-            lhs = if declassified_outputs.empty? then "" else "#{lhs} ==>" end
-            rhs = public_outputs.map(&method(:shadow_eq)) * " && "
-            decl.specifications << bpl("ensures #{lhs} #{rhs};")
+            [:declassified_out_reg, :declassified_return_reg].each do |ax|
+              params[ax].each do |p|
+                p.names.each do |x|
+                  word_length(p, ax).times.each do |offset|
+                    addr = "#{x} + #{offset}"
+                    # NOTE we must know how to access this memory too...
+                    ret.insert_before(bpl("assume #{memory_equality(addr)};"))
+                  end
+                end
+              end
+            end
+
           end
 
           if decl.attributes[:entrypoint]

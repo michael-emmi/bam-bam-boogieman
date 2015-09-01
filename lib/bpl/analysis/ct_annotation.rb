@@ -7,6 +7,12 @@ module Bpl
 
       depends :resolution
 
+      ANNOTATIONS = [
+        :public_in, :public_in_reg,
+        :public_out, :public_out_reg,
+        :declassified_out, :declassified_out_reg
+      ]
+
       def reference(expression)
         if expression.is_a?(StorageIdentifier)
           expression
@@ -35,36 +41,49 @@ module Bpl
       end
 
       def run! program
-        program.declarations.each do |proc|
-          next unless proc.is_a?(ProcedureDeclaration)
-          next unless proc.body
+        program.declarations.each do |decl|
+          next unless decl.is_a?(ProcedureDeclaration)
+          next unless decl.body
 
-          parameters = proc.parameters
+          parameters = decl.parameters
+          returns = decl.returns
           aliases = {}
           regions = {}
 
-          proc.body.each do |stmt|
+          decl.body.each do |stmt|
             aliases.merge!(aliasing(stmt))
 
             next unless stmt.is_a?(CallStatement)
-            if stmt.procedure.name =~ /mem_region/
-              address, length = stmt.arguments
+
+            if stmt.procedure.name =~ /(mem|ret)_region/
+              if stmt.procedure.name =~ /ret/
+                address = decl.returns.first.idents.first
+                length = stmt.arguments.first
+              else
+                address, length = stmt.arguments
+              end
               address = aliases[address.name] until address.nil? ||
-                parameters.include?(address.declaration)
+                parameters.include?(address.declaration) ||
+                returns.include?(address.declaration)
               regions[stmt.assignments.first.name] = [address, length]
               # stmt.remove
 
-            elsif stmt.procedure.name =~ /of_var/
-              address = stmt.arguments.first
+            elsif stmt.procedure.name =~ /of_(var|ret)/
+              if stmt.procedure.name =~ /ret/
+                address = decl.returns.first.idents.first
+              else
+                address = stmt.arguments.first
+              end
               address = aliases[address.name] until address.nil? ||
-                parameters.include?(address.declaration)
+                parameters.include?(address.declaration) ||
+                returns.include?(address.declaration)
               regions[stmt.assignments.first.name] = [address]
               # stmt.remove
 
-            elsif stmt.procedure.name =~ /public_in|declassified_out/
+            elsif stmt.procedure.name =~ /#{ANNOTATIONS * "|"}/
               region = stmt.arguments.first
               address, length = regions[region.name]
-              attr = stmt.procedure.name.to_sym
+              attr = "#{stmt.procedure.name}#{"_reg" if length}".to_sym
               val = if length then [length] else [] end
               address.declaration.attributes[attr] = val
               # stmt.remove
