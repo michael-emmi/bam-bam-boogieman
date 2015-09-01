@@ -64,9 +64,7 @@ module Bpl
       ANNOTATIONS = [
         :public_in, :public_in_reg,
         :public_out, :public_out_reg,
-        :declassified_out, :declassified_out_reg,
-        :public_return, :public_return_reg,
-        :declassified_return, :declassified_return_reg
+        :declassified_out, :declassified_out_reg
       ]
 
       def annotated_parameters(proc_decl)
@@ -175,42 +173,34 @@ module Bpl
           decl.body.each do |ret|
             next unless ret.is_a?(ReturnStatement)
 
-            [:public_out, :public_return].each do |ax|
-              params[ax].each do |p|
-                p.names.each do |x|
-                  ret.insert_before(shadow_assert(shadow_eq(x)))
+            params[:public_out].each do |p|
+              p.names.each do |x|
+                ret.insert_before(shadow_assert(shadow_eq(x)))
+              end
+            end
+
+            params[:public_out_reg].each do |p|
+              p.names.each do |x|
+                word_length(p, :public_out_reg).times.each do |offset|
+                  addr = "#{x} + #{offset}"
+                  # NOTE we must know how to access this memory too...
+                  ret.insert_before(shadow_assert(memory_equality(addr)))
                 end
               end
             end
 
-            [:public_out_reg, :public_return_reg].each do |ax|
-              params[ax].each do |p|
-                p.names.each do |x|
-                  word_length(p, ax).times.each do |offset|
-                    addr = "#{x} + #{offset}"
-                    # NOTE we must know how to access this memory too...
-                    ret.insert_before(shadow_assert(memory_equality(addr)))
-                  end
-                end
+            params[:declassified_out].each do |p|
+              p.names.each do |x|
+                ret.insert_before(bpl("assume #{shadow_eq x};"))
               end
             end
 
-            [:declassified_out, :declassified_return].each do |ax|
-              params[ax].each do |p|
-                p.names.each do |x|
-                  ret.insert_before(bpl("assume #{shadow_eq x};"))
-                end
-              end
-            end
-
-            [:declassified_out_reg, :declassified_return_reg].each do |ax|
-              params[ax].each do |p|
-                p.names.each do |x|
-                  word_length(p, ax).times.each do |offset|
-                    addr = "#{x} + #{offset}"
-                    # NOTE we must know how to access this memory too...
-                    ret.insert_before(bpl("assume #{memory_equality(addr)};"))
-                  end
+            params[:declassified_out_reg].each do |p|
+              p.names.each do |x|
+                word_length(p, :declassified_out_reg).times.each do |offset|
+                  addr = "#{x} + #{offset}"
+                  # NOTE we must know how to access this memory too...
+                  ret.insert_before(bpl("assume #{memory_equality(addr)};"))
                 end
               end
             end
