@@ -108,7 +108,10 @@ module Bpl
             when AssumeStatement
 
               # TODO should we be shadowing assume statements?
-              stmt.insert_after(shadow_copy(stmt))
+              # NOTE apparently not; because when they appear as branch
+              # conditions, they make the preceding shadow assertion
+              # trivially true.
+              # stmt.insert_after(shadow_copy(stmt))
 
             when AssignStatement
 
