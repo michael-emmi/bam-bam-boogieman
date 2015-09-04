@@ -164,7 +164,7 @@ module Bpl
           params[:public_in_reg].each do |p|
             p.names.each do |x|
               word_length(p, :public_in_reg).times.each do |offset|
-                addr = "#{x} + #{offset}"
+                addr = "#{x} + #{offset * 4}"
                 # NOTE we must know how to access this memory too...
                 decl.append_children(:specifications,
                   bpl("requires #{memory_equality(addr)};"))
@@ -185,7 +185,7 @@ module Bpl
             params[:public_out_reg].each do |p|
               p.names.each do |x|
                 word_length(p, :public_out_reg).times.each do |offset|
-                  addr = "#{x} + #{offset}"
+                  addr = "#{x} + #{offset * 4}"
                   # NOTE we must know how to access this memory too...
                   ret.insert_before(shadow_assert(memory_equality(addr)))
                 end
@@ -201,7 +201,7 @@ module Bpl
             params[:declassified_out_reg].each do |p|
               p.names.each do |x|
                 word_length(p, :declassified_out_reg).times.each do |offset|
-                  addr = "#{x} + #{offset}"
+                  addr = "#{x} + #{offset * 4}"
                   # NOTE we must know how to access this memory too...
                   ret.insert_before(bpl("assume #{memory_equality(addr)};"))
                 end
