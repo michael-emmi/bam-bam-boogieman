@@ -116,8 +116,6 @@ module Bpl
 
             when AssignStatement
 
-              fail "Unexpected assignment statement: #{stmt}" unless stmt.lhs.length == 1
-
               # ensure the indicies to loads and stores are equal
               accesses(stmt).each do |idx|
                 stmt.insert_before(shadow_assert(shadow_eq(idx)))
@@ -131,7 +129,7 @@ module Bpl
             when CallStatement
               if exempt?(stmt.procedure.name)
                 stmt.assignments.each do |x|
-                  stmt.insert_after("#{x} := #{shadow(x)}")
+                  stmt.insert_after(bpl("#{x} := #{shadow(x)};"))
                 end
               else
                 (stmt.arguments + stmt.assignments).each do |arg|
