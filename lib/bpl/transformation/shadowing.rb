@@ -144,11 +144,6 @@ module Bpl
               end
               stmt.insert_before(shadow_assert(shadow_eq(last_lhs)))
 
-            when ReturnStatement
-              return_variables.each do |v|
-                stmt.insert_before(shadow_assert(shadow_eq(v)))
-              end
-
             end
           end
 
