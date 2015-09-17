@@ -26,6 +26,8 @@ module Bpl
         shadow
       end
 
+      def shadow_expr_eq(expr) "#{expr} == #{shadow_copy(expr)}" end
+
       def accesses(stmt)
         Enumerator.new do |y|
           stmt.each do |expr|
@@ -118,7 +120,7 @@ module Bpl
 
               # ensure the indicies to loads and stores are equal
               accesses(stmt).each do |idx|
-                stmt.insert_before(shadow_assert(shadow_eq(idx)))
+                stmt.insert_before(shadow_assert(shadow_expr_eq(idx)))
               end
 
               # shadow the assignment
@@ -142,7 +144,7 @@ module Bpl
               unless stmt.identifiers.length == 2
                 fail "Unexpected goto statement: #{stmt}"
               end
-              stmt.insert_before(shadow_assert(shadow_eq(last_lhs)))
+              stmt.insert_before(shadow_assert(shadow_expr_eq(last_lhs)))
 
             end
           end
