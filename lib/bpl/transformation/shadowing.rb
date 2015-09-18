@@ -9,7 +9,7 @@ module Bpl
       depends :resolution, :ct_annotation
 
       def shadow(x) "#{x}.shadow" end
-      def shadow_eq(x) "#{x} == #{shadow(x)}" end
+      def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
       def decl(v)
         v.class.new(names: v.names.map(&method(:shadow)), type: v.type)
       end
@@ -25,8 +25,6 @@ module Bpl
         end
         shadow
       end
-
-      def shadow_expr_eq(expr) "#{expr} == #{shadow_copy(expr)}" end
 
       def accesses(stmt)
         Enumerator.new do |y|
@@ -120,7 +118,7 @@ module Bpl
 
               # ensure the indicies to loads and stores are equal
               accesses(stmt).each do |idx|
-                stmt.insert_before(shadow_assert(shadow_expr_eq(idx)))
+                stmt.insert_before(shadow_assert(shadow_eq(idx)))
               end
 
               # shadow the assignment
@@ -144,7 +142,7 @@ module Bpl
               unless stmt.identifiers.length == 2
                 fail "Unexpected goto statement: #{stmt}"
               end
-              stmt.insert_before(shadow_assert(shadow_expr_eq(last_lhs)))
+              stmt.insert_before(shadow_assert(shadow_eq(last_lhs)))
 
             end
           end
@@ -153,7 +151,7 @@ module Bpl
           params[:public_in_value].each do |p|
             p.names.each do |x|
               decl.append_children(:specifications,
-                bpl("requires #{shadow_eq x};"))
+                bpl("requires #{shadow_eq bpl x};"))
             end
           end
 
@@ -172,7 +170,7 @@ module Bpl
 
             params[:public_out_value].each do |p|
               p.names.each do |x|
-                ret.insert_before(shadow_assert(shadow_eq(x)))
+                ret.insert_before(shadow_assert(shadow_eq(bpl(x))))
               end
             end
 
