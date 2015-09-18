@@ -9,7 +9,7 @@ module Bpl
       depends :resolution, :ct_annotation
 
       def shadow(x) "#{x}.shadow" end
-      def shadow_eq(x) "#{x} == #{shadow(x)}" end
+      def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
       def decl(v)
         v.class.new(names: v.names.map(&method(:shadow)), type: v.type)
       end
@@ -151,7 +151,7 @@ module Bpl
           params[:public_in_value].each do |p|
             p.names.each do |x|
               decl.append_children(:specifications,
-                bpl("requires #{shadow_eq x};"))
+                bpl("requires #{shadow_eq bpl x};"))
             end
           end
 
@@ -170,7 +170,7 @@ module Bpl
 
             params[:public_out_value].each do |p|
               p.names.each do |x|
-                ret.insert_before(shadow_assert(shadow_eq(x)))
+                ret.insert_before(shadow_assert(shadow_eq(bpl(x))))
               end
             end
 
