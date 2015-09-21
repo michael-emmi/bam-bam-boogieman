@@ -129,7 +129,7 @@ module Bpl
             when CallStatement
               if exempt?(stmt.procedure.name)
                 stmt.assignments.each do |x|
-                  stmt.insert_after(bpl("#{x} := #{shadow(x)};"))
+                  stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
                 end
               else
                 (stmt.arguments + stmt.assignments).each do |arg|
