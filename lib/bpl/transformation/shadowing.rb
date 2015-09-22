@@ -18,8 +18,9 @@ module Bpl
         shadow = node.copy
         shadow.each do |expr|
           next unless expr.is_a?(StorageIdentifier)
-          next if expr.declaration &&
-                  expr.declaration.is_a?(ConstantDeclaration)
+          next if expr.declaration and
+                  (expr.declaration.is_a?(ConstantDeclaration) or
+                   expr.declaration.parent.is_a?(QuantifiedExpression))
           # expr.replace_with(StorageIdentifier.new(name: shadow(expr)))
           expr.name = shadow(expr)
         end
@@ -49,6 +50,10 @@ module Bpl
         end
       end
 
+      # Exempt functions are those that operate independently of the
+      # memory: we might assert that their arguments are equal (alloc,
+      # free...) and assume that their results are equal, but we only
+      # call them once.
       EXEMPTION_LIST = [
         '\$alloc',
         '\$free',
@@ -61,6 +66,25 @@ module Bpl
         EXEMPTIONS.match(decl) && true
       end
 
+      # Magic functions are those that Smack models as assumed
+      # properties of non-deterministic memories. Their arguments and
+      # results get shadowed, but we need to treat them specially
+      # since their control-flow and memory accesses are completely
+      # hidden. For now, we always want equality on all their
+      # arguments, but we may want to refine this per function.
+      MAGIC_LIST = [
+        '\$memset.i8',
+        '\$memcpy.i8',
+        '\$memcmp.i8'
+      ]
+
+      MAGICS = /#{MAGIC_LIST * "|"}/
+
+      def magic? decl
+        # Variants $memxxx.i8.x are not magic, but do not use
+        # $load/$store. For soundness, we treat them as magic for now.
+        MAGICS.match(decl) && true
+      end
 
       ANNOTATIONS = [
         :public_in_value, :public_in_object,
@@ -107,7 +131,9 @@ module Bpl
           decl.body.each do |stmt|
             case stmt
             when AssumeStatement
-
+              if magic?(decl.name)
+                stmt.insert_after(shadow_copy(stmt))
+              end
               # TODO should we be shadowing assume statements?
               # NOTE apparently not; because when they appear as branch
               # conditions, they make the preceding shadow assertion
@@ -128,8 +154,20 @@ module Bpl
 
             when CallStatement
               if exempt?(stmt.procedure.name)
+                if stmt.procedure.name =~ /\$(alloc|free)/
+                  stmt.arguments.each do |x|
+                    stmt.insert_before(shadow_assert(shadow_eq(x)))
+                  end
+                end
                 stmt.assignments.each do |x|
                   stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
+                end
+              elsif magic?(stmt.procedure.name)
+                stmt.arguments.each do |x|
+                  stmt.insert_before(shadow_assert(shadow_eq(x)))
+                end
+                (stmt.arguments + stmt.assignments).each do |arg|
+                  arg.insert_after(shadow_copy(arg))
                 end
               else
                 (stmt.arguments + stmt.assignments).each do |arg|
