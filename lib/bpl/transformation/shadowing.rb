@@ -164,7 +164,9 @@ module Bpl
                 end
               elsif magic?(stmt.procedure.name)
                 stmt.arguments.each do |x|
-                  stmt.insert_before(shadow_assert(shadow_eq(x)))
+                  unless x.type.is_a?(MapType) # are regions the only maps?
+                    stmt.insert_before(shadow_assert(shadow_eq(x)))
+                  end
                 end
                 (stmt.arguments + stmt.assignments).each do |arg|
                   arg.insert_after(shadow_copy(arg))
