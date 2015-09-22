@@ -101,18 +101,18 @@ module Bpl
           next unless decl.body
 
           last_lhs = nil
+          force_shadow = false
 
           decl.body.locals.each {|d| d.insert_after(decl(d))}
 
           decl.body.each do |stmt|
+            next unless stmt.is_a?(Statement)
             case stmt
             when AssumeStatement
-
-              # TODO should we be shadowing assume statements?
-              # NOTE apparently not; because when they appear as branch
-              # conditions, they make the preceding shadow assertion
-              # trivially true.
-              # stmt.insert_after(shadow_copy(stmt))
+              if force_shadow
+                stmt.insert_after(shadow_copy(stmt))
+              end
+              force_shadow = false
 
             when AssignStatement
 
@@ -125,6 +125,7 @@ module Bpl
               stmt.insert_after(shadow_copy(stmt))
 
               last_lhs = stmt.lhs.first
+              force_shadow = false
 
             when CallStatement
               if exempt?(stmt.procedure.name)
@@ -136,6 +137,12 @@ module Bpl
                   arg.insert_after(shadow_copy(arg))
                 end
               end
+              force_shadow = false
+
+            when HavocStatement
+              stmt.insert_after(shadow_copy(stmt))
+              puts "Havoc: #{stmt}"
+              force_shadow = true
 
             when GotoStatement
               next if stmt.identifiers.length < 2
@@ -143,7 +150,10 @@ module Bpl
                 fail "Unexpected goto statement: #{stmt}"
               end
               stmt.insert_before(shadow_assert(shadow_eq(last_lhs)))
+              force_shadow = false
 
+            else
+              force_shadow = false
             end
           end
 
