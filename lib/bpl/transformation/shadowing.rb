@@ -112,7 +112,6 @@ module Bpl
               if force_shadow
                 stmt.insert_after(shadow_copy(stmt))
               end
-              force_shadow = false
 
             when AssignStatement
 
@@ -125,7 +124,6 @@ module Bpl
               stmt.insert_after(shadow_copy(stmt))
 
               last_lhs = stmt.lhs.first
-              force_shadow = false
 
             when CallStatement
               if exempt?(stmt.procedure.name)
@@ -137,7 +135,6 @@ module Bpl
                   arg.insert_after(shadow_copy(arg))
                 end
               end
-              force_shadow = false
 
             when HavocStatement
               stmt.insert_after(shadow_copy(stmt))
@@ -149,9 +146,9 @@ module Bpl
                 fail "Unexpected goto statement: #{stmt}"
               end
               stmt.insert_before(shadow_assert(shadow_eq(last_lhs)))
-              force_shadow = false
+            end
 
-            else
+            if !stmt.is_a?(HavocStatement)
               force_shadow = false
             end
           end
