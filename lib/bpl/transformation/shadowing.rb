@@ -137,6 +137,14 @@ module Bpl
                 end
               end
 
+            when HavocStatement
+              nxt = stmt.next_sibling
+              if nxt and
+                 nxt.is_a?(AssumeStatement)
+                nxt.insert_after(shadow_copy(nxt))
+              end
+              stmt.insert_after(shadow_copy(stmt))
+
             when GotoStatement
               next if stmt.identifiers.length < 2
               unless stmt.identifiers.length == 2
