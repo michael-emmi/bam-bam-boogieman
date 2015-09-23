@@ -141,7 +141,6 @@ module Bpl
 
             when HavocStatement
               stmt.insert_after(shadow_copy(stmt))
-              puts "Havoc: #{stmt}"
               force_shadow = true
 
             when GotoStatement
