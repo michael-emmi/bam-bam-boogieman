@@ -124,11 +124,11 @@ module Bpl
       end
 
       def previous_sibling
-        parent && (_, ary, idx = parent.locate_child(self)) && idx && ary[idx+1]
+        parent && (_, ary, idx = parent.locate_child(self)) && idx && ary[idx-1]
       end
 
       def next_sibling
-        parent && (_, ary, idx = parent.locate_child(self)) && idx && ary[idx-1]
+        parent && (_, ary, idx = parent.locate_child(self)) && idx && ary[idx+1]
       end
 
       def prepend_children(name,*elems) insert_children(name,:before,*elems) end
