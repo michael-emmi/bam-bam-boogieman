@@ -100,8 +100,6 @@ module Bpl
 
           next unless decl.body
 
-          last_lhs = nil
-
           decl.body.locals.each {|d| d.insert_after(decl(d))}
 
           decl.body.each do |stmt|
@@ -123,8 +121,6 @@ module Bpl
 
               # shadow the assignment
               stmt.insert_after(shadow_copy(stmt))
-
-              last_lhs = stmt.lhs.first
 
             when CallStatement
               if exempt?(stmt.procedure.name)
@@ -150,7 +146,12 @@ module Bpl
               unless stmt.identifiers.length == 2
                 fail "Unexpected goto statement: #{stmt}"
               end
-              stmt.insert_before(shadow_assert(shadow_eq(last_lhs)))
+
+              if annotation = stmt.previous_sibling
+                if expr = annotation.attributes[:branchcond].first
+                  stmt.insert_before(shadow_assert(shadow_eq(expr)))
+                end
+              end
 
             end
           end
