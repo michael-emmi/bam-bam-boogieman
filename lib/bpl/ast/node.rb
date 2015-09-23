@@ -123,6 +123,14 @@ module Bpl
         end
       end
 
+      def previous_sibling
+        parent && (_, ary, idx = parent.locate_child(self)) && idx && ary[idx+1]
+      end
+
+      def next_sibling
+        parent && (_, ary, idx = parent.locate_child(self)) && idx && ary[idx-1]
+      end
+
       def prepend_children(name,*elems) insert_children(name,:before,*elems) end
       def append_children(name,*elems) insert_children(name,:after,*elems) end
       def replace_children(name,*elems) insert_children(name,:inplace,*elems) end
@@ -188,27 +196,37 @@ module Bpl
         self
       end
 
+      def locate_child(child)
+        self.class.children.each do |sym|
+          ary = self.instance_variable_get("@#{sym}")
+          if ary.is_a?(Array) && idx = ary.index(child)
+            return sym, ary, idx
+          elsif ary == child
+            return sym, ary
+          end
+        end
+        return nil
+      end
+
       def insert_siblings(where,*elems)
         fail "unknown parent of #{self}" unless parent
-        fail "unknown child" unless parent.class.children.any? do |sym|
-          ary = parent.instance_variable_get("@#{sym}")
-          if ary.is_a?(Array) && idx = ary.index(self)
-            case where
-            when :before then ary.insert(idx,*elems)
-            when :after  then ary.insert(idx+1,*elems)
-            when :inplace
-              ary.delete_at(idx)
-              ary.insert(idx,*elems)
-            end
-            true
-          elsif ary == self
-            fail "cannot insert multiple #{sym} children" if elems.count > 1
-            fail "child #{sym} already exists" unless where == :inplace
-            parent.instance_variable_set("@#{sym}",elems.first)
-            true
-          else
-            false
+        sym, ary, idx = parent.locate_child(self)
+        if idx
+          case where
+          when :before then ary.insert(idx,*elems)
+          when :after  then ary.insert(idx+1,*elems)
+          when :inplace
+            ary.delete_at(idx)
+            ary.insert(idx,*elems)
           end
+          true
+        elsif ary
+          fail "cannot insert multiple #{sym} children" if elems.count > 1
+          fail "child #{sym} already exists" unless where == :inplace
+          parent.instance_variable_set("@#{sym}",elems.first)
+          true
+        else
+          fail "unknown child"
         end
         elems.each {|elem| elem.link(parent)}
         self.unlink if where == :inplace
