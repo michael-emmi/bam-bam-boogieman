@@ -19,7 +19,8 @@ module Bpl
         shadow.each do |expr|
           next unless expr.is_a?(StorageIdentifier)
           next if expr.declaration &&
-                  expr.declaration.is_a?(ConstantDeclaration)
+                  ( expr.declaration.is_a?(ConstantDeclaration) ||
+                    expr.declaration.parent.is_a?(QuantifiedExpression) )
           # expr.replace_with(StorageIdentifier.new(name: shadow(expr)))
           expr.name = shadow(expr)
         end
@@ -55,12 +56,25 @@ module Bpl
         'boogie_si_',
         '__VERIFIER_'
       ]
+
+      MAGIC_LIST = [
+        '\$alloc',
+        '\$free',
+        '\$memset.i8',
+        '\$memcpy.i8',
+        '\$memcmp.i8'
+      ]
+
       EXEMPTIONS = /#{EXEMPTION_LIST * "|"}/
+      MAGICS = /#{MAGIC_LIST * "|"}/
 
       def exempt? decl
         EXEMPTIONS.match(decl) && true
       end
 
+      def magic? decl
+        MAGICS.match(decl) && true
+      end
 
       ANNOTATIONS = [
         :public_in_value, :public_in_object,
@@ -112,6 +126,12 @@ module Bpl
               # trivially true.
               # stmt.insert_after(shadow_copy(stmt))
 
+              # XXX this is an ugly hack to deal with memory intrinsic
+              # XXX functions which are implemented with assume statemnts
+              if magic?(decl.name)
+                stmt.insert_after(shadow_copy(stmt))
+              end
+
             when AssignStatement
 
               # ensure the indicies to loads and stores are equal
@@ -123,6 +143,14 @@ module Bpl
               stmt.insert_after(shadow_copy(stmt))
 
             when CallStatement
+              if magic?(stmt.procedure.name)
+                stmt.arguments.each do |x|
+                  unless x.type.is_a?(MapType)
+                    stmt.insert_before(shadow_assert(shadow_eq(x)))
+                  end
+                end
+              end
+
               if exempt?(stmt.procedure.name)
                 stmt.assignments.each do |x|
                   stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
