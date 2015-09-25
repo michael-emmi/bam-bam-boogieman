@@ -90,15 +90,45 @@ module Bpl
         hash
       end
 
-      def shadow_assert(expr)
-        bpl("$shadow_ok := $shadow_ok && #{expr};")
+      def shadow_assert(expr,delay)
+        if delay
+          bpl("$shadow_ok := $shadow_ok && #{expr};")
+        else
+          bpl("assert (#{expr});");
+        end
+      end
+
+      def has_declassification(prog)
+        res = false
+        prog.each_child do |decl|
+          next unless decl.is_a?(ProcedureDeclaration)
+          next unless decl.attributes[:entrypoint]
+          (decl.parameters + decl.returns).each do |p|
+            if p.attributes[:declassified_out_object] or
+               p.attributes[:declassified_out_value]
+              res = true
+            end
+            next unless res
+          end
+          next unless res
+        end
+        res
       end
 
       def run! program
 
+        delay_assertions = has_declassification(program)
+        unless $quiet
+          if delay_assertions
+            info "Program has declassification -- Delaying shadow assertions."
+          else
+            info "Program has no declassification -- Inserting shadow assertions in place."
+          end
+        end
+
         # duplicate global variables
         program.global_variables.each {|v| v.insert_after(decl(v))}
-        program.global_variables.last.insert_after(bpl("var $shadow_ok: bool;"))
+        program.global_variables.last.insert_after(bpl("var $shadow_ok: bool;")) if delay_assertions
 
         # duplicate parameters, returns, and local variables
         program.each_child do |decl|
@@ -136,7 +166,7 @@ module Bpl
 
               # ensure the indicies to loads and stores are equal
               accesses(stmt).each do |idx|
-                stmt.insert_before(shadow_assert(shadow_eq(idx)))
+                stmt.insert_before(shadow_assert(shadow_eq(idx),delay_assertions))
               end
 
               # shadow the assignment
@@ -146,7 +176,7 @@ module Bpl
               if magic?(stmt.procedure.name)
                 stmt.arguments.each do |x|
                   unless x.type.is_a?(MapType)
-                    stmt.insert_before(shadow_assert(shadow_eq(x)))
+                    stmt.insert_before(shadow_assert(shadow_eq(x),delay_assertions))
                   end
                 end
               end
@@ -177,7 +207,7 @@ module Bpl
 
               if annotation = stmt.previous_sibling
                 if expr = annotation.attributes[:branchcond].first
-                  stmt.insert_before(shadow_assert(shadow_eq(expr)))
+                  stmt.insert_before(shadow_assert(shadow_eq(expr),delay_assertions))
                 end
               end
 
@@ -207,14 +237,14 @@ module Bpl
 
             params[:public_out_value].each do |p|
               p.names.each do |x|
-                ret.insert_before(shadow_assert(shadow_eq(bpl(x))))
+                ret.insert_before(shadow_assert(shadow_eq(bpl(x)),delay_assertions))
               end
             end
 
             params[:public_out_object].each do |p|
               p.names.each do |x|
                 loads(x, p.attributes[:public_out_object]).each do |e,f|
-                  ret.insert_before(shadow_assert("#{e} == #{f}"))
+                  ret.insert_before(shadow_assert("#{e} == #{f}",delay_assertions))
                 end
               end
             end
@@ -235,7 +265,8 @@ module Bpl
 
           end
 
-          if decl.attributes[:entrypoint]
+          if decl.attributes[:entrypoint] and
+             delay_assertions
             decl.body.blocks.first.statements.first.insert_before(
               bpl("$shadow_ok := true;"))
             decl.body.select{|r| r.is_a?(ReturnStatement)}.
