@@ -38,14 +38,26 @@ module Bpl
         end
       end
 
-      def loads(obj, attr)
-        load_expr, map_expr, inc_expr, len_expr = attr
+      def loads(annotation)
+        load_expr, map_expr, addr_expr, inc_expr, len_expr = annotation
         Enumerator.new do |y|
-          (len_expr.value / inc_expr.value).times do |i|
+          if map_expr.nil?
             y.yield(
-              bpl("#{load_expr}(#{map_expr}, #{obj} + #{i * inc_expr.value})"),
-              bpl("#{load_expr}(#{shadow map_expr}, #{obj} + #{i * inc_expr.value})")
-            )
+              bpl("#{load_expr}"),
+              bpl("#{shadow load_expr}"))
+
+          elsif len_expr.nil?
+            y.yield(
+              bpl("#{load_expr}(#{map_expr}, #{addr_expr})"),
+              bpl("#{load_expr}(#{shadow map_expr}, #{shadow_copy addr_expr})"))
+
+          else
+            (len_expr.value / inc_expr.value).times do |i|
+              y.yield(
+                bpl("#{load_expr}(#{map_expr}, #{addr_expr} + #{i * inc_expr.value})"),
+                bpl("#{load_expr}(#{shadow map_expr}, #{shadow_copy addr_expr} + #{i * inc_expr.value})")
+              )
+            end
           end
         end
       end
@@ -77,15 +89,15 @@ module Bpl
       end
 
       ANNOTATIONS = [
-        :public_in_value, :public_in_object,
-        :public_out_value, :public_out_object,
-        :declassified_out_value, :declassified_out_object
+        :public_in,
+        :public_out,
+        :declassified_out
       ]
 
-      def annotated_parameters(proc_decl)
+      def annotated_specifications(proc_decl)
         hash = ANNOTATIONS.map{|ax| [ax,[]]}.to_h
-        (proc_decl.parameters + proc_decl.returns).each do |p|
-          hash.keys.each {|ax| hash[ax] << p if p.attributes[ax]}
+        proc_decl.specifications.each do |s|
+          hash.keys.each {|ax| hash[ax] << s.attributes[ax] if s.attributes[ax]}
         end
         hash
       end
@@ -135,7 +147,7 @@ module Bpl
           next unless decl.is_a?(ProcedureDeclaration)
           next if exempt?(decl.name)
 
-          params = annotated_parameters(decl)
+          annotations = annotated_specifications(decl)
 
           return_variables = decl.returns.map{|v| v.names}.flatten
 
@@ -215,19 +227,10 @@ module Bpl
           end
 
           # Restrict to equality on public inputs
-          params[:public_in_value].each do |p|
-            p.names.each do |x|
+          annotations[:public_in].each do |annot|
+            loads(annot).each do |e,f|
               decl.append_children(:specifications,
-                bpl("requires #{shadow_eq bpl x};"))
-            end
-          end
-
-          params[:public_in_object].each do |p|
-            p.names.each do |x|
-              loads(x, p.attributes[:public_in_object]).each do |e,f|
-                decl.append_children(:specifications,
-                  bpl("requires #{e} == #{f};"))
-              end
+                bpl("requires #{e} == #{f};"))
             end
           end
 
@@ -235,31 +238,15 @@ module Bpl
           decl.body.each do |ret|
             next unless ret.is_a?(ReturnStatement)
 
-            params[:public_out_value].each do |p|
-              p.names.each do |x|
-                ret.insert_before(shadow_assert(shadow_eq(bpl(x)),delay_assertions))
+            annotations[:public_out].each do |annot|
+              loads(annot).each do |e,f|
+                ret.insert_before(shadow_assert("#{e} == #{f}",delay_assertions))
               end
             end
 
-            params[:public_out_object].each do |p|
-              p.names.each do |x|
-                loads(x, p.attributes[:public_out_object]).each do |e,f|
-                  ret.insert_before(shadow_assert("#{e} == #{f}",delay_assertions))
-                end
-              end
-            end
-
-            params[:declassified_out_value].each do |p|
-              p.names.each do |x|
-                ret.insert_before(bpl("assume #{shadow_eq x};"))
-              end
-            end
-
-            params[:declassified_out_object].each do |p|
-              p.names.each do |x|
-                loads(x, p.attributes[:declassified_out_object]).each do |e,f|
-                  ret.insert_before(bpl("assume #{e} == #{f};"))
-                end
+            annotations[:declassified_out].each do |annot|
+              loads(annot).each do |e,f|
+                ret.insert_before(bpl("assume #{e} == #{f};"))
               end
             end
 
