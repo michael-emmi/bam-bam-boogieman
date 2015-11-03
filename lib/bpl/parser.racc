@@ -315,12 +315,16 @@ rule
   param_decls_opt: { [] } | param_decls
 
   spec:
-    free_opt 'requires' expr ';' { RequiresClause.new free: val[0], expression: val[2] }
-    | free_opt 'modifies' idents ';' {
-      ids = val[2].map{|id| StorageIdentifier.new id}
-      ModifiesClause.new free: val[0], identifiers: ids
+    free_opt 'requires' attrs expr ';' {
+      RequiresClause.new free: val[0], attributes: val[2], expression: val[3]
     }
-    | free_opt 'ensures' expr ';' { EnsuresClause.new free: val[0], expression: val[2] }
+    | free_opt 'modifies' attrs idents ';' {
+      ids = val[3].map{|id| StorageIdentifier.new id}
+      ModifiesClause.new free: val[0], attributes: val[2], identifiers: ids
+    }
+    | free_opt 'ensures' attrs expr ';' {
+      EnsuresClause.new free: val[0], attributes: val[2], expression: val[3]
+    }
   specs: { [] } | spec specs { [val[0]] + val[1] }
 
   impl_decl:

@@ -8,9 +8,9 @@ module Bpl
       depends :resolution
 
       ANNOTATIONS = [
-        :public_in_,
-        :public_out_,
-        :declassified_out_,
+        :public_in,
+        :public_out,
+        :declassified_out,
       ]
 
       def run! program
@@ -19,37 +19,29 @@ module Bpl
           next unless decl.body
 
           values = {}
-          objects = {}
 
           decl.body.each do |stmt|
             next unless stmt.is_a?(CallStatement)
 
-            if stmt.procedure.name =~ /__SMACK_value/
-              values[stmt.assignments.first.name] = {
-                id: stmt.arguments.first
-              }
 
-            elsif stmt.procedure.name =~ /__SMACK_object/
-              k, vals = stmt.attributes.find{|key,_| key =~ /\$load/}
-              objects[stmt.assignments.first.name] = {
-                id: stmt.arguments.first,
-                attr: [k.to_s] + vals
+            if stmt.procedure.name =~ /__SMACK_value/
+              _, id = stmt.attributes.find{|key,_| key =~ /name/}
+              kind, access = stmt.attributes.find{|key,_| key =~ /array|field/}
+
+              values[stmt.assignments.first.name] = {
+                id: id.first,
+                kind: kind,
+                access: access
               }
 
             elsif stmt.procedure.name =~ /#{ANNOTATIONS * "|"}/
               var = stmt.arguments.first.name
-              if stmt.procedure.name =~ /_value/
-                v = values[var]
-                fail "Unknown value: #{var}" unless v
-                decl = v[:id].declaration
-                val = []
-              else
-                o = objects[var]
-                fail "Unknown object: #{var}" unless o
-                decl = o[:id].declaration
-                val = o[:attr]
-              end
-              decl.attributes[stmt.procedure.name.to_sym] = val
+              v = values[var]
+              fail "Unknown value: #{var}" unless v
+              access = v[:access] || [v[:id]]
+              decl.append_children(:specifications,
+                bpl("requires {:#{stmt.procedure.name} #{access * ", "}} true;")
+              )
             end
 
           end
