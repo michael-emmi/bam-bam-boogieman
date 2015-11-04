@@ -120,6 +120,7 @@ module Bpl
 
       def predecessors; @predecessors ||= Set.new end
       def successors; @successors ||= Set.new end
+      def dominators; @dominators ||= Set.new end
 
       def name; names.first || "" end
       def id; LabelIdentifier.new(name: name, declaration: self) end
@@ -136,6 +137,8 @@ module Bpl
 
     class Body < Node
       children :locals, :blocks
+
+      def loops; @loops ||= {} end
 
       include Scope
       def declarations; locals + blocks end
