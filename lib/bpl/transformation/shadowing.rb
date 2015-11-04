@@ -6,7 +6,7 @@ module Bpl
         "Create a shadow program."
       end
 
-      depends :resolution, :ct_annotation
+      depends :resolution, :ct_annotation, :loop_identification
 
       def shadow(x) "#{x}.shadow" end
       def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
