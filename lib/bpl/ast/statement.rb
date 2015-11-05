@@ -138,6 +138,7 @@ module Bpl
     class Body < Node
       children :locals, :blocks
 
+      def definitions; @definitions ||= {} end
       def loops; @loops ||= {} end
 
       include Scope

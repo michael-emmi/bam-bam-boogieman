@@ -6,7 +6,7 @@ module Bpl
         "Create a shadow program."
       end
 
-      depends :resolution, :ct_annotation, :loop_identification
+      depends :resolution, :ct_annotation, :loop_identification, :definition_localization
 
       def shadow(x) "#{x}.shadow" end
       def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
@@ -36,6 +36,28 @@ module Bpl
             y.yield expr.arguments[1]
           end
         end
+      end
+
+      def dependent_variables(proc, var)
+        fail "Expected storage identifier!" unless var.is_a?(StorageIdentifier)
+        deps = Set.new.add(var.name)
+        work_list = proc.body.definitions[var.name].to_a
+        covered = Set.new(work_list)
+        until work_list.empty?
+          stmt = work_list.shift
+          stmt.each do |id|
+            next unless id.is_a?(StorageIdentifier)
+            defs = proc.body.definitions[id.name]
+            next unless defs
+            deps.add(id.name)
+            defs.each do |s|
+              next if covered.include?(s)
+              covered.add(s)
+              work_list |= [s]
+            end
+          end
+        end
+        deps
       end
 
       def loads(annotation)
@@ -119,14 +141,14 @@ module Bpl
 
           annotations = annotated_specifications(decl)
 
-          return_variables = decl.returns.map{|v| v.names}.flatten
-
           # Shadow the parameters and returns
           (decl.parameters + decl.returns).each {|d| d.insert_after(decl(d))}
 
           next unless decl.body
 
           decl.body.locals.each {|d| d.insert_after(decl(d))}
+
+          equalities = Set.new
 
           decl.body.each do |stmt|
             case stmt
@@ -149,6 +171,7 @@ module Bpl
               # ensure the indicies to loads and stores are equal
               accesses(stmt).each do |idx|
                 stmt.insert_before(shadow_assert(shadow_eq(idx)))
+                equalities.add(idx)
               end
 
               # shadow the assignment
@@ -158,7 +181,10 @@ module Bpl
               if magic?(stmt.procedure.name)
                 stmt.arguments.each do |x|
                   unless x.type.is_a?(MapType)
-                    stmt.insert_before(shadow_assert(shadow_eq(x)))
+                    if x.any?{|id| id.is_a?(StorageIdentifier)}
+                      stmt.insert_before(shadow_assert(shadow_eq(x)))
+                      equalities.add(x)
+                    end
                   end
                 end
               end
@@ -190,6 +216,7 @@ module Bpl
               if annotation = stmt.previous_sibling
                 if expr = annotation.attributes[:branchcond].first
                   stmt.insert_before(shadow_assert(shadow_eq(expr)))
+                  equalities.add(expr)
                 end
               end
 
@@ -211,6 +238,7 @@ module Bpl
             annotations[:public_out].each do |annot|
               loads(annot).each do |e,f|
                 ret.insert_before(shadow_assert("#{e} == #{f}"))
+                equalities.add(e)
               end
             end
 
@@ -229,6 +257,15 @@ module Bpl
               each{|r| r.insert_before(bpl("assert $shadow_ok;"))}
           end
 
+          invariant_variables = equalities.
+            reduce(Set.new){|acc,id| acc | dependent_variables(decl, id)}
+
+          decl.body.loops.each do |head,body|
+            invariant_variables.each do |expr|
+              # head.prepend_children(:statements,
+              #   bpl("assert {:shadow_invariant} #{expr} == #{shadow expr};"))
+            end
+          end
         end
       end
     end
