@@ -6,7 +6,8 @@ module Bpl
         "Create a shadow program."
       end
 
-      depends :resolution, :ct_annotation, :loop_identification, :definition_localization
+      depends :resolution, :ct_annotation, :loop_identification
+      depends :definition_localization, :liveness
 
       def shadow(x) "#{x}.shadow" end
       def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
@@ -262,8 +263,9 @@ module Bpl
 
           decl.body.loops.each do |head,body|
             invariant_variables.each do |expr|
-              # head.prepend_children(:statements,
-              #   bpl("assert {:shadow_invariant} #{expr} == #{shadow expr};"))
+              next unless decl.body.live[head].include?(expr)
+              head.prepend_children(:statements,
+                bpl("assert {:shadow_invariant} #{expr} == #{shadow expr};"))
             end
           end
         end

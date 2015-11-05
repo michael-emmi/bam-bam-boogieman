@@ -140,6 +140,7 @@ module Bpl
 
       def definitions; @definitions ||= {} end
       def loops; @loops ||= {} end
+      def live; @live ||= {} end
 
       include Scope
       def declarations; locals + blocks end
