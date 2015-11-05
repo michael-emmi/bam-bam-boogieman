@@ -115,12 +115,9 @@ module Bpl
         prog.each_child do |decl|
           next unless decl.is_a?(ProcedureDeclaration)
           next unless decl.attributes[:entrypoint]
-          (decl.parameters + decl.returns).each do |p|
-            if p.attributes[:declassified_out_object] or
-               p.attributes[:declassified_out_value]
-              res = true
-            end
-            next unless res
+          annotations = annotated_specifications(decl)
+          if annotations[:declassified_out] != []
+            res = true
           end
           next unless res
         end
