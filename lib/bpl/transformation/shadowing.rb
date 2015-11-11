@@ -48,6 +48,9 @@ module Bpl
           stmt = work_list.shift
           stmt.each do |id|
             next unless id.is_a?(StorageIdentifier)
+            next unless
+              id.declaration.parent.is_a?(Body) ||
+              id.declaration.parent.is_a?(ProcedureDeclaration)
             defs = proc.body.definitions[id.name]
             next unless defs
             deps.add(id.name)
