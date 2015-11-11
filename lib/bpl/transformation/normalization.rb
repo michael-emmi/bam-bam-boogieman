@@ -7,8 +7,23 @@ module Bpl
       end
 
       def run! program
-        sanity_check program
-        uniq_starts_and_ends! program
+
+        # TODO specify what normalization should be doing
+
+        program.each do |elem|
+          case elem
+          when AssignStatement
+            if elem.lhs.count > 1
+              elem.replace_with(*elem.lhs.count.times.map do |i|
+                bpl("#{elem.lhs[i]} := #{elem.rhs[i]};")
+              end)
+            end
+          end
+        end
+
+        # TODO what to do with this stuff?
+        # sanity_check program
+        # uniq_starts_and_ends! program
       end
 
       def self.sanity_check program

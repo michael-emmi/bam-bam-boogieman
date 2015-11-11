@@ -6,6 +6,7 @@ module Bpl
         "Create a shadow program."
       end
 
+      depends :normalization
       depends :resolution, :ct_annotation, :loop_identification
       depends :definition_localization, :liveness
 
