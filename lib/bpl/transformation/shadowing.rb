@@ -267,6 +267,8 @@ module Bpl
               head.prepend_children(:statements,
                 bpl("assert {:shadow_invariant} #{expr} == #{shadow expr};"))
             end
+            head.prepend_children(:statements,
+              bpl("assert {:shadow_invariant} $shadow_ok;"))
           end
         end
       end
