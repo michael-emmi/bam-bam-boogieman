@@ -10,7 +10,7 @@ module Bpl
           next unless proc.is_a?(ProcedureDeclaration) && proc.body
           next if proc.name =~ /^\$/ # includes $static_init, $malloc, $free, ...
           next if proc.name =~ /__SMACK/
-          next if proc.attributes.include? :atomic
+          next if proc.has_attribute? :atomic
           proc.each do |stmt|
             next unless stmt.is_a?(AssignStatement)
             next unless stmt.any? do |g|

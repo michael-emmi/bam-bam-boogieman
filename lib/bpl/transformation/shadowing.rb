@@ -6,8 +6,9 @@ module Bpl
         "Create a shadow program."
       end
 
+      depends :ct_annotation
       depends :normalization
-      depends :resolution, :ct_annotation, :loop_identification
+      depends :resolution, :loop_identification
       depends :definition_localization, :liveness
 
       def shadow(x) "#{x}.shadow" end
@@ -40,18 +41,15 @@ module Bpl
         end
       end
 
-      def dependent_variables(proc, var)
-        fail "Expected storage identifier!" unless var.is_a?(StorageIdentifier)
-        deps = Set.new.add(var.name)
-        work_list = proc.body.definitions[var.name].to_a
+      def dependent_variables(proc, expr)
+        work_list = [expr]
+        deps = Set.new
         covered = Set.new(work_list)
         until work_list.empty?
           stmt = work_list.shift
           stmt.each do |id|
             next unless id.is_a?(StorageIdentifier)
-            next unless
-              id.declaration.parent.is_a?(Body) ||
-              id.declaration.parent.is_a?(ProcedureDeclaration)
+            next if id.declaration && id.declaration.parent.is_a?(Program)
             defs = proc.body.definitions[id.name]
             next unless defs
             deps.add(id.name)
@@ -124,7 +122,7 @@ module Bpl
       def annotated_specifications(proc_decl)
         hash = ANNOTATIONS.map{|ax| [ax,[]]}.to_h
         proc_decl.specifications.each do |s|
-          hash.keys.each {|ax| hash[ax] << s.attributes[ax] if s.attributes[ax]}
+          hash.keys.each {|ax| hash[ax] << s.get_attribute(ax) if s.has_attribute?(ax)}
         end
         hash
       end
@@ -219,7 +217,10 @@ module Bpl
               end
 
               if annotation = stmt.previous_sibling
-                if expr = annotation.attributes[:branchcond].first
+                fail "Expected :branchcond annotation" unless
+                  annotation.has_attribute?(:branchcond)
+
+                if expr = annotation.get_attribute(:branchcond).first
                   stmt.insert_before(shadow_assert(shadow_eq(expr)))
                   equalities.add(expr)
                 end
@@ -255,7 +256,7 @@ module Bpl
 
           end
 
-          if decl.attributes[:entrypoint]
+          if decl.has_attribute? :entrypoint
             decl.body.blocks.first.statements.first.insert_before(
               bpl("$shadow_ok := true;"))
             decl.body.select{|r| r.is_a?(ReturnStatement)}.
@@ -263,7 +264,7 @@ module Bpl
           end
 
           invariant_variables = equalities.
-            reduce(Set.new){|acc,id| acc | dependent_variables(decl, id)}
+            reduce(Set.new){|acc, expr| acc | dependent_variables(decl, expr)}
 
           decl.body.loops.each do |head,body|
             invariant_variables.each do |expr|

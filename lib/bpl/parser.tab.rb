@@ -1522,19 +1522,19 @@ module_eval(<<'.,.,', 'parser.racc', 121)
 
 module_eval(<<'.,.,', 'parser.racc', 123)
   def _reduce_75(val, _values)
-     {val[1].to_sym => val[2]} 
+     Attribute.new key: val[1].to_sym, values: val[2] 
   end
 .,.,
 
 module_eval(<<'.,.,', 'parser.racc', 124)
   def _reduce_76(val, _values)
-     {} 
+     [] 
   end
 .,.,
 
 module_eval(<<'.,.,', 'parser.racc', 124)
   def _reduce_77(val, _values)
-     val[0].merge(val[1]) 
+     [val[0]] + val[1] 
   end
 .,.,
 

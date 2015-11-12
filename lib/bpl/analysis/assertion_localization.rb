@@ -14,9 +14,9 @@ module Bpl
         end
         until work_list.empty?
           decl = work_list.shift
-          decl.attributes[:has_assertion] = []
+          decl.add_attribute :has_assertion
           decl.callers.each do |caller|
-            work_list |= [caller] unless caller.attributes[:has_assertion]
+            work_list |= [caller] unless caller.has_attribute?(:has_assertion)
           end
         end
       end

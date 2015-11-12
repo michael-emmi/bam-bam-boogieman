@@ -67,8 +67,8 @@ module Bpl
 
     class ProcedureDeclaration
       def abstract
-        unless attributes[:entrypoint] ||
-               attributes[:has_assertion] ||
+        unless has_attribute?(:entrypoint) ||
+               has_attribute?(:has_assertion) ||
                body.nil?
           yield({
             description: "removing procedure body",
@@ -201,7 +201,7 @@ module Bpl
     class CallStatement
       def abstract
         if procedure.declaration
-          if procedure.declaration.attributes[:has_assertion].nil?
+          unless procedure.declaration.has_attribute?(:has_assertion)
             ids = procedure.declaration.modifies
             assignments.each do |expr|
               loop do

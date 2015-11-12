@@ -121,8 +121,8 @@ rule
 
   quantifier: 'forall' {'forall'} | 'exists' {'exists'}
 
-  attr: '{:' name enss_opt '}' { {val[1].to_sym => val[2]} }
-  attrs: { {} } | attr attrs { val[0].merge(val[1]) }
+  attr: '{:' name enss_opt '}' { Attribute.new key: val[1].to_sym, values: val[2] }
+  attrs: { [] } | attr attrs { [val[0]] + val[1] }
   trigger: '{' exprs '}' { val[1] }
   ant: attr | trigger
   ants: { [] } | ant ants { [val[0]] + val[1] }

@@ -1,5 +1,5 @@
 module Bpl
-  module Analysis
+  module Transformation
     class CtAnnotation < Bpl::Pass
       def self.description
         "Add constant-time annotations."
@@ -23,15 +23,14 @@ module Bpl
           decl.body.each do |stmt|
             next unless stmt.is_a?(CallStatement)
 
-
             if stmt.procedure.name =~ /__SMACK_value/
-              _, id = stmt.attributes.find{|key,_| key =~ /name/}
-              kind, access = stmt.attributes.find{|key,_| key =~ /array|field/}
+              name = stmt.attributes.find{|a| a.key =~ /name/}
+              kind = stmt.attributes.find{|a| a.key =~ /array|field/}
 
               values[stmt.assignments.first.name] = {
-                id: id.first,
-                kind: kind,
-                access: access
+                id: name.values.first,
+                kind: kind && kind.key,
+                access: kind && kind.access
               }
 
             elsif stmt.procedure.name =~ /#{ANNOTATIONS * "|"}/

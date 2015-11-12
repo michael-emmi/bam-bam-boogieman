@@ -9,19 +9,19 @@ module Bpl
         work_list = []
         program.declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration)
-          proc.attributes[:atomic] = []
-          if proc.body && proc.body.any? {|x| x.attributes.include? :yield}
+          proc.add_attribute :atomic
+          if proc.body && proc.body.any? {|x| x.has_attribute? :yield}
             work_list << proc
           end
         end
 
         until work_list.empty?
           proc = work_list.shift
-          proc.attributes.delete :atomic
+          proc.remove_attribute :atomic
           targets = proc.callers
           targets << proc.declaration if proc.respond_to?(:declaration) && proc.declaration
           targets.each do |caller|
-            next unless caller.attributes.include?(:atomic)
+            next unless caller.has_attribute?(:atomic)
             work_list |= [caller]
           end
         end

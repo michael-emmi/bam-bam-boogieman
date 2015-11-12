@@ -32,7 +32,7 @@ module Bpl
       attr_reader :token
 
       def initialize(opts = {})
-        @attributes = {}
+        @attributes = []
         @parent = nil
         @token = nil
         opts.each do |k,v|
@@ -59,11 +59,25 @@ module Bpl
         @parent = nil
       end
 
+      def has_attribute?(key)
+        @attributes.any? {|a| a.key == key}
+      end
+
+      def get_attribute(key)
+        a = @attributes.first {|_a| _a.key == key}
+        a.values if a
+      end
+
+      def add_attribute(key, values = [])
+        append_children(:attributes, Attribute.new(key: key, values: values))
+      end
+
+      def remove_attribute(key)
+        @attributes.each {|a| a.remove if a.key == key}
+      end
+
       def show_attrs
-        @attributes.map do |k,vs|
-          vals = vs.map{|e| case e when String; "\"#{e}\"" else yield e end} * ", "
-          "{:#{k}#{vals.empty? ? "" : " #{vals}"}}"
-        end * " "
+        @attributes.map {|a| yield a} * " "
       end
 
       REFERENCES = [:@parent, :@declaration]
@@ -233,6 +247,14 @@ module Bpl
         self
       end
 
+    end
+
+    class Attribute < Node
+      children :key, :values
+      def show(&blk)
+        vs = @values.map{|e| case e when String; "\"#{e}\"" else yield e end}
+        "{:#{@key}#{vs.empty? ? "" : " #{vs * ", "}"}}"
+      end
     end
 
   end

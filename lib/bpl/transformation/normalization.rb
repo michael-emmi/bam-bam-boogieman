@@ -26,6 +26,7 @@ module Bpl
         # uniq_starts_and_ends! program
       end
 
+      # TODO OBSOLETE CODE
       def self.sanity_check program
         program.each do |elem|
           case elem
@@ -42,6 +43,7 @@ module Bpl
         end
       end
 
+      # TODO OBSOLETE CODE
       def self.uniq_starts_and_ends! program
         program << bpl("var $e: bool;")
         program.declarations.each do |proc|

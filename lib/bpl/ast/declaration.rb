@@ -98,7 +98,7 @@ module Bpl
       children :specifications, :body
 
       def is_entrypoint?
-        attributes[:entrypoint]
+        has_attribute? :entrypoint
       end
 
       def modifies

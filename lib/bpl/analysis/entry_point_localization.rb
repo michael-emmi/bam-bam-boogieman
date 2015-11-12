@@ -3,7 +3,7 @@ module Bpl
   module AST
     class Declaration
       def entrypoint?
-        is_a?(ProcedureDeclaration) && attributes.has_key?(:entrypoint)
+        is_a?(ProcedureDeclaration) && has_attribute?(:entrypoint)
       end
     end
   end
@@ -26,7 +26,7 @@ module Bpl
           eps = program.declarations.select do |d|
             d.is_a?(ProcedureDeclaration) && default_entrypoint?(d.name)
           end
-          eps.each{|d| d.attributes[:entrypoint] = []}
+          eps.each{|d| d.add_attribute :entrypoint}
           info "using entry point#{'s' if eps.count > 1}: #{eps.map(&:name) * ", "}" \
             unless eps.empty?
         end
