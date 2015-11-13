@@ -30,7 +30,7 @@ module Bpl
               values[stmt.assignments.first.name] = {
                 id: name.values.first,
                 kind: kind && kind.key,
-                access: kind && kind.access
+                access: kind && kind.values
               }
 
             elsif stmt.procedure.name =~ /#{ANNOTATIONS * "|"}/
