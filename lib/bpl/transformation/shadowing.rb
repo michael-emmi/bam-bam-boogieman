@@ -197,8 +197,12 @@ module Bpl
                   stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
                 end
               else
-                (stmt.arguments + stmt.assignments).each do |arg|
-                  arg.insert_after(shadow_copy(arg))
+                stmt.arguments.each do |x|
+                  equalities.add(x)
+                  x.insert_after(shadow_copy(x))
+                end
+                stmt.assignments.each do |x|
+                  x.insert_after(shadow_copy(x))
                 end
               end
 
