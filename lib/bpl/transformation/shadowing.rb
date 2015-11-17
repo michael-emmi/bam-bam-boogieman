@@ -152,6 +152,7 @@ module Bpl
           decl.body.locals.each {|d| d.insert_after(decl(d))}
 
           equalities = Set.new
+          arguments = Set.new
 
           decl.body.each do |stmt|
             case stmt
@@ -198,7 +199,7 @@ module Bpl
                 end
               else
                 stmt.arguments.each do |x|
-                  equalities.add(x)
+                  arguments.add(x)
                   x.insert_after(shadow_copy(x))
                 end
                 stmt.assignments.each do |x|
@@ -267,11 +268,41 @@ module Bpl
               each{|r| r.insert_before(bpl("assert $shadow_ok;"))}
           end
 
-          invariant_variables = equalities.
+          equality_dependencies =
+            equalities.
             reduce(Set.new){|acc, expr| acc | dependent_variables(decl, expr)}
 
+          pointer_argument_dependencies =
+            arguments.select{|x|
+              x.is_a?(StorageIdentifier) &&
+              x.declaration &&
+              x.declaration.type.is_a?(CustomType) &&
+              x.declaration.type.name == "ref"}.
+            reduce(Set.new){|acc, expr| acc | dependent_variables(decl, expr)} -
+            equality_dependencies
+
+          value_argument_dependencies =
+            arguments.select{|x|
+              x.is_a?(StorageIdentifier) &&
+              x.declaration &&
+              x.declaration.type.is_a?(CustomType) &&
+              x.declaration.type.name != "ref"}.
+            reduce(Set.new){|acc, expr| acc | dependent_variables(decl, expr)} -
+            equality_dependencies -
+            pointer_argument_dependencies
+
           decl.body.loops.each do |head,body|
-            invariant_variables.each do |expr|
+            value_argument_dependencies.each do |expr|
+              next unless decl.body.live[head].include?(expr)
+              head.prepend_children(:statements,
+                bpl("assert {:unlikely_shadow_invariant #{expr} == #{shadow expr}} true;"))
+            end
+            pointer_argument_dependencies.each do |expr|
+              next unless decl.body.live[head].include?(expr)
+              head.prepend_children(:statements,
+                bpl("assert {:likely_shadow_invariant} #{expr} == #{shadow expr};"))
+            end
+            equality_dependencies.each do |expr|
               next unless decl.body.live[head].include?(expr)
               head.prepend_children(:statements,
                 bpl("assert {:shadow_invariant} #{expr} == #{shadow expr};"))
