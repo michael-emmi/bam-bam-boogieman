@@ -4,7 +4,7 @@ end
 
 class BoogieLanguage
 macro
-  BLANK     \s+
+  BLANK     \s
   MLC_OPEN    \/\*
   MLC_CLOSE   \*\/
   SLC         \/\/

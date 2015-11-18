@@ -1,6 +1,7 @@
 module Bpl
   module AST
     class Token
+      attr_reader :line
       def initialize(line_number)
         @line = line_number
       end
