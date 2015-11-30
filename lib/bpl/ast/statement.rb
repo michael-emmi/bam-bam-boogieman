@@ -130,8 +130,8 @@ module Bpl
       end
 
       def show
-        (names.empty? ? "" : "#{name}:\n") +
-        (names.drop(1) + statements).map{|s| yield s} * "\n"
+        ( names.reject(&:empty?).map{|n| "#{n}:"} +
+          statements.map{|s| yield s}) * "\n"
       end
     end
 

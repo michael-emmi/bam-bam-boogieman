@@ -5,6 +5,8 @@ module Bpl
         "Sort declarations."
       end
 
+      option :sort, "what to sort? {globals, locals, all}"
+
       def type_order(d,e)
         return 0 if d.class == e.class
         res = [ TypeDeclaration,
@@ -30,14 +32,24 @@ module Bpl
       end
 
       def run! program
-        program.declarations.each do |d|
-          next unless d.is_a?(ProcedureDeclaration)
-          next unless d.body
-          d.body.replace_children(:locals,
-            d.body.locals.sort {|d1,d2| order(d1,d2)})
+        @sort ||= "all"
+
+        if @sort.match(/locals|all/)
+          info "SORTING LOCAL DECLARATIONS"
+          info
+          program.declarations.each do |d|
+            next unless d.is_a?(ProcedureDeclaration)
+            next unless d.body
+            d.body.replace_children(:locals,
+              *d.body.locals.sort {|d1,d2| order(d1,d2)})
+          end
         end
-        program.replace_children(:declarations,
-          program.declarations.sort {|d,e| order(d,e)})
+        if @sort.match(/globals|all/)
+          info "SORTING GLOBAL DECLARATIONS"
+          info
+          program.replace_children(:declarations,
+            *program.declarations.sort {|d,e| order(d,e)})
+        end
       end
     end
   end
