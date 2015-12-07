@@ -2,7 +2,6 @@ module Bpl
   module Transformation
     class Selection < Bpl::Pass
 
-      depends :resolution
       option :pattern
 
       flag "--selection PATTERN", "Select decls matching PATTERN." do |p|
@@ -11,7 +10,18 @@ module Bpl
 
       def run! program
         program.declarations.each do |d|
-          d.remove unless d.respond_to?(:name) && /#{pattern}/.match(d.name)
+          names = d.names
+          if names.empty?
+            names = d.map {|id| id.name if id.is_a?(Identifier)}.compact
+          end
+          if names.any? {|n| n.match(/#{pattern}/)}
+            if d.instance_variable_defined? "@names"
+              d.instance_variable_set "@names",
+                d.names.select{|n| n.match(/#{pattern}/)}
+            end
+          else
+            d.remove
+          end
         end
         true
       end

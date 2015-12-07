@@ -1,0 +1,9 @@
+const some_const: int;
+
+axiom (some_const == 0);
+
+function some_func() returns (int);
+
+var some_var: int;
+
+procedure some_proc();
