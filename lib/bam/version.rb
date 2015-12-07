@@ -1,3 +1,3 @@
 module BAM
-  VERSION = "1.0-77-g142d750"
+  VERSION = "1.0-78-g747a34f"
 end

@@ -3,6 +3,7 @@
 require 'optparse'
 require 'colorize'
 require 'tempfile'
+require 'open3'
 
 def get_arguments
   args = {}
@@ -44,13 +45,10 @@ begin
       actual_result = File.join(temp, File.basename(expected_result))
       next unless File.exist?(expected_result)
 
-      cmd = "bam #{source} -o #{actual_result}"
-      cmd += " " + File.read(command_flags) if File.exist?(command_flags)
-
-      puts "#{cmd}" if args[:verbose]
+      flags = File.read(command_flags).split if File.exist?(command_flags)
 
       print "#{source} "
-      `#{cmd}`
+      Open3.popen3('bam', source, '-o', actual_result, *flags)[3].value
       diff = `diff -w -B #{expected_result} #{actual_result}`
       if diff.empty?
         puts "OK".green
