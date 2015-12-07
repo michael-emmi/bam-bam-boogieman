@@ -2,7 +2,7 @@ module Bpl
   module Transformation
     class Pruning < Bpl::Pass
 
-      depends :resolution, :entry_point_localization
+      depends :resolution, :entrypoint_localization
       flag "--pruning", "Remove unreachable declarations."
 
       # TODO remove variables that are never read
@@ -12,7 +12,7 @@ module Bpl
         reachable = {}
         work_list = []
         program.declarations.each do |decl|
-          next unless decl.has_attribute? :entrypoint
+          next unless entrypoint_localization.entrypoints.include?(decl)
           reachable[decl] = Set.new(decl.names)
           work_list << decl
         end
