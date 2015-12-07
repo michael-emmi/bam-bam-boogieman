@@ -3,6 +3,7 @@ module Bpl
   module Transformation
     class Normalization < Bpl::Pass
 
+      depends :resolution
       flag "--normalization", "Normalize program ..."
 
       def run! program
@@ -15,9 +16,33 @@ module Bpl
           case elem
           when AssignStatement
             if elem.lhs.count > 1
-              elem.replace_with(*elem.lhs.count.times.map do |i|
-                bpl("#{elem.lhs[i]} := #{elem.rhs[i]};")
-              end)
+              info "NORMALIZING MULTI-ASSIGNMENT"
+              info
+              info elem.to_s.indent
+              info
+              writes = elem.lhs.map(&:ident).map(&:name)
+              unless elem.rhs.any? do |e|
+                e.any? do |x|
+                  x.is_a?(StorageIdentifier) && writes.include?(x.name)
+                end
+              end then
+                # the simple case, no conflicts
+                elem.replace_with(
+                  *elem.lhs.count.times.map do |i|
+                    bpl("#{elem.lhs[i]} := #{elem.rhs[i]};")
+                  end
+                )
+              else
+                # the complicated case, read all before writing any
+                p = elem.each_ancestor.find{|d| d.is_a?(ProcedureDeclaration)}
+                vars = elem.lhs.count.times.map do |i|
+                  p.fresh_var(elem.lhs[i].type)
+                end
+                elem.replace_with(
+                  *vars.map.with_index {|x,i| bpl("#{x} := #{elem.rhs[i]};")},
+                  *vars.map.with_index {|x,i| bpl("#{elem.lhs[i]} := #{x};")}
+                )
+              end
               changed = true
             end
           end

@@ -1,0 +1,20 @@
+
+function f(int) returns (int);
+
+procedure p()
+{
+  var x, y, z: int;
+  var _0: int;
+  var _1: int;
+  var _2: int;
+  x := 0;
+  y := 1;
+  z := 2;
+  _0 := f(z);
+  _1 := f(x);
+  _2 := f(y);
+  x := _0;
+  y := _1;
+  z := _2;
+  return;
+}
