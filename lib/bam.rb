@@ -61,14 +61,8 @@ def command_line_options
     opts.separator ""
     opts.separator "Basic options:"
 
-    opts.on("-h", "--help [PASS]", "Show this message") do |v|
-      if v.nil?
-        puts opts
-      elsif klass = @passes[v.unhyphenate.to_sym]
-        puts klass.help
-      else
-        puts "Unknown pass: #{v}"
-      end
+    opts.on("-h", "--help", "Show this message") do |v|
+      puts opts
       exit
     end
 
@@ -114,8 +108,6 @@ def command_line_options
       end
     end
 
-    opts.separator ""
-    opts.separator "See --help PASS for more information about each pass."
     opts.separator ""
   end
 end

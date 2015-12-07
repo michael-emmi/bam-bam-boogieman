@@ -45,33 +45,6 @@ module Bpl
       end
     end
 
-    def self.description
-      fail "#{self.class} must implement :description class method."
-    end
-
-    CUTOFF = 40
-
-    def self.brief
-      d = self.description.lines.first.strip
-      d.length > CUTOFF ? d.slice(0,CUTOFF-3) + "..." : d
-    end
-
-    def self.help
-      name = self.name.split('::').last.unclassify
-      <<-eos
-
-#{name.nounify}
-
-#{description.indent}
-
-Usage:
-  --#{name.gsub('_','-')} #{options.empty? ? "" : "#{options.first.first}:_,..."}
-
-#{options.empty? ? "This pass has no options." : "Options:"}
-  #{options.map do |k,v| "\n  #{k}: #{v}\n" end * ""}
-      eos
-    end
-
     def initialize(opts = {})
       opts.merge(self.class.options).each do |k,v|
         instance_variable_set("@#{k}",v) if respond_to?(k)
