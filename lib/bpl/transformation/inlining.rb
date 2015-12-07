@@ -1,9 +1,8 @@
 module Bpl
   module Transformation
     class Inlining < Bpl::Pass
-      def self.description
-        "Inline procedures."
-      end
+
+      flag "--inlining", "Inline procedures."
 
       def run! program
         $temp << source = "bam.#{Time.now.to_f}.bpl"

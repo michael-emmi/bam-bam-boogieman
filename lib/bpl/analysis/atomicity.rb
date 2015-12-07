@@ -1,9 +1,8 @@
 module Bpl
   module Analysis
     class Atomicity < Bpl::Pass
-      def self.description
-        "Mark atomic procedures."
-      end
+
+      flag "--atomicity", "Mark atomic procedures."
 
       def run! program
         work_list = []

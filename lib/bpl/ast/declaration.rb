@@ -92,7 +92,6 @@ module Bpl
     class ProcedureDeclaration < Declaration
       include Scope
       def declarations; parameters + returns end
-      def callers; @callers ||= Set.new end
 
       children :name, :type_arguments, :parameters, :returns
       children :specifications, :body

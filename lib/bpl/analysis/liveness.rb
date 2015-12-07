@@ -1,21 +1,20 @@
 module Bpl
   module Analysis
     class Liveness < Bpl::Pass
-      def self.description
-        "Determine the live variables at each block."
-      end
 
-      depends :cfg_construction, :resolution, :modifies_correction
-
+      depends :cfg_construction, :resolution, :modification
+      flag "--liveness", "Compute live variables."
+      result :live, {}
 
       def defined(stmt)
         Set.new(
           if stmt.is_a?(AssignStatement)
-            stmt.lhs.map(&:ident)
+            stmt.lhs.map(&:ident).map(&:name)
           elsif stmt.is_a?(HavocStatement)
-            stmt.identifiers
+            stmt.identifiers.map(&:name)
           elsif stmt.is_a?(CallStatement)
-            stmt.assignments.map(&:ident) | stmt.procedure.declaration.modifies
+            stmt.assignments.map(&:ident).map(&:name) |
+              modification.modifies[stmt.procedure.declaration].to_a
           else
             []
           end
@@ -30,15 +29,16 @@ module Bpl
 
           # NOTE do not include identifier *instances* which are definitions
           next if defs.include?(id)
-          vars |= [id]
+          vars |= [id.name]
         end
         vars
       end
 
       def run! program
+        cfg = cfg_construction
+        live.clear
         program.declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration) && proc.body
-          proc.body.live.clear
           used = {}
           defined = {}
           work_list = []
@@ -46,19 +46,19 @@ module Bpl
             used[blk] = Set.new
             defined[blk] = Set.new
             blk.statements.each do |stmt|
-              used[blk].merge(Set.new(self.used(stmt).map(&:name)) - defined[blk])
-              defined[blk].merge(self.defined(stmt).map(&:name))
+              used[blk].merge(Set.new(self.used(stmt)) - defined[blk])
+              defined[blk].merge(self.defined(stmt))
             end
-            proc.body.live[blk] = used[blk]
+            live[blk] = used[blk]
             work_list << blk
           end
           until work_list.empty?
             blk = work_list.shift
-            updates = blk.successors.
-              inject(Set.new){|acc,succ| acc | proc.body.live[succ]} - defined[blk]
-            unless updates.subset?(proc.body.live[blk])
-              proc.body.live[blk].merge(updates)
-              blk.predecessors.each do |pred|
+            updates = cfg.successors[blk].
+              inject(Set.new){|acc,succ| acc | live[succ]} - defined[blk]
+            unless updates.subset?(live[blk])
+              live[blk].merge(updates)
+              cfg.predecessors[blk].each do |pred|
                 work_list |= [pred]
               end
             end

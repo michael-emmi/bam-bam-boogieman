@@ -1,11 +1,11 @@
 module Bpl
   module Transformation
     class Preemption < Bpl::Pass
-      def self.description
-        "Add preemptions."
-      end
+
+      flag "--preemption", "Add preemptions."
 
       def run! program
+        changed = false
         program.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration) && proc.body
           next if proc.name =~ /^\$/ # includes $static_init, $malloc, $free, ...
@@ -17,8 +17,10 @@ module Bpl
               g.is_a?(StorageIdentifier) && g.is_global? && g.is_variable?
             end
             stmt.insert_before bpl("assume {:yield} true;")
+            changed = true
           end
         end
+        changed
       end
     end
   end

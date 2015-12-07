@@ -79,14 +79,14 @@ module Bpl
           #     })
           #   end
 
-          if bb.successors.count == 2 &&
+          if cfg.successors[bb].count == 2 &&
              bb.statements.last.is_a?(GotoStatement) &&
              bb.statements.last.identifiers.count == 2
           then
-            b1, b2 = bb.successors.to_a
+            b1, b2 = cfg.successors[bb].to_a
             if b1 != b2 &&
-               b1.successors.count == 1 &&
-               b1.successors == b2.successors &&
+               cfg.successors[b1].count == 1 &&
+               cfg.successors[b1] == cfg.successors[b2] &&
                b1.statements.count == 1 &&
                b1.statements.last.is_a?(GotoStatement) &&
                b2.statements.count == 1 &&
@@ -112,13 +112,13 @@ module Bpl
         if statements.count == 1 &&
            statements.first.is_a?(GotoStatement) &&
            statements.first.identifiers.count == 1 &&
-           predecessors.count == 1 &&
-           predecessors.first.statements.last.is_a?(GotoStatement) &&
-           predecessors.first.statements.last.identifiers.count == 1
+           cfg.predecessors[self].count == 1 &&
+           cfg.predecessors[self].first.statements.last.is_a?(GotoStatement) &&
+           cfg.predecessors[self].first.statements.last.identifiers.count == 1
           yield({
             description: "removing trivial block",
             action: Proc.new do
-              predecessors.first.statements.last.replace_with(statements.last)
+              cfg.predecessors[self].first.statements.last.replace_with(statements.last)
               remove
             end
           })
@@ -174,15 +174,9 @@ module Bpl
   module Transformation
     class Simplification < Bpl::Pass
 
-      def self.description
-        <<-eos
-          Various code simplifications.
-          * remove trivial assume (true) statements
-        eos
-      end
-
       depends :modifies_correction
       depends :resolution, :cfg_construction, :assertion_localization
+      flag "--simplification", "Various code simplifications."
 
       def run! program
         updated = false
@@ -195,7 +189,7 @@ module Bpl
             updated = true
           end
         end
-        :simplification if updated
+        return updated, updated ? [:simplification] : []
       end
 
     end

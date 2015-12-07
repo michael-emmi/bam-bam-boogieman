@@ -1,9 +1,8 @@
 module Bpl
   module Analysis
     class Resolution < Bpl::Pass
-      def self.description
-        "Resolve program identifiers and types."
-      end
+
+      flag "--resolution", "Resolve types and identifiers."
 
       def run! program
 

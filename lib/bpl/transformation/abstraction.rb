@@ -26,7 +26,9 @@ module Bpl
           elems: [self] + stmts.to_a,
           action: Proc.new do
             stmts.each do |stmt|
-              stmt.abstractions.first[:action].call
+              abss = stmt.abstractions
+              fail "No abstraction for statement #{stmt}" if abss.count == 0
+              abss.first[:action].call
             end
           end
         })
@@ -68,7 +70,7 @@ module Bpl
     class ProcedureDeclaration
       def abstract
         unless has_attribute?(:entrypoint) ||
-               has_attribute?(:has_assertion) ||
+               assertion_localization.has_assert[self] ||
                body.nil?
           yield({
             description: "removing procedure body",
@@ -201,7 +203,7 @@ module Bpl
     class CallStatement
       def abstract
         if procedure.declaration
-          unless procedure.declaration.has_attribute?(:has_assertion)
+          unless assertion_localization.has_assert[procedure.declaration]
             ids = procedure.declaration.modifies
             assignments.each do |expr|
               loop do
@@ -242,12 +244,12 @@ module Bpl
 
   module Transformation
     class Abstraction < Bpl::Pass
-      def self.description
-        "Abstract the program, one element at a time."
-      end
 
-      option :index, "The index of abstractable program elements to abstract."
-      option :count, "Just return the number of abstractable program elements."
+      option :index
+
+      flag "--abstraction [INDEX|count]", "Abstract element INDEX." do |n|
+        option :index, n
+      end
 
       depends :call_graph_construction, :modifies_correction
       depends :assertion_localization
@@ -266,7 +268,7 @@ module Bpl
       def run! program
 
         # Just return the number of abstractable elements (?)
-        if count
+        if index =~ /count/
           n = each_abstraction(program).count
           program.each_child(&:remove)
           program.append_children(:declarations, bpl("assume {:count #{n}} true;"))
@@ -287,6 +289,8 @@ module Bpl
             break
           end
         end
+
+        true
       end
     end
   end

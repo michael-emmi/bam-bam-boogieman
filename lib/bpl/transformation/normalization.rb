@@ -2,13 +2,14 @@ module Bpl
 
   module Transformation
     class Normalization < Bpl::Pass
-      def self.description
-        "Normalize..."
-      end
+
+      flag "--normalization", "Normalize program ..."
 
       def run! program
 
         # TODO specify what normalization should be doing
+
+        changed = false
 
         program.each do |elem|
           case elem
@@ -17,6 +18,7 @@ module Bpl
               elem.replace_with(*elem.lhs.count.times.map do |i|
                 bpl("#{elem.lhs[i]} := #{elem.rhs[i]};")
               end)
+              changed = true
             end
           end
         end
@@ -24,6 +26,7 @@ module Bpl
         # TODO what to do with this stuff?
         # sanity_check program
         # uniq_starts_and_ends! program
+        changed
       end
 
       # TODO OBSOLETE CODE

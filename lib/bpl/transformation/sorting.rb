@@ -1,11 +1,14 @@
 module Bpl
   module Transformation
     class Sorting < Bpl::Pass
-      def self.description
-        "Sort declarations."
-      end
 
-      option :sort, "what to sort? {globals, locals, all}"
+      KINDS = [:globals, :locals, :all]
+
+      option :kind
+
+      flag "--sorting [KIND]", KINDS, "either #{KINDS * ", "}" do |kind|
+        option :kind, kind || :all
+      end
 
       def type_order(d,e)
         return 0 if d.class == e.class
@@ -32,9 +35,8 @@ module Bpl
       end
 
       def run! program
-        @sort ||= "all"
 
-        if @sort.match(/locals|all/)
+        if kind.match(/locals|all/)
           info "SORTING LOCAL DECLARATIONS"
           info
           program.declarations.each do |d|
@@ -44,12 +46,14 @@ module Bpl
               *d.body.locals.sort {|d1,d2| order(d1,d2)})
           end
         end
-        if @sort.match(/globals|all/)
+        if kind.match(/globals|all/)
           info "SORTING GLOBAL DECLARATIONS"
           info
           program.replace_children(:declarations,
             *program.declarations.sort {|d,e| order(d,e)})
         end
+
+        true
       end
     end
   end

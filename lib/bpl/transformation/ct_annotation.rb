@@ -1,11 +1,9 @@
 module Bpl
   module Transformation
     class CtAnnotation < Bpl::Pass
-      def self.description
-        "Add constant-time annotations."
-      end
 
       depends :resolution
+      flag "--ct-annotation", "Extract constant-time annotations."
 
       ANNOTATIONS = [
         :public_in,
@@ -44,8 +42,9 @@ module Bpl
             end
 
           end
-
         end
+
+        true
       end
 
     end

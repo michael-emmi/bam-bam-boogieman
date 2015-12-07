@@ -1,11 +1,9 @@
 module Bpl
   module Transformation
     class Pruning < Bpl::Pass
-      def self.description
-        "Delete unreachable declarations."
-      end
 
       depends :resolution, :entry_point_localization
+      flag "--pruning", "Remove unreachable declarations."
 
       # TODO remove variables that are never read
       # TODO remove reads that are never used
@@ -39,6 +37,7 @@ module Bpl
         end
 
         program.each{|elem| elem.remove_attribute :reachable}
+        true
       end
 
       def silly_expression?(expr)

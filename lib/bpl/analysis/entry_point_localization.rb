@@ -10,9 +10,8 @@ module Bpl
 
   module Analysis
     class EntryPointLocalization < Bpl::Pass
-      def self.description
-        "Locate & annotate program entry points."
-      end
+
+      flag "--entry-point-localization", "Locate & annotate entry points."
 
       def default_entrypoint? name
         name =~ /\bmain\b/i

@@ -1,9 +1,8 @@
 module Bpl
   module Analysis
     class TypeChecking < Bpl::Pass
-      def self.description
-        "Ensure correct typing."
-      end
+
+      flag "--type-checking", "Ensure correct typing."
 
       def run! program
         program.each {|elem| elem.type_check if elem.respond_to?(:type_check)}

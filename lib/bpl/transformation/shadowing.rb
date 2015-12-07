@@ -2,14 +2,11 @@ module Bpl
   module Transformation
     class Shadowing < Bpl::Pass
 
-      def self.description
-        "Create a shadow program."
-      end
-
-      depends :ct_annotation
       depends :normalization
+      depends :ct_annotation
       depends :resolution, :loop_identification
       depends :definition_localization, :liveness
+      flag "--shadowing", "Construct the shadow product program."
 
       def shadow(x) "#{x}.shadow" end
       def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
@@ -50,7 +47,7 @@ module Bpl
           stmt.each do |id|
             next unless id.is_a?(StorageIdentifier)
             next if id.declaration && id.declaration.parent.is_a?(Program)
-            defs = proc.body.definitions[id.name]
+            defs = definition_localization.definitions[id.name]
             next unless defs
             deps.add(id.name)
             defs.each do |s|
@@ -135,7 +132,7 @@ module Bpl
 
         # duplicate global variables
         program.global_variables.each {|v| v.insert_after(decl(v))}
-        program.global_variables.last.insert_after(bpl("var $shadow_ok: bool;"))
+        program.prepend_children(:declarations, bpl("var $shadow_ok: bool;"))
 
         # duplicate parameters, returns, and local variables
         program.each_child do |decl|
@@ -291,26 +288,29 @@ module Bpl
             equality_dependencies -
             pointer_argument_dependencies
 
-          decl.body.loops.each do |head,body|
-            value_argument_dependencies.each do |expr|
-              next unless decl.body.live[head].include?(expr)
+          loop_identification.loops.each do |head,body|
+            next unless head.parent == decl.body
+            value_argument_dependencies.each do |x|
+              next unless liveness.live[head].include?(x)
               head.prepend_children(:statements,
-                bpl("assert {:unlikely_shadow_invariant #{expr} == #{shadow expr}} true;"))
+                bpl("assert {:unlikely_shadow_invariant #{x} == #{shadow x}} true;"))
             end
-            pointer_argument_dependencies.each do |expr|
-              next unless decl.body.live[head].include?(expr)
+            pointer_argument_dependencies.each do |x|
+              next unless liveness.live[head].include?(x)
               head.prepend_children(:statements,
-                bpl("assert {:likely_shadow_invariant} #{expr} == #{shadow expr};"))
+                bpl("assert {:likely_shadow_invariant} #{x} == #{shadow x};"))
             end
-            equality_dependencies.each do |expr|
-              next unless decl.body.live[head].include?(expr)
+            equality_dependencies.each do |x|
+              next unless liveness.live[head].include?(x)
               head.prepend_children(:statements,
-                bpl("assert {:shadow_invariant} #{expr} == #{shadow expr};"))
+                bpl("assert {:shadow_invariant} #{x} == #{shadow x};"))
             end
             head.prepend_children(:statements,
               bpl("assert {:shadow_invariant} $shadow_ok;"))
           end
         end
+
+        true
       end
     end
   end

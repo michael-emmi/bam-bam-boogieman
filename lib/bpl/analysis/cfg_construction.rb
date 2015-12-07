@@ -3,19 +3,24 @@
 module Bpl
   module Analysis
     class CfgConstruction < Bpl::Pass
-      def self.description
-        "Construct control-flow graphs for each procedure."
-      end
 
-      option :print, "Print out the CFGs?"
       depends :resolution
+      option :print
+
+      flag "--control-graphs [PRINT]", "Construct control-flow graphs." do |p|
+        option :print, p
+      end
+      result :successors, {}
+      result :predecessors, {}
 
       def run! program
-        program.each do |blk|
-          if blk.is_a?(Block)
-            blk.successors.clear
-            blk.predecessors.clear
-          end
+        successors.clear
+        predecessors.clear
+
+        program.each do |b|
+          next unless b.is_a?(Block)
+          successors[b] = Set.new
+          predecessors[b] = Set.new
         end
 
         program.each do |elem|
@@ -23,8 +28,8 @@ module Bpl
           if block = elem.each_ancestor.find {|b| b.is_a?(Block)}
             elem.identifiers.each do |id|
               if id.declaration
-                id.declaration.predecessors << block
-                block.successors << id.declaration
+                predecessors[id.declaration] << block
+                successors[block] << id.declaration
               end
             end
           end
@@ -39,13 +44,13 @@ module Bpl
             cfg = ::GraphViz.new(decl.name, type: :digraph)
             cfg.add_nodes(decl.body.blocks.map(&:name), shape: :rect)
             decl.body.blocks.each do |b|
-              cfg.add_edges("entry", b.name) if b.predecessors.empty?
+              cfg.add_edges("entry", b.name) if predecessors[b].empty?
               if b.statements.last.is_a?(ReturnStatement) ||
-                !b.statements.last.is_a?(GotoStatement) && b.successors.empty?
+                !b.statements.last.is_a?(GotoStatement) && successors[b].empty?
               then
                 cfg.add_edges(b.name, "return")
               end
-              b.successors.each do |c|
+              successors[b].each do |c|
                 cfg.add_edges(b.name,c.name)
               end
             end

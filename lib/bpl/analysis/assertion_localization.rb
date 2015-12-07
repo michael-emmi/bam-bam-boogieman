@@ -1,22 +1,24 @@
 module Bpl
   module Analysis
     class AssertionLocalization < Bpl::Pass
-      def self.description
-        "Mark procedures which can reach assertions."
-      end
 
       depends :resolution, :call_graph_construction
+      flag "--assertion-localization", "Mark assertion-reaching procedures."
+      result :has_assert, {}
 
       def run! program
-        work_list = program.declarations.select do |decl|
-          decl.is_a?(ProcedureDeclaration) &&
-          decl.any? {|elem| elem.is_a?(AssertStatement)}
+        has_assert.clear
+        work_list = []
+        program.declarations.each do |decl|
+          next unless decl.is_a?(ProcedureDeclaration)
+          has_assert[decl] = decl.any? {|elem| elem.is_a?(AssertStatement)}
+          work_list << decl if has_assert[decl]
         end
         until work_list.empty?
           decl = work_list.shift
-          decl.add_attribute :has_assertion
-          decl.callers.each do |caller|
-            work_list |= [caller] unless caller.has_attribute?(:has_assertion)
+          has_assert[decl] = true
+          call_graph_construction.callers[decl].each do |caller|
+            work_list |= [caller] unless has_assert[caller]
           end
         end
       end

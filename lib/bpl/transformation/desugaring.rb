@@ -1,9 +1,8 @@
 module Bpl
   module Transformation
     class Desugaring < Bpl::Pass
-      def self.description
-        "Get rid of structured control flow."
-      end
+
+      flag "--desugaring", "Reduce structured control flow."
 
       def run! program
         program.each do |stmt|
@@ -51,6 +50,8 @@ module Bpl
             ## TODO finish this
           end
         end
+
+        true
       end
 
     end

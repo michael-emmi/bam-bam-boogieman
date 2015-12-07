@@ -52,6 +52,8 @@ end
 
 
 def command_line_options
+  arguments = {}
+
   OptionParser.new do |opts|
 
     opts.banner = "Usage: #{File.basename $0} [options] FILE(s)"
@@ -103,13 +105,11 @@ def command_line_options
 
       @passes.each do |name,klass|
         next unless klass.name.split("::")[0..-2].last.downcase.to_sym == kind
-        opts.on("--#{name.to_s.hyphenate}#{" [OPTS]" unless klass.options.empty?}", klass.brief) do |args|
-          args = case args
-            when String
-              (args || "").split(",").map{|s| k,v = s.split(":"); [k.to_sym,v]}.to_h
-            else {}
-            end
-          @stages << klass.new(args)
+        klass.flags.each do |f|
+          opts.on(*f[:args]) do |*args|
+            f[:blk].call(*args) if f[:blk]
+            @stages << name if f == klass.flags.first
+          end
         end
       end
     end
@@ -150,26 +150,31 @@ begin
 
   program.source_file = src
 
-  already_run = Set.new
+  analysis_cache = Hash.new
+  transformation_cache = Hash.new
+  args = Hash.new # TODO from the command line
 
-  @stages.each do |pass|
-    dependencies(pass).each do |dep|
-      name = dep.class.name.split('::').last
-      timed "#{name}" do
-        post = dep.run!(program) || []
-
-        if dep.destructive?
-          already_run.clear
-        else
-          already_run << name
-        end
-
-        post = [post] unless post.is_a?(Array)
-        post.each do |pp|
-          @stages << @passes[pp].new if @passes[pp]
-        end
-
-      end unless already_run.include?(name)
+  until @stages.empty? do
+    name = @stages.shift
+    next if analysis_cache.include?(name)
+    next if transformation_cache.include?(name)
+    klass = @passes[name]
+    deps = klass.depends - analysis_cache.keys - transformation_cache.keys
+    if deps.empty?
+      timed name do
+        pass = klass.new(
+          args.merge(analysis_cache.select{|a| klass.depends.include?(a)})
+        )
+        updated, extras = pass.run!(program)
+        @stages.unshift(*extras) if extras && extras.is_a?(Array)
+        transformation_cache[name] = pass if pass.destructive?
+        analysis_cache.clear if pass.destructive? && updated
+        analysis_cache[name] = pass
+      end
+    else
+      @stages.unshift(name)
+      @stages.unshift(*deps.reject{|d| @passes[d].destructive?})
+      @stages.unshift(*deps.select{|d| @passes[d].destructive?})
     end
   end
 
