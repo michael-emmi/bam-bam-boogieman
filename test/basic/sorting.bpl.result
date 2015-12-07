@@ -1,11 +1,11 @@
 const C: int;
 const D: int;
 
-axiom (C == 1);
-axiom (D == 2);
-
 function foo(x: int) returns (int);
 function zoo(x: int) returns (int);
+
+axiom (C == 1);
+axiom (D == 2);
 
 var u: int;
 var v, y: int;

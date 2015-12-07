@@ -14,8 +14,8 @@ module Bpl
         return 0 if d.class == e.class
         res = [ TypeDeclaration,
           ConstantDeclaration,
-          AxiomDeclaration,
           FunctionDeclaration,
+          AxiomDeclaration,
           VariableDeclaration,
           ProcedureDeclaration,
           ImplementationDeclaration,
