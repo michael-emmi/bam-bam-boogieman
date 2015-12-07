@@ -1,0 +1,25 @@
+const c: int;
+
+function g(x: int) returns (int);
+
+axiom (c == 0);
+axiom (forall x: int :: (g(x) == 0));
+
+var x: int;
+var z: int;
+
+procedure p()
+{
+  call r();
+}
+
+procedure r()
+{
+  x := 0;
+}
+
+procedure main()
+{
+  z := g(c);
+  call p();
+}
