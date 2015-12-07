@@ -1,0 +1,30 @@
+const C: int;
+const D: int;
+
+axiom (C == 1);
+axiom (D == 2);
+
+function foo(x: int) returns (int);
+function zoo(x: int) returns (int);
+
+var u: int;
+var v, y: int;
+var w, x: int;
+var z: int;
+
+procedure p()
+requires (x == 0);
+requires (y == 0);
+ensures (w == 0);
+ensures (x == 0);
+modifies u, w, x, z;
+modifies y;
+{
+  var a, c: int;
+  var b, e: int;
+  var d: int;
+
+  return;
+}
+procedure q();
+procedure r();
