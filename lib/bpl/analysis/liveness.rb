@@ -26,9 +26,7 @@ module Bpl
         defs = defined(stmt)
         stmt.each do |id|
           next unless id.is_a?(StorageIdentifier)
-
-          # NOTE do not include identifier *instances* which are definitions
-          next if defs.include?(id)
+          next if defs.include?(id.name)
           vars |= [id.name]
         end
         vars
