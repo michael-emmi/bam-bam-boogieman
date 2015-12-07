@@ -1,0 +1,25 @@
+
+procedure p()
+{
+  assume {:yield} true;
+}
+
+procedure {:atomic} q()
+{
+
+}
+
+procedure r()
+{
+  call p();
+}
+
+procedure {:atomic} s()
+{
+  call q();
+}
+
+procedure t()
+{
+  call p();
+}
