@@ -14,7 +14,7 @@ module Bpl
           end if proc.body
           mods = modification.modifies[proc]
           proc.append_children(:specifications,
-            bpl("modifies #{mods.to_a * ", "};")) unless mods.empty?
+            bpl("modifies #{mods.to_a.sort * ", "};")) unless mods.empty?
         end
 
         true

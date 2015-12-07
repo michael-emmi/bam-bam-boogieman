@@ -1,0 +1,34 @@
+var x, y, z: int;
+
+procedure p()
+modifies x;
+{
+  x := 0;
+}
+
+procedure q()
+modifies x, y, z;
+{
+  y := 0;
+  call p();
+  call s();
+}
+
+procedure r()
+modifies x, y, z;
+{
+  z := 0;
+  call q();
+}
+
+procedure s()
+modifies x, y, z;
+{
+  call r();
+}
+
+procedure t()
+modifies x, y, z;
+{
+  call r();
+}
