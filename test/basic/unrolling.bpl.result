@@ -1,0 +1,66 @@
+function f(int) returns (int);
+
+function g(int, int) returns (bool);
+
+procedure main()
+{
+  var i, j, k: int;
+  i, j, k := 0, 0, 0;
+  goto $head.1.unroll.0;
+
+$head.1.unroll.0:
+  assert g(i,j);
+  goto $body.1.unroll.0, $exit.1;
+
+$body.1.unroll.0:
+  assume (i < 10);
+  i, j := f(i), f(j);
+  goto $head.1.unroll.1;
+
+$head.1.unroll.1:
+  assert g(i,j);
+  goto $body.1.unroll.1, $exit.1;
+
+$body.1.unroll.1:
+  assume (i < 10);
+  i, j := f(i), f(j);
+  goto $head.1.unroll.2;
+
+$head.1.unroll.2:
+  assert g(i,j);
+  goto $body.1.unroll.2, $exit.1;
+
+$body.1.unroll.2:
+  assume false;
+
+$exit.1:
+  assume !(i < 10);
+  goto $head.2.unroll.0;
+
+$head.2.unroll.0:
+  goto $body.2.unroll.0, $exit.2;
+
+$body.2.unroll.0:
+  assume (k < 1);
+  k := f(k);
+  goto $head.2.unroll.1;
+
+$head.2.unroll.1:
+  goto $body.2.unroll.1, $exit.2;
+
+$body.2.unroll.1:
+  assume (k < 1);
+  k := f(k);
+  goto $head.2.unroll.2;
+
+$head.2.unroll.2:
+  goto $body.2.unroll.2, $exit.2;
+
+$body.2.unroll.2:
+  assume false;
+
+$exit.2:
+  assume !(k < 1);
+  assert false;
+
+}
