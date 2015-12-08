@@ -2,6 +2,7 @@ module Bpl
   module Analysis
     class LoopIdentification < Bpl::Pass
 
+      depends :unstructuring
       depends :cfg_construction, :domination
       flag "--loop-identification", "Compute loops."
       result :loops, {}

@@ -186,6 +186,7 @@ module Bpl
 
       def insert_children(name,where,*elems)
         fail "invalid child #{name}" unless self.class.children.include?(name)
+        elems.each {|elem| elem.remove if elem.respond_to?(:parent) && elem.parent}
 
         var = instance_variable_get("@#{name}")
 
