@@ -38,6 +38,7 @@ rule
   names: name { [val[0]] } | name ',' names { [val[0]] + val[2] }
 
   ident: IDENTIFIER { {name: val[0]} }
+  ident_opt: { nil } | ident
   idents: ident { [val[0]] } | ident ',' idents { [val[0]] + val[2] }
   idents_opt: { [] } | idents
 
@@ -153,9 +154,9 @@ rule
       WhileStatement.new condition: val[2], invariants: val[4], blocks: val[6],
       token: val[0]
     }
-    | 'break' idents_opt ';' {
-      ids = val[1].map{|id| LabelIdentifier.new id}
-      BreakStatement.new identifiers: ids, token: val[0]
+    | 'break' ident_opt ';' {
+      id = LabelIdentifier.new(val[1]) if val[1]
+      BreakStatement.new identifier: id, token: val[0]
     }
     | 'return' ';' { ReturnStatement.new token: val[0] }
     | 'return' expr ';' { ReturnStatement.new expression: val[1], token: val[0] }

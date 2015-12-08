@@ -111,8 +111,8 @@ module Bpl
     end
 
     class BreakStatement < Statement
-      children :identifiers
-      def show; "#{yield :break} #{@identifiers.map{|a| yield a} * ", "};" end
+      children :identifier
+      def show; "#{yield :break}#{@identifier ? " " + yield(@identifier) : ""};" end
     end
 
     class Block < Declaration

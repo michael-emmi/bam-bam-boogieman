@@ -32,6 +32,7 @@ procedure main()
     k := f(k);
     while (*) {
       j := j(k);
+      break;
     }
     k := f(k);
   }
