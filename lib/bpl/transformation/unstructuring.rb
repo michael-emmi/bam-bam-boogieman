@@ -73,10 +73,28 @@ module Bpl
         body.push(*stmt.blocks.drop(1))
         body.last.append_children(:statements, bpl("goto $head.#{id};"))
 
-        exit = bpl("$exit.#{id}: assume #{cond(stmt.condition,false)};").
-          append_children(:statements, *post)
+        has_break = false
+        body.each do |blk|
+          blk.each do |br|
+            next unless br.is_a?(BreakStatement)
+            next if br.each_ancestor.any? {|w| w.is_a?(WhileStatement)}
+            fail "Unexpected break statement." unless br.identifier.nil?
+            rest = br.parent.statements.chunk{|s| s == br}.map{|_,s| s}[2] || []
+            br.replace_with(bpl("goto $break.#{id};"))
+            rest.each(&:remove)
+            has_break = true
+          end
+        end
 
-        block.insert_after(head, *body, exit)
+        exits = []
+        exits << bpl("$exit.#{id}: assume #{cond(stmt.condition,false)};")
+        if has_break
+          exits.first.append_children(:statements, bpl("goto $break.#{id};"))
+          exits << bpl("$break.#{id}: assume true;")
+        end
+        exits.last.append_children(:statements, *post)
+
+        block.insert_after(head, *body, *exits)
 
         return block.parent
       end

@@ -1,92 +1,73 @@
 function f(int) returns (int);
-
 function g(int, int) returns (bool);
-
 procedure main()
 {
   var i, j, k: int;
-
   i, j, k := 0, 0, 0;
   goto $then.1, $else.1;
-
 $then.1:
   assume true;
   i := f(i);
   goto $then.2, $else.2;
-
 $then.2:
   assume (j < 10);
   i := f(i);
   goto $merge.2;
-
 $else.2:
   assume !(j < 10);
   goto $then.3, $else.3;
-
 $then.3:
   assume (j < 20);
   j := f(i);
   goto $merge.3;
-
 $else.3:
   assume !(j < 20);
   j := f(i);
   k := f(j);
   goto $merge.3;
-
 $merge.3:
   assume true;
   goto $merge.2;
-
 $merge.2:
   assume true;
   goto $merge.1;
-
 $else.1:
   assume true;
   j := f(j);
   goto $merge.1;
-
 $merge.1:
   assume true;
   goto $head.4;
-
 $head.4:
-  assert g(i, j);
+  assert g(i,j);
   goto $body.4, $exit.4;
-
 $body.4:
   assume (i < 10);
   i, j := f(i), f(j);
   goto $head.4;
-
 $exit.4:
   assume !(i < 10);
   goto $head.5;
-
 $head.5:
   goto $body.5, $exit.5;
-
 $body.5:
   assume (k < 1);
   k := f(k);
   goto $head.6;
-
 $head.6:
   goto $body.6, $exit.6;
-
 $body.6:
   assume true;
   j := j(k);
-  goto $head.6;
-
+  goto $break.6;
 $exit.6:
+  assume true;
+  goto $break.6;
+$break.6:
   assume true;
   k := f(k);
   goto $head.5;
-
 $exit.5:
   assume !(k < 1);
   assert false;
-
 }
