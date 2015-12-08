@@ -176,7 +176,7 @@ rule
     }
 
   if_stmt: 'if' '(' wc_expr ')' '{' blocks '}' else_stmt { IfStatement.new condition: val[2], blocks: val[5], else: val[7], token: val[0] }
-  else_stmt: { nil } | 'else' '{' blocks '}' { val[1] } | 'else' if_stmt { val[2] }
+  else_stmt: { nil } | 'else' '{' blocks '}' { val[2] } | 'else' if_stmt { val[1] }
 
   lhs: ident selects {
     id = StorageIdentifier.new val[0]

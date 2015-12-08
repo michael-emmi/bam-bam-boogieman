@@ -7,6 +7,20 @@ procedure main()
 
   i, j, k := 0, 0, 0;
 
+  if (*) {
+    i := f(i);
+    if (j < 10) {
+      i := f(i);
+    } else if (j < 20) {
+      j := f(i);
+    } else {
+      j := f(i);
+      k := f(j);
+    }
+  } else {
+    j := f(j);
+  }
+
   while (i < 10)
   invariant g(i,j);
   {
@@ -15,6 +29,10 @@ procedure main()
 
   while (k < 1)
   {
+    k := f(k);
+    while (*) {
+      j := j(k);
+    }
     k := f(k);
   }
 
