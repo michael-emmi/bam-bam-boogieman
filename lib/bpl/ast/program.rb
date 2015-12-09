@@ -9,7 +9,7 @@ module Bpl
       attr_accessor :source_file
 
       def show
-        @declarations.map{|d| yield d} * "\n"
+        @declarations.map{|d| yield d} * "\n" + "\n"
       end
 
       def global_variables

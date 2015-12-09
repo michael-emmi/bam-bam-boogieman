@@ -136,11 +136,9 @@ begin
     BAM::process_source_file(src)
   end
 
-  program = timed 'Parsing' do
-    BoogieLanguage.new.parse(File.read(src))
-  end
-
-  program.source_file = src
+  programs = []
+  programs << (timed('Parsing') {BoogieLanguage.new.parse(File.read(src))})
+  programs.first.source_file = src
 
   analysis_cache = Hash.new
   transformation_cache = Hash.new
@@ -157,8 +155,21 @@ begin
         pass = klass.new(
           args.merge(analysis_cache.select{|a| klass.depends.include?(a)})
         )
-        updated, extras = pass.run!(program)
-        @stages.unshift(*extras) if extras && extras.is_a?(Array)
+        updated = false
+        programs.dup.each do |program|
+          res = pass.run!(program)
+          if res.nil?
+
+          elsif res.is_a?(Array) && res.first.is_a?(Program)
+            programs = res
+
+          elsif res.is_a?(Array) && res.first.is_a?(Symbol)
+            @stages.unshift(*res)
+
+          else
+            updated |= res
+          end
+        end
         transformation_cache[name] = pass if pass.destructive?
         analysis_cache.clear if pass.destructive? && updated
         analysis_cache[name] = pass
@@ -173,14 +184,18 @@ begin
   if @output_file
     timed('Writing transformed program') do
       $temp.delete @output_file
-      File.write(@output_file, program)
+      File.write(@output_file, programs * "---\n")
     end
   elsif $stdout.tty?
-    puts "--- "
-    puts program.hilite
+    programs.each do |program|
+      puts "--- "
+      puts program.hilite
+    end
   else
-    puts "--- ".comment
-    puts program
+    program.each do |program|
+      puts "--- ".comment
+      puts program
+    end
   end
 
 rescue Interrupt
