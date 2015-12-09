@@ -41,14 +41,14 @@ def parse_str(str)
   case str
   when /\b(type|const|function|axiom|var|procedure|implementation)\b/
     parse_decl(str)
-  when /\b(requires|ensures|modifies|invariant)\b/
-    parse_spec(str)
   when /\A\s*#{Bpl::IDENTIFIER}:.*;.*\s+#{Bpl::IDENTIFIER}:/m
     parse_blocks(str)
   when /\A\s*#{Bpl::IDENTIFIER}:.*;/m
     parse_block(str)
   when /\b(assert|assume|havoc|call|if|while|break|goto|return)\b|:=/
     parse_stmt(str)
+  when /\b(requires|ensures|modifies|invariant)\b/
+    parse_spec(str)
   when /[^<:]:[^:]/
     parse_param(str)
   else
