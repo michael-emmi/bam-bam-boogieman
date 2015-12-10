@@ -34,7 +34,6 @@ module Bpl
 
       def run! program
         cfg = cfg_construction
-        live.clear
         program.declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration) && proc.body
           used = {}

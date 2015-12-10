@@ -12,7 +12,6 @@ module Bpl
       result :callers, {}
 
       def run! program
-        callers.clear
         program.declarations.each do |decl|
           next unless decl.is_a?(ProcedureDeclaration)
           callers[decl] = Set.new

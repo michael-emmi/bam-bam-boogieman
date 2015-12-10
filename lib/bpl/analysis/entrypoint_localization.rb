@@ -18,8 +18,6 @@ module Bpl
       end
 
       def run! program
-        entrypoints.clear
-
         program.declarations.each do |d|
           entrypoints << d if d.has_attribute?(attribute)
         end

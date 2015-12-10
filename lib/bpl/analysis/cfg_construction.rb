@@ -14,9 +14,6 @@ module Bpl
       result :predecessors, {}
 
       def run! program
-        successors.clear
-        predecessors.clear
-
         program.each do |b|
           next unless b.is_a?(Block)
           successors[b] = Set.new

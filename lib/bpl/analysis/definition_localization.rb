@@ -12,7 +12,6 @@ module Bpl
       end
 
       def run! program
-        definitions.clear
         program.declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration) && proc.body
 

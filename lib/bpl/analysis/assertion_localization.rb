@@ -7,7 +7,6 @@ module Bpl
       result :has_assert, {}
 
       def run! program
-        has_assert.clear
         work_list = []
         program.declarations.each do |decl|
           next unless decl.is_a?(ProcedureDeclaration)

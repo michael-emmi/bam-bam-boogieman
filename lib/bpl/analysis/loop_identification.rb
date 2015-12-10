@@ -10,7 +10,6 @@ module Bpl
         dominators = domination.dominators
         cfg = cfg_construction
 
-        loops.clear
         program.declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration) && proc.body
           proc.body.blocks.each do |blk|

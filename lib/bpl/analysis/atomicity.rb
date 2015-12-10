@@ -19,7 +19,6 @@ module Bpl
       end
 
       def run! program
-        atomic.clear
         work_list = []
         program.declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration)
