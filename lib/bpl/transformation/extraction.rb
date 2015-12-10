@@ -3,7 +3,6 @@ module Bpl
   module Transformation
     class Extraction < Bpl::Pass
 
-      depends :resolution
       depends :loop_identification
       flag "--extraction", "Extract annotated loops."
 
@@ -21,6 +20,13 @@ module Bpl
 
         locals = blocks.collect do |b|
           b.select {|x| x.is_a?(StorageIdentifier) && !x.is_global?}
+        end.flatten.uniq(&:name)
+
+        exits = blocks.collect do |b|
+          b.select do |x|
+            x.is_a?(LabelIdentifier) &&
+            blocks.none? {|bb| bb.names.include?(x.name)}
+          end
         end.flatten.uniq(&:name)
 
         decl = bpl("procedure $loop.#{id}();")
@@ -41,9 +47,15 @@ module Bpl
           )
         end
         decl.append_children(:specifications, bpl("ensures !#{condition};"))
-        decl.append_children(:body, Body.new(locals: [], blocks: blocks))
+        decl.append_children(:body, Body.new(locals: [], blocks: []))
+        decl.body.append_children(:blocks,
+          bpl("$entry: goto #{blocks.first.name};")) if blocks.first.name
+        decl.body.append_children(:blocks,
+          *blocks.map(&:copy))
         decl.body.blocks.first.prepend_children(:statements,
           *locals.map{|x| bpl("#{x.name} := #{x.name}.0;")})
+        decl.body.append_children(:blocks,
+          *exits.map {|l| bpl("#{l}: assume !#{condition}; return;")})
 
         stmt = bpl %{
           call #{locals.map(&:name) * ", "} #{":=" unless locals.empty?}
@@ -62,11 +74,46 @@ module Bpl
             next unless stmt.is_a?(WhileStatement)
             next if stmt.invariants.empty?
 
-            blocks = [Block.new(names: [], statements: [stmt.copy])]
-            decl, call = extract(stmt.condition, stmt.invariants, blocks)
+            block = Block.new(names: [], statements: [stmt.copy])
+            decl, call = extract(stmt.condition, stmt.invariants, [block])
             program.append_children(:declarations, decl)
             stmt.replace_with(call)
+            changed = true
           end
+        end
+        loop_identification.loops.each do |head,body|
+          condition = bpl("true")
+
+          ls = head.select {|l| l.is_a?(LabelIdentifier)}.map(&:name)
+          exits = ls.select {|l| body.none? {|b| b.names.include?(l)}}
+          entry = body.
+            collect {|b| b.statements.first if !(b.names & (ls-exits)).empty?}.
+            compact
+          fail "Unexpected loop condition." unless
+            entry.count == 1 && entry.first.is_a?(AssumeStatement)
+
+          condition = entry.first.expression
+          invariants = []
+          head.statements.each do |stmt|
+            case stmt
+            when AssertStatement
+              invariants << stmt
+            when AssumeStatement
+
+            else
+              break
+            end
+          end
+          next if invariants.empty?
+
+          decl, call = extract(condition, invariants, body.map(&:copy))
+          program.append_children(:declarations, decl)
+
+          head.replace_children(:statements,
+            call,
+            bpl("goto #{exits * ", "};"))
+          body.each {|b| b.remove if b != head}
+          changed = true
         end
         changed
       end

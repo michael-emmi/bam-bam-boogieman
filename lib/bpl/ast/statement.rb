@@ -118,7 +118,7 @@ module Bpl
     class Block < Declaration
       children :names, :statements
 
-      def name; names.first || "" end
+      def name; names.first end
       def id; LabelIdentifier.new(name: name, declaration: self) end
 
       def copy

@@ -1,4 +1,6 @@
 function f(bool) returns (bool);
+function g(bool) returns (bool);
+function h(bool) returns (bool);
 
 procedure main()
 {
@@ -6,8 +8,8 @@ procedure main()
 
   call x := $loop.1(x);
 
-  while (x) {
-    x := f(x);
+  while (f(x)) {
+    x := h(x);
   }
 
   goto head1;
@@ -16,12 +18,12 @@ head1:
   goto body1, exit1;
 
 body1:
-  assume x;
-  x := f(x);
+  assume f(x);
+  x := h(x);
   goto head1;
 
 exit1:
-  assume !x;
+  assume !f(x);
   goto head2;
 
 head2:
@@ -29,27 +31,43 @@ head2:
   goto exit2;
 
 exit2:
+  assume !f(x);
   return;
 
 }
 
 procedure $loop.1(x.0: bool) returns (x: bool)
-requires true;
-ensures true;
-ensures !x;
+requires g(x);
+ensures g(x);
+ensures !f(x);
 {
   x := x.0;
-  while (x)
-  invariant true;
+  while (f(x))
+  invariant g(x);
   {
-    x := f(x);
+    x := h(x);
   }
 }
 
 procedure $loop.2(x.0: bool) returns (x: bool)
-requires true;
-ensures true;
+requires g(x);
+ensures g(x);
+ensures !f(x);
 {
+$entry:
   x := x.0;
-  x := f(x);
+  goto head2;
+
+head2:
+  assert g(x);
+  goto body2, exit2;
+
+body2:
+  assume f(x);
+  x := h(x);
+  goto head2;
+
+exit2:
+  assume !f(x);
+  return;
 }

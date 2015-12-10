@@ -1,17 +1,19 @@
 function f(bool) returns (bool);
+function g(bool) returns (bool);
+function h(bool) returns (bool);
 
 procedure main()
 {
   var x: bool;
 
-  while (x)
-  invariant true;
+  while (f(x))
+  invariant g(x);
   {
-    x := f(x);
+    x := h(x);
   }
 
-  while (x) {
-    x := f(x);
+  while (f(x)) {
+    x := h(x);
   }
 
   goto head1;
@@ -20,25 +22,25 @@ head1:
   goto body1, exit1;
 
 body1:
-  assume x;
-  x := f(x);
+  assume f(x);
+  x := h(x);
   goto head1;
 
 exit1:
-  assume !x;
+  assume !f(x);
   goto head2;
 
 head2:
-  assert true;
+  assert g(x);
   goto body2, exit2;
 
 body2:
-  assume x;
-  x := f(x);
+  assume f(x);
+  x := h(x);
   goto head2;
 
 exit2:
-  assume !x;
+  assume !f(x);
   return;
 
 }
