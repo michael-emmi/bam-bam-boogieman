@@ -3,12 +3,13 @@ module Bpl
   module Transformation
     class Splitting < Bpl::Pass
 
+      depends :entrypoint_localization
       flag "--splitting", "Split annotated procedures into sepearate programs."
 
       def split?(decl)
         decl.is_a?(ProcedureDeclaration) &&
         ( decl.specifications.any?{|s| s.is_a?(EnsuresClause)} ||
-          decl.has_attribute?(:entrypoint) )
+          entrypoint_localization.entrypoints.include?(decl) )
       end
 
       def run! program
@@ -17,7 +18,7 @@ module Bpl
           split = Program.new(declarations: [])
           program.declarations.each do |decl|
             d = decl.copy
-            if split?(d)
+            if split?(decl)
               d.remove_attribute(:entrypoint)
               if d.name == p.name
                 d.add_attribute(:entrypoint)
