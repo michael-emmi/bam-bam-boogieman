@@ -2,12 +2,12 @@ module Bpl
 
   module AST
     class Node
-      def simplify
+      def simplify(cfg, mods, asserts)
       end
     end
 
     class AxiomDeclaration
-      def simplify
+      def simplify(cfg, mods, asserts)
         if expression.is_a?(BooleanLiteral) && expression.value == true
           yield({
             description: "removing trivial axiom",
@@ -20,7 +20,7 @@ module Bpl
     end
 
     class VariableDeclaration
-      def simplify
+      def simplify(cfg, mods, asserts)
         if bindings.all? do |b|
           b.parent.is_a?(HavocStatement) || b.parent.is_a?(ModifiesClause)
         end then
@@ -42,10 +42,11 @@ module Bpl
     end
 
     class ProcedureDeclaration
-      def simplify
-        if body && !attributes[:has_assertion] &&
-           modifies.empty? &&
-           returns.all? {|r| r.bindings.all? {|b| b.parent.is_a?(HavocStatement)}}
+      def simplify(cfg, mods, asserts)
+        if body &&
+          !asserts.has_assert[self] &&
+          mods.modifies[self].empty? &&
+          returns.all? {|r| r.bindings.all? {|b| b.parent.is_a?(HavocStatement)}}
         then
           yield({
             description: "removing body of procedure #{name}",
@@ -58,7 +59,7 @@ module Bpl
     end
 
     class Body
-      def simplify
+      def simplify(cfg, mods, asserts)
         blocks.each do |bb|
           # if bb.successors.count == 1 &&
           #   bb.statements.last.is_a?(GotoStatement) &&
@@ -108,7 +109,7 @@ module Bpl
     end
 
     class Block
-      def simplify
+      def simplify(cfg, mods, asserts)
         if statements.count == 1 &&
            statements.first.is_a?(GotoStatement) &&
            statements.first.identifiers.count == 1 &&
@@ -127,7 +128,7 @@ module Bpl
     end
 
     class AssertStatement
-      def simplify
+      def simplify(cfg, mods, asserts)
         if expression.is_a?(BooleanLiteral) && expression.value == true
           yield({
             description: "removing trivial assert",
@@ -140,7 +141,7 @@ module Bpl
     end
 
     class AssumeStatement
-      def simplify
+      def simplify(cfg, mods, asserts)
         if expression.is_a?(BooleanLiteral) && expression.value == true
           yield({
             description: "removing trivial assume",
@@ -153,11 +154,11 @@ module Bpl
     end
 
     class CallStatement
-      def simplify
+      def simplify(cfg, mods, asserts)
         decl = procedure.declaration
         if decl.modifies.empty? &&
            decl.returns.empty? &&
-           !decl.attributes[:has_assertion]
+           !asserts.has_assert[decl]
 #
           yield({
             description: "removing trivial call",
@@ -174,14 +175,14 @@ module Bpl
   module Transformation
     class Simplification < Bpl::Pass
 
-      depends :modifies_correction
-      depends :resolution, :cfg_construction, :assertion_localization
+      depends :resolution
+      depends :modification, :cfg_construction, :assertion_localization
       flag "--simplification", "Various code simplifications."
 
       def run! program
         updated = false
         program.each do |elem|
-          elem.simplify do |x|
+          elem.simplify(cfg_construction, modification, assertion_localization) do |x|
             info "SIMPLIFICATION * #{x[:description]}"
             (x[:elems]||[elem]).each {|e| info; info Printing.indent(e.to_s).indent}
             info
