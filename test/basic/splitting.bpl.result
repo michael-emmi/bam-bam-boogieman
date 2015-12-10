@@ -14,7 +14,7 @@ ensures true;
 
 procedure r();
 
----
+// ---
 
 procedure p()
 {

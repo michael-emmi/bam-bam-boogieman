@@ -89,10 +89,6 @@ def command_line_options
       $keep = v
     end
 
-    opts.on("-o", "--output-file FILENAME") do |f|
-      @output_file = f
-    end
-
     PASSES.each do |kind|
       opts.separator ""
       opts.separator "#{kind.to_s.capitalize} passes:"
@@ -162,6 +158,7 @@ begin
 
           elsif res.is_a?(Array) && res.first.is_a?(Program)
             programs = res
+            updated = true
 
           elsif res.is_a?(Array) && res.first.is_a?(Symbol)
             @stages.unshift(*res)
@@ -178,23 +175,6 @@ begin
       @stages.unshift(name)
       @stages.unshift(*deps.reject{|d| @passes[d].destructive?})
       @stages.unshift(*deps.select{|d| @passes[d].destructive?})
-    end
-  end
-
-  if @output_file
-    timed('Writing transformed program') do
-      $temp.delete @output_file
-      File.write(@output_file, programs * "---\n")
-    end
-  elsif $stdout.tty?
-    programs.each do |program|
-      puts "--- "
-      puts program.hilite
-    end
-  else
-    program.each do |program|
-      puts "--- ".comment
-      puts program
     end
   end
 
