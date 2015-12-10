@@ -1,0 +1,33 @@
+
+procedure p()
+{
+  return;
+}
+
+procedure {:entrypoint} q()
+requires true;
+ensures true;
+{
+  call p();
+  return;
+}
+
+procedure r();
+
+---
+
+procedure p()
+{
+  return;
+}
+
+procedure q();
+requires true;
+ensures true;
+
+procedure {:entrypoint} r()
+{
+  call p();
+  call q();
+  return;
+}
