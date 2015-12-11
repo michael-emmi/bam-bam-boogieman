@@ -97,7 +97,6 @@ begin
 
   @passes = {}
   @stages = []
-  @output_file = nil
 
   unless $quiet
     info "BAM! BAM! Boogieman version #{BAM::VERSION}".bold,
