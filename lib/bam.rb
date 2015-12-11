@@ -12,16 +12,6 @@ require_relative 'bpl/ast/trace'
 require_relative 'bpl/pass'
 require_relative 'z3/model'
 
-def load_passes
-  root = File.expand_path(File.dirname(__FILE__))
-  Dir.glob(File.join(root,'bpl','passes','**','*.rb')).each do |lib|
-    require_relative lib
-    name = File.basename(lib,'.rb')
-    klass = "Bpl::#{name.classify}"
-    @passes[name.to_sym] = Object.const_get(klass)
-  end
-end
-
 def source_file_options(files)
   # parse @bam-options comments in the source file(s) for additional options
   opts = []
@@ -35,15 +25,6 @@ def source_file_options(files)
   end
   opts
 end
-
-
-def dependencies(pass)
-  pass.class.depends.map do |p|
-    fail "Unknown pass #{p}" unless @passes[p]
-    dependencies(@passes[p].new)
-  end.flatten + [pass]
-end
-
 
 def command_line_options
 
@@ -82,11 +63,28 @@ def command_line_options
       $keep = v
     end
 
-    @passes.each do |name,klass|
-      klass.flags.each do |f|
-        opts.on(*f[:args]) do |*args|
-          f[:blk].call(*args) if f[:blk]
-          @stages << name if f == klass.flags.first
+    categories = {}
+    root = File.expand_path(File.dirname(__FILE__))
+    Dir.glob(File.join(root,'bpl','passes','**','*/')).each do |dir|
+      Dir.glob(File.join(dir, "*.rb")).each do |lib|
+        require_relative lib
+        name = File.basename(lib,'.rb')
+        klass = "Bpl::#{name.classify}"
+        @passes[name.to_sym] = Object.const_get(klass)
+        categories[File.basename(dir)] ||= Set.new
+        categories[File.basename(dir)] << name.to_sym
+      end
+    end
+
+    categories.each do |cat, passes|
+      opts.separator ""
+      opts.separator "#{cat} passes:"
+      passes.each do |name|
+        @passes[name].flags.each do |f|
+          opts.on(*f[:args]) do |*args|
+            f[:blk].call(*args) if f[:blk]
+            @stages << name if f == @passes[name].flags.first
+          end
         end
       end
     end
@@ -107,7 +105,6 @@ begin
     info
   end
 
-  load_passes
   ARGV.unshift(*source_file_options(ARGV.select{|f| File.extname(f) == '.bpl'}))
   command_line_options.parse!
 

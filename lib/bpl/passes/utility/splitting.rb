@@ -2,7 +2,7 @@ module Bpl
   class Splitting < Pass
 
     depends :entrypoint_localization
-    flag "--splitting", "Split annotated procedures into sepearate programs."
+    flag "--splitting", "Annotated procedures split into programs."
 
     def split?(decl)
       decl.is_a?(ProcedureDeclaration) &&
