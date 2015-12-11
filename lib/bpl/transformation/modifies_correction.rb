@@ -15,9 +15,8 @@ module Bpl
           mods = modification.modifies[proc]
           proc.append_children(:specifications,
             bpl("modifies #{mods.to_a.sort * ", "};")) unless mods.empty?
+          invalidates :resolution
         end
-
-        true
       end
     end
   end

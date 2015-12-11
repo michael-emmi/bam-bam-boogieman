@@ -136,45 +136,26 @@ begin
   programs << (timed('Parsing') {BoogieLanguage.new.parse(File.read(src))})
   programs.first.source_file = src
 
-  analysis_cache = Hash.new
-  transformation_cache = Hash.new
-  args = Hash.new # TODO from the command line
+  cache = Hash.new
 
   until @stages.empty? do
     name = @stages.shift
-    next if analysis_cache.include?(name)
-    next if transformation_cache.include?(name)
     klass = @passes[name]
-    deps = klass.depends - analysis_cache.keys - transformation_cache.keys
+    next if cache.include?(name)
+    deps = klass.depends - cache.keys
     if deps.empty?
       timed name do
-        pass = klass.new(
-          args.merge(analysis_cache.select{|a| klass.depends.include?(a)})
-        )
-        updated = false
-        programs.dup.each do |program|
-          res = pass.run!(program)
-          if res.nil?
-
-          elsif res.is_a?(Array) && res.first.is_a?(Program)
-            programs = res
-            updated = true
-
-          elsif res.is_a?(Array) && res.first.is_a?(Symbol)
-            @stages.unshift(*res)
-
-          else
-            updated |= res
-          end
+        pass = klass.new(cache.select{|a| klass.depends.include?(a)})
+        programs.each {|program| pass.run!(program)}
+        pass.invalidates.each do |inv|
+          case inv when :all then cache.clear else cache.delete inv end
         end
-        transformation_cache[name] = pass if pass.destructive?
-        analysis_cache.clear if pass.destructive? && updated
-        analysis_cache[name] = pass
+        if pass.redo? then @stages.unshift(name) else cache[name] = pass end
+        programs = pass.new_programs unless pass.new_programs.empty?
       end
     else
       @stages.unshift(name)
-      @stages.unshift(*deps.reject{|d| @passes[d].destructive?})
-      @stages.unshift(*deps.select{|d| @passes[d].destructive?})
+      @stages.unshift(*deps)
     end
   end
 

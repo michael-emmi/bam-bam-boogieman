@@ -8,6 +8,8 @@ module Bpl
         option :pattern, p
       end
 
+      invalidates :all
+
       def run! program
         program.declarations.each do |d|
           names = d.names
@@ -23,7 +25,7 @@ module Bpl
             d.remove
           end
         end
-        true
+
       end
 
     end

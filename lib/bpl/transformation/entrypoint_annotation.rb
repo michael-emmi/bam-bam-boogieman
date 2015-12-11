@@ -7,16 +7,15 @@ module Bpl
       flag "--entrypoint-annotation", "Annotate entrypoints."
 
       def run! program
-        changed = false
         program.declarations.each do |decl|
           if entrypoint_localization.entrypoints.include?(decl)
             unless decl.has_attribute?(entrypoint_localization.attribute)
               decl.add_attribute(entrypoint_localization.attribute)
-              changed = true
+              invalidates :all
             end
           end
         end
-        changed
+
       end
     end
   end

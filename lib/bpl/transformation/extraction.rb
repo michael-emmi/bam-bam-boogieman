@@ -66,7 +66,6 @@ module Bpl
       end
 
       def run! program
-        changed = false
         program.declarations.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration)
           next unless proc.body
@@ -78,7 +77,7 @@ module Bpl
             decl, call = extract(stmt.condition, stmt.invariants, [block])
             program.append_children(:declarations, decl)
             stmt.replace_with(call)
-            changed = true
+            invalidates :all
           end
         end
         loop_identification.loops.each do |head,body|
@@ -113,9 +112,8 @@ module Bpl
             call,
             bpl("goto #{exits * ", "};"))
           body.each {|b| b.remove if b != head}
-          changed = true
+          invalidates :all
         end
-        changed
       end
     end
   end

@@ -10,8 +10,6 @@ module Bpl
 
         # TODO specify what normalization should be doing
 
-        changed = false
-
         program.each do |elem|
           case elem
           when AssignStatement
@@ -43,7 +41,7 @@ module Bpl
                   *vars.map.with_index {|x,i| bpl("#{elem.lhs[i]} := #{x};")}
                 )
               end
-              changed = true
+              invalidates :all
             end
           end
         end
@@ -51,7 +49,6 @@ module Bpl
         # TODO what to do with this stuff?
         # sanity_check program
         # uniq_starts_and_ends! program
-        changed
       end
 
       # TODO OBSOLETE CODE

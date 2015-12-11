@@ -180,17 +180,16 @@ module Bpl
       flag "--simplification", "Various code simplifications."
 
       def run! program
-        updated = false
         program.each do |elem|
           elem.simplify(cfg_construction, modification, assertion_localization) do |x|
             info "SIMPLIFICATION * #{x[:description]}"
             (x[:elems]||[elem]).each {|e| info; info Printing.indent(e.to_s).indent}
             info
             x[:action].call()
-            updated = true
+            invalidates :all
+            redo!
           end
         end
-        return updated, updated ? [:simplification] : []
       end
 
     end

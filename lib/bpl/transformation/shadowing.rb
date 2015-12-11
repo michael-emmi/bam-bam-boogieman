@@ -6,6 +6,7 @@ module Bpl
       depends :ct_annotation
       depends :resolution, :loop_identification
       depends :definition_localization, :liveness
+      invalidates :all
       flag "--shadowing", "Construct the shadow product program."
 
       def shadow(x) "#{x}.shadow" end
@@ -310,7 +311,6 @@ module Bpl
           end
         end
 
-        true
       end
     end
   end

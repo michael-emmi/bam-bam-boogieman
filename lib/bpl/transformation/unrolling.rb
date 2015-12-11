@@ -36,13 +36,11 @@ module Bpl
       end
 
       def run! program
-        changed = false
         loop_identification.loops.each do |head, looop|
           looop.to_a.last.insert_after(*unroll(head, looop, bound))
           looop.each(&:remove)
-          changed = true
+          invalidates :all
         end
-        changed
       end
     end
   end

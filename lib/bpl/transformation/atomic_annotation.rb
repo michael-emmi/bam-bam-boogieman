@@ -7,17 +7,16 @@ module Bpl
       flag "--atomic-annotation", "Annotate atomic procedures."
 
       def run! program
-        changed = false
         program.declarations.each do |decl|
           if atomicity.atomic[decl]
             unless decl.has_attribute?(atomicity.attribute)
               decl.add_attribute(atomicity.attribute)
-              changed = true
+              invalidates :atomicity
             end
           end
         end
-        changed
       end
+
     end
   end
 

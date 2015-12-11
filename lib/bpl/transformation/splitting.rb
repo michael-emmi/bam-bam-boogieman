@@ -13,7 +13,6 @@ module Bpl
       end
 
       def run! program
-        splits = []
         program.declarations.select(&method(:split?)).each_with_index do |p,i|
           split = Program.new(declarations: [])
           program.declarations.each do |decl|
@@ -28,9 +27,9 @@ module Bpl
             end
             split.append_children(:declarations, d)
           end
-          splits << split
+          new_programs split
+          invalidates :all
         end
-        splits
       end
     end
   end

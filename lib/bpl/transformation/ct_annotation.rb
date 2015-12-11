@@ -39,12 +39,12 @@ module Bpl
               decl.append_children(:specifications,
                 bpl("requires {:#{stmt.procedure.name} #{access * ", "}} true;")
               )
+              invalidates :resolution
             end
 
           end
         end
 
-        true
       end
 
     end

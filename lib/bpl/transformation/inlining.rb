@@ -3,6 +3,7 @@ module Bpl
     class Inlining < Bpl::Pass
 
       flag "--inlining", "Inline procedures."
+      invalidates :all
 
       def run! program
         $temp << source = "bam.#{Time.now.to_f}.bpl"

@@ -286,11 +286,11 @@ module Bpl
             end
             info
             abs[:action].call
+            invalidates :all
             break
           end
         end
 
-        true
       end
     end
   end

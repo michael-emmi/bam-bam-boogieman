@@ -100,7 +100,6 @@ module Bpl
       end
 
       def run! program
-        changed = false
         work_list = []
         work_list << program
 
@@ -108,7 +107,7 @@ module Bpl
           root = work_list.shift
           root.each do |stmt|
             if elem = unstructure_conditional(stmt) || unstructure_loop(stmt)
-              changed = true
+              invalidates :all
               work_list.unshift root
               work_list.unshift elem
               break
@@ -116,7 +115,6 @@ module Bpl
           end
         end
 
-        changed
       end
 
     end

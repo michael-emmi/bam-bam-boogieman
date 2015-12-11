@@ -31,6 +31,11 @@ module Bpl
         @depends
       end
 
+      def invalidates(*passes)
+        @invalidates ||= Set.new
+        @invalidates.merge(passes)
+      end
+
       def result(key, init)
         define_method(key) do
           v = instance_variable_get("@#{key}")
@@ -51,8 +56,18 @@ module Bpl
       end
     end
 
-    def self.destructive?; name =~ /::Transformation::/ end
-    def destructive?; self.class.destructive? end
+    def invalidates(*passes)
+      @invalidates ||= Set.new
+      self.class.invalidates + @invalidates.merge(passes)
+    end
+
+    def redo!; @redo ||= true end
+    def redo?; @redo ||= false end
+
+    def new_programs(*programs)
+      @programs ||= []
+      @programs += programs
+    end
 
     def run! program
       fail "#{self.class} must implement :run instance method."

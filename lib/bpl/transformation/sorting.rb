@@ -79,7 +79,6 @@ module Bpl
           end
         end
 
-        true
       end
     end
   end

@@ -7,7 +7,6 @@ module Bpl
       flag "--preemption", "Add preemptions."
 
       def run! program
-        changed = false
         program.each do |proc|
           next unless proc.is_a?(ProcedureDeclaration)
           next unless proc.body
@@ -18,10 +17,9 @@ module Bpl
               g.is_a?(StorageIdentifier) && g.is_global? && g.is_variable?
             end
             stmt.insert_before bpl("assume {:yield} true;")
-            changed = true
           end
         end
-        changed
+
       end
     end
   end

@@ -61,7 +61,6 @@ module Bpl
           end
         end
 
-        true
       end
 
       def silly_expression?(expr)
