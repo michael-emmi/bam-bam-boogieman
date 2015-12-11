@@ -1,0 +1,33 @@
+const c: bool;
+axiom (c == true);
+var y: bool;
+var z: bool;
+function f(bool) returns (bool);
+procedure p1();
+procedure p2()
+{
+  assert f(y);
+}
+procedure p3();
+procedure p4() returns (r: bool)
+{
+  r := true;
+}
+procedure p5() returns (r: bool);
+procedure p6()
+{
+entry:
+  goto next;
+next:
+  z := true;
+  goto b3;
+b3:
+  return;
+}
+procedure p7()
+{
+  z := true;
+  call p2();
+}
+procedure p8();
+procedure p9();

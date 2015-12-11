@@ -64,3 +64,13 @@ procedure p7()
   call p2();
   call p3();
 }
+
+procedure p8()
+{
+  call p9();
+}
+
+procedure p9()
+{
+  assert true;
+}
