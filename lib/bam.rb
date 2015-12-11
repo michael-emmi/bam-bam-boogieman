@@ -12,21 +12,15 @@ require_relative 'bpl/ast/trace'
 require_relative 'bpl/pass'
 require_relative 'z3/model'
 
-
-PASSES = [:analysis, :transformation]
-
-
 def load_passes
   root = File.expand_path(File.dirname(__FILE__))
-  Dir.glob(File.join(root,'bpl',"{#{PASSES * ","}}",'*.rb')).each do |lib|
+  Dir.glob(File.join(root,'bpl','passes','**','*.rb')).each do |lib|
     require_relative lib
     name = File.basename(lib,'.rb')
-    kind = File.basename File.dirname(lib)
-    klass = "Bpl::#{kind.capitalize}::#{name.classify}"
+    klass = "Bpl::#{name.classify}"
     @passes[name.to_sym] = Object.const_get(klass)
   end
 end
-
 
 def source_file_options(files)
   # parse @bam-options comments in the source file(s) for additional options
@@ -52,7 +46,6 @@ end
 
 
 def command_line_options
-  arguments = {}
 
   OptionParser.new do |opts|
 
@@ -89,17 +82,11 @@ def command_line_options
       $keep = v
     end
 
-    PASSES.each do |kind|
-      opts.separator ""
-      opts.separator "#{kind.to_s.capitalize} passes:"
-
-      @passes.each do |name,klass|
-        next unless klass.name.split("::")[0..-2].last.downcase.to_sym == kind
-        klass.flags.each do |f|
-          opts.on(*f[:args]) do |*args|
-            f[:blk].call(*args) if f[:blk]
-            @stages << name if f == klass.flags.first
-          end
+    @passes.each do |name,klass|
+      klass.flags.each do |f|
+        opts.on(*f[:args]) do |*args|
+          f[:blk].call(*args) if f[:blk]
+          @stages << name if f == klass.flags.first
         end
       end
     end

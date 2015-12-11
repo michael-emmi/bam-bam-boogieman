@@ -1,3 +1,3 @@
 module BAM
-  VERSION = "1.0-96-ga20cfea"
+  VERSION = "1.0-97-g775deca"
 end
