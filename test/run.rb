@@ -48,7 +48,7 @@ begin
       flags = File.read(command_flags).split if File.exist?(command_flags)
 
       print "#{source} "
-      _, out, err, thd = Open3.popen3('bam', source, *flags, '-o', actual_result)
+      _, out, err, thd = Open3.popen3('bam', '-i', source, *flags, '-o', actual_result)
       if thd.value != 0
         puts "PROBLEM:", out.read, err.read
       end

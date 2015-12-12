@@ -25,9 +25,10 @@ module Bpl
           end
           split.append_children(:declarations, d)
         end
-        new_programs split
+        added split
         invalidates :all
       end
+      removed program
     end
   end
 end

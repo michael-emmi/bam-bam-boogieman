@@ -112,7 +112,7 @@ module Bpl
 
     class BreakStatement < Statement
       children :identifier
-      def show; "#{yield :break}#{@identifier ? " " + yield(@identifier) : ""};" end
+      def show; "#{yield :break}#{@identifier ? " " : ""}#{yield(@identifier)};" end
     end
 
     class Block < Declaration

@@ -27,7 +27,6 @@ module Bpl
         puts "---".comment
         puts program
       end
-      false
     end
 
   end

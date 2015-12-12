@@ -69,9 +69,14 @@ module Bpl
 
     def no_cache?; self.class.no_cache? end
 
-    def new_programs(*programs)
-      @programs ||= []
-      @programs += programs
+    def removed(*programs)
+      @removed ||= []
+      @removed += programs
+    end
+
+    def added(*programs)
+      @added ||= []
+      @added += programs
     end
 
     def run! program

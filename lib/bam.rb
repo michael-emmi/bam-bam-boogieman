@@ -104,22 +104,10 @@ begin
     info
   end
 
-  ARGV.unshift(*source_file_options(ARGV.select{|f| File.extname(f) == '.bpl'}))
   command_line_options.parse!
 
-  abort "Must specify a single source file." unless ARGV.size == 1
-  src = ARGV[0]
-  abort "Source file '#{src}' does not exist." unless File.exists?(src)
-
-  src = timed 'Front-end' do
-    BAM::process_source_file(src)
-  end
-
-  programs = []
-  programs << (timed('Parsing') {BoogieLanguage.new.parse(File.read(src))})
-  programs.first.source_file = src
-
   cache = Hash.new
+  programs = []
 
   until @stages.empty? do
     name = @stages.shift
@@ -129,16 +117,17 @@ begin
     if deps.empty?
       timed name do
         pass = klass.new(cache.select{|a| klass.depends.include?(a)})
-        programs.each {|program| pass.run!(program)}
+        if pass.method(:run!).arity > 0
+          programs.each {|program| pass.run!(program)}
+        else
+          pass.run!
+        end
         pass.invalidates.each do |inv|
           case inv when :all then cache.clear else cache.delete inv end
         end
-        if pass.redo?
-          @stages.unshift(name)
-        elsif !pass.no_cache?
-          cache[name] = pass
-        end
-        programs = pass.new_programs unless pass.new_programs.empty?
+        @stages.unshift(name) if pass.redo?
+        cache[name] = pass unless pass.redo? || pass.no_cache?
+        programs = programs - pass.removed + pass.added
       end
     else
       @stages.unshift(name)
