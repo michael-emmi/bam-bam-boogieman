@@ -2,7 +2,7 @@ module Bpl
   class Liveness < Pass
 
     depends :cfg_construction, :resolution, :modification
-    flag "--liveness", "Compute live variables."
+    switch "--liveness", "Compute live variables."
     result :live, {}
 
     def defined(stmt)

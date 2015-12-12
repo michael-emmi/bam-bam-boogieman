@@ -12,7 +12,7 @@ module Bpl
   class Modification < Pass
 
     depends :call_graph_construction
-    flag "--modification", "Compute modified variables."
+    switch "--modification", "Compute modified variables."
     result :modifies, {}
 
     def run! program

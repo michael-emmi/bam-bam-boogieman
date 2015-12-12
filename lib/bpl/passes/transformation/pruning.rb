@@ -2,7 +2,7 @@ module Bpl
   class Pruning < Pass
 
     depends :resolution, :entrypoint_localization
-    flag "--pruning", "Remove unreachable declarations."
+    switch "--pruning", "Remove unreachable declarations."
 
     # TODO remove variables that are never read
     # TODO remove reads that are never used

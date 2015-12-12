@@ -2,7 +2,7 @@ module Bpl
   class ModifiesCorrection < Pass
 
     depends :modification
-    flag "--modifies-correction", "Correct modifies annotations."
+    switch "--modifies-correction", "Correct modifies annotations."
 
     def run! program
       program.declarations.each do |proc|

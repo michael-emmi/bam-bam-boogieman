@@ -1,8 +1,9 @@
 module Bpl
   class Unrolling < Pass
 
-    flag "--unrolling BOUND", Integer, "Unroll loops." do |n|
-      option :bound, n
+    option :bound
+    switch "--unrolling BOUND", Integer, "Unroll loops." do |y,n|
+      y.yield :bound, n
     end
     depends :unstructuring
     depends :loop_identification

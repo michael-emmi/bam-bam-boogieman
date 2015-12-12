@@ -2,7 +2,7 @@ module Bpl
   class Normalization < Pass
 
     depends :resolution
-    flag "--normalization", "Normalize program ..."
+    switch "--normalization", "Normalize program ..."
 
     def run! program
 

@@ -7,10 +7,10 @@ module Bpl
 
     option :attribute, DEFAULT_PREEMPTION_ANNOTATION
 
-    flag "--preemption", "Add preemptions."
+    switch "--preemption", "Add preemptions."
 
-    flag "--preemption-attribute NAME", "Attribute NAME for yield." do |name|
-      option :attribute, name
+    flag "--preemption-attribute NAME", "Attribute NAME for yield." do |y, name|
+      y.yield :attribute, name
     end
 
     def run! program

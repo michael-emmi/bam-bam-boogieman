@@ -1,7 +1,7 @@
 module Bpl
   class Unstructuring < Pass
 
-    flag "--unstructuring", "Reduce structured control flow."
+    switch "--unstructuring", "Reduce structured control flow."
     # depends :cfg_construction
 
     def fresh_id

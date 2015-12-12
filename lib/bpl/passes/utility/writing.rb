@@ -1,11 +1,10 @@
 module Bpl
   class Writing < Pass
 
-    flag "-o", "--output [FILENAME]" do |f|
-      option :file, f
+    option :file
+    switch "-o", "--output [FILENAME]" do |y, f|
+      y.yield :file, f
     end
-
-    no_cache
 
     def first?
       res = @first.nil?

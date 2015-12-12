@@ -2,7 +2,7 @@ module Bpl
   class Extraction < Pass
 
     depends :loop_identification
-    flag "--extraction", "Extract annotated loops."
+    switch "--extraction", "Extract annotated loops."
 
     def fresh_id
       @id ||= 0

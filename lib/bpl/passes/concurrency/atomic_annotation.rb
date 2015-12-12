@@ -2,7 +2,7 @@ module Bpl
   class AtomicAnnotation < Pass
 
     depends :atomicity
-    flag "--atomic-annotation", "Annotate atomic procedures."
+    switch "--atomic-annotation", "Annotate atomic procedures."
 
     def run! program
       program.declarations.each do |decl|

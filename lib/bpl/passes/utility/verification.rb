@@ -2,7 +2,7 @@
 module Bpl
   class Verification < Pass
 
-    flag "--verification", "Verify the program."
+    switch "--verification", "Verify the program."
 
     # option :verifier, "which verifier to use (boogie, corral, ...)"
     # option :incremental, "do incremental verification?"

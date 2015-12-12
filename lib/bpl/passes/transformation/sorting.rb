@@ -5,8 +5,8 @@ module Bpl
 
     option :kind
 
-    flag "--sorting [KIND]", KINDS, "either #{KINDS * ", "}" do |kind|
-      option :kind, kind || :all
+    switch "--sorting [KIND]", KINDS, "either #{KINDS * ", "}" do |y, kind|
+      y.yield :kind, kind || :all
     end
 
     def type_order(d,e)

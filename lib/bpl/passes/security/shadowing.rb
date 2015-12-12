@@ -6,7 +6,7 @@ module Bpl
     depends :resolution, :loop_identification
     depends :definition_localization, :liveness
     invalidates :all
-    flag "--shadowing", "Construct the shadow product program."
+    switch "--shadowing", "Construct the shadow product program."
 
     def shadow(x) "#{x}.shadow" end
     def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end

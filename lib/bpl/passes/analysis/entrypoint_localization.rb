@@ -3,12 +3,12 @@ module Bpl
 
     DEFAULT_ENTRYPOINT_ANNOTATION = :entrypoint
 
-    flag "--entrypoint-localization", "Locate & annotate entry points."
+    switch "--entrypoint-localization", "Locate & annotate entry points."
     option :attribute, DEFAULT_ENTRYPOINT_ANNOTATION
     result :entrypoints, Set.new
 
-    flag "--entrypoint-attribute NAME", "Attribute NAME for entrypoints." do |name|
-      option :attribute, name
+    flag "--entrypoint-attribute NAME", "Attribute NAME for entrypoints." do |y, name|
+      y.yield :attribute, name
     end
 
     def default_entrypoint? name

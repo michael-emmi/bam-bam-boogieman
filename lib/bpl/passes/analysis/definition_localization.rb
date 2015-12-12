@@ -2,7 +2,7 @@ module Bpl
   class DefinitionLocalization < Pass
 
     depends :resolution, :modification
-    flag "--definition-localization", "Compute definition sites."
+    switch "--definition-localization", "Compute definition sites."
     result :definitions, {}
 
     def add_def(proc, id, stmt)

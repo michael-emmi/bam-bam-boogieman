@@ -1,7 +1,7 @@
 module Bpl
   class Simplification < Pass
 
-    flag "--simplification", "Various code simplifications."
+    switch "--simplification", "Various code simplifications."
 
     depends :resolution
     depends :modification

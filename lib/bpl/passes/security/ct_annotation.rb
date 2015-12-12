@@ -2,7 +2,7 @@ module Bpl
   class CtAnnotation < Pass
 
     depends :resolution
-    flag "--ct-annotation", "Extract constant-time annotations."
+    switch "--ct-annotation", "Extract constant-time annotations."
 
     ANNOTATIONS = [
       :public_in,

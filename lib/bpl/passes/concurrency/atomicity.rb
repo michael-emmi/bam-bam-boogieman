@@ -5,12 +5,12 @@ module Bpl
 
     depends :resolution, :call_graph_construction
 
-    flag "--atomicity", "Locate atomic procedures."
+    switch "--atomicity", "Locate atomic procedures."
     option :attribute, DEFAULT_ATOMIC_ANNOTATION
     result :atomic, {}
 
-    flag "--atomic-attribute NAME", "Attribute NAME for atomic." do |name|
-      option :attribute, name
+    flag "--atomic-attribute NAME", "Attribute NAME for atomic." do |y, name|
+      y.yield :attribute, name
     end
 
     def has_yield?(proc)

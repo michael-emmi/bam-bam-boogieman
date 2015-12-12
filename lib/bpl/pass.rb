@@ -2,6 +2,10 @@ module Bpl
   class Pass
 
     class << self
+      def switch(*args, &blk)
+        @switch ||= {args: args, blk: blk}
+      end
+
       def flag(*args, &blk)
         flags << {args: args, blk: blk}
       end
@@ -36,9 +40,6 @@ module Bpl
         @invalidates.merge(passes)
       end
 
-      def no_cache; @no_cache ||= true end
-      def no_cache?; @no_cache ||= false end
-
       def result(key, init)
         define_method(key) do
           v = instance_variable_get("@#{key}")
@@ -54,7 +55,7 @@ module Bpl
     end
 
     def initialize(opts = {})
-      opts.merge(self.class.options).each do |k,v|
+      self.class.options.merge(opts).each do |k,v|
         instance_variable_set("@#{k}",v) if respond_to?(k)
       end
     end
@@ -66,8 +67,6 @@ module Bpl
 
     def redo!; @redo ||= true end
     def redo?; @redo ||= false end
-
-    def no_cache?; self.class.no_cache? end
 
     def removed(*programs)
       @removed ||= []

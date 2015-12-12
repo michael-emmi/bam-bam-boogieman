@@ -2,7 +2,7 @@ module Bpl
   class LoopIdentification < Pass
 
     depends :cfg_construction, :domination
-    flag "--loop-identification", "Compute loops."
+    switch "--loop-identification", "Compute loops."
     result :loops, {}
 
     def run! program

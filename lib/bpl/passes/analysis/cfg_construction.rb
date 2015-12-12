@@ -4,9 +4,7 @@ module Bpl
     depends :resolution
     option :print
 
-    flag "--control-graphs [PRINT]", "Construct control-flow graphs." do |p|
-      option :print, p
-    end
+    switch "--control-graphs", "Construct control-flow graphs."
     result :successors, {}
     result :predecessors, {}
 

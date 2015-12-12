@@ -1,7 +1,7 @@
 module Bpl
   class Resolution < Pass
 
-    flag "--resolution", "Resolve types and identifiers."
+    switch "--resolution", "Resolve types and identifiers."
 
     def run! program
 

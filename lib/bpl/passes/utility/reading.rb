@@ -1,11 +1,10 @@
 module Bpl
   class Reading < Pass
 
-    flag "-i", "--input FILENAME" do |f|
-      option :file, f
+    option :file
+    switch "-i", "--input FILENAME" do |y, f|
+      y.yield :file, f
     end
-
-    no_cache
 
     def run!
       added(BoogieLanguage.new.parse(File.read(file)))

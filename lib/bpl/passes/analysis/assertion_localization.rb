@@ -2,7 +2,7 @@ module Bpl
   class AssertionLocalization < Pass
 
     depends :resolution, :call_graph_construction
-    flag "--assertion-localization", "Mark assertion-reaching procedures."
+    switch "--assertion-localization", "Mark assertion-reaching procedures."
     result :has_assert, {}
 
     def run! program

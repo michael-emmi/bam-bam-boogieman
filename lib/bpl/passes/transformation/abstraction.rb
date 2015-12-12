@@ -246,8 +246,8 @@ module Bpl
 
     option :index
 
-    flag "--abstraction [INDEX|count]", "Abstract element INDEX." do |n|
-      option :index, n
+    switch "--abstraction [INDEX|count]", "Abstract element INDEX." do |y,n|
+      y.yield :index, n
     end
 
     depends :call_graph_construction, :modifies_correction

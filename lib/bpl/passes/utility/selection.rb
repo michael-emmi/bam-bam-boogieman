@@ -3,8 +3,8 @@ module Bpl
 
     option :pattern
 
-    flag "--selection PATTERN", "Select decls matching PATTERN." do |p|
-      option :pattern, p
+    switch "--selection PATTERN", "Select decls matching PATTERN." do |y, p|
+      y.yield :pattern, p
     end
 
     invalidates :all

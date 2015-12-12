@@ -28,6 +28,21 @@ end
 
 def command_line_options
 
+  # Add the read switch before any solitary Boogie files
+  require_relative 'bpl/passes/utility/reading.rb'
+  require_relative 'bpl/passes/utility/writing.rb'
+
+  def file_switch?(x)
+    (Bpl::Reading.switch[:args] + Bpl::Writing.switch[:args]).
+    any? {|a| /#{a}/ =~ x}
+  end
+
+  ARGV.each_index do |idx|
+    next if idx > 0 && file_switch?(ARGV[idx-1])
+    next unless File.extname(ARGV[idx]) == '.bpl'
+    ARGV.insert(idx, Bpl::Reading.switch[:args].first)
+  end
+
   OptionParser.new do |opts|
 
     opts.banner = "Usage: #{File.basename $0} [options] FILE(s)"
@@ -80,10 +95,21 @@ def command_line_options
       opts.separator ""
       opts.separator "#{cat} passes:"
       passes.each do |name|
+        sw = @passes[name].switch
+        opts.on(*sw[:args]) do |*args|
+          opts = {}
+          sw[:blk].call(
+            Enumerator::Yielder.new {|k,v| opts[k] = v},
+            *args
+          ) if sw[:blk]
+          @stages.push([name, opts])
+        end
         @passes[name].flags.each do |f|
           opts.on(*f[:args]) do |*args|
-            f[:blk].call(*args) if f[:blk]
-            @stages << name if f == @passes[name].flags.first
+            f[:blk].call(
+              Enumerator::Yielder.new{|k,v| @passes[name].option k, v},
+              *args
+            )
           end
         end
       end
@@ -110,28 +136,28 @@ begin
   programs = []
 
   until @stages.empty? do
-    name = @stages.shift
+    name, args = @stages.shift
     klass = @passes[name]
-    next if cache.include?(name)
+    next if cache.include?(name) && args.empty?
     deps = klass.depends - cache.keys
     if deps.empty?
+      pass = klass.new(args.merge(cache.select{|a| klass.depends.include?(a)}))
       timed name do
-        pass = klass.new(cache.select{|a| klass.depends.include?(a)})
         if pass.method(:run!).arity > 0
           programs.each {|program| pass.run!(program)}
         else
           pass.run!
         end
-        pass.invalidates.each do |inv|
-          case inv when :all then cache.clear else cache.delete inv end
-        end
-        @stages.unshift(name) if pass.redo?
-        cache[name] = pass unless pass.redo? || pass.no_cache?
-        programs = programs - pass.removed + pass.added
       end
+      pass.invalidates.each do |inv|
+        case inv when :all then cache.clear else cache.delete inv end
+      end
+      @stages.unshift([name, args]) if pass.redo?
+      cache[name] = pass unless pass.redo?
+      programs = programs - pass.removed + pass.added
     else
-      @stages.unshift(name)
-      @stages.unshift(*deps)
+      @stages.unshift([name, args])
+      @stages.unshift(*deps.map{|d| [d,{}]})
     end
   end
 

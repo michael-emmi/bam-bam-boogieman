@@ -1,7 +1,7 @@
 module Bpl
   class TypeChecking < Pass
 
-    flag "--type-checking", "Ensure correct typing."
+    switch "--type-checking", "Ensure correct typing."
 
     def run! program
       program.each {|elem| elem.type_check if elem.respond_to?(:type_check)}

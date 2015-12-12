@@ -4,9 +4,7 @@ module Bpl
     depends :resolution
     option :print
 
-    flag "--call-graphs [PRINT]", "Construct call graphs." do |p|
-      option :print, p
-    end
+    switch "--call-graphs", "Construct call graphs."
 
     result :callers, {}
 

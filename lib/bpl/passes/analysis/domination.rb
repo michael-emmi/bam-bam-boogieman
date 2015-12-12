@@ -2,7 +2,7 @@ module Bpl
   class Domination < Pass
 
     depends :cfg_construction
-    flag "--domination", "Compute dominators."
+    switch "--domination", "Compute dominators."
     result :dominators, {}
 
     def run! program

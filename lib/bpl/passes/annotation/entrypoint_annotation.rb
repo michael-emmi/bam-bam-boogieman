@@ -2,7 +2,7 @@ module Bpl
   class EntrypointAnnotation < Pass
 
     depends :entrypoint_localization
-    flag "--entrypoint-annotation", "Annotate entrypoints."
+    switch "--entrypoint-annotation", "Annotate entrypoints."
 
     def run! program
       program.declarations.each do |decl|

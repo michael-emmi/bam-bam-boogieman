@@ -1,7 +1,7 @@
 module Bpl
   class Inlining < Pass
 
-    flag "--inlining", "Inline procedures."
+    switch "--inlining", "Inline procedures."
     invalidates :all
 
     def run! program
