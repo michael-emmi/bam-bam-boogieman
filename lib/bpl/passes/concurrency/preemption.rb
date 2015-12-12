@@ -1,9 +1,17 @@
 module Bpl
   class Preemption < Pass
+    DEFAULT_PREEMPTION_ANNOTATION = :yield
 
     depends :resolution
     depends :atomicity
+
+    option :attribute, DEFAULT_PREEMPTION_ANNOTATION
+
     flag "--preemption", "Add preemptions."
+
+    flag "--preemption-attribute NAME", "Attribute NAME for yield." do |name|
+      option :attribute, name
+    end
 
     def run! program
       program.each do |proc|
@@ -15,7 +23,7 @@ module Bpl
           next unless stmt.any? do |g|
             g.is_a?(StorageIdentifier) && g.is_global? && g.is_variable?
           end
-          stmt.insert_before bpl("assume {:yield} true;")
+          stmt.insert_before bpl("assume {:#{attribute}} true;")
         end
       end
 

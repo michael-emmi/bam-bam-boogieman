@@ -14,7 +14,9 @@ module Bpl
     end
 
     def has_yield?(proc)
-      proc.body && proc.body.any? {|x| x.has_attribute? :yield}
+      proc.body && proc.body.any? do |x|
+        x.has_attribute? Preemption.options[:attribute]
+      end
     end
 
     def run! program
