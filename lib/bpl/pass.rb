@@ -36,6 +36,9 @@ module Bpl
         @invalidates.merge(passes)
       end
 
+      def no_cache; @no_cache ||= true end
+      def no_cache?; @no_cache ||= false end
+
       def result(key, init)
         define_method(key) do
           v = instance_variable_get("@#{key}")
@@ -63,6 +66,8 @@ module Bpl
 
     def redo!; @redo ||= true end
     def redo?; @redo ||= false end
+
+    def no_cache?; self.class.no_cache? end
 
     def new_programs(*programs)
       @programs ||= []

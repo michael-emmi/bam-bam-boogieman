@@ -133,7 +133,11 @@ begin
         pass.invalidates.each do |inv|
           case inv when :all then cache.clear else cache.delete inv end
         end
-        if pass.redo? then @stages.unshift(name) else cache[name] = pass end
+        if pass.redo?
+          @stages.unshift(name)
+        elsif !pass.no_cache?
+          cache[name] = pass
+        end
         programs = pass.new_programs unless pass.new_programs.empty?
       end
     else

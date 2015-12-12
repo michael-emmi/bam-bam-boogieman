@@ -5,6 +5,8 @@ module Bpl
       option :file, f
     end
 
+    no_cache
+
     def first?
       res = @first.nil?
       @first = false

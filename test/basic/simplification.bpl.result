@@ -1,6 +1,6 @@
 const c: bool;
 axiom (c == true);
-var y: bool;
+const y: bool;
 var z: bool;
 function f(bool) returns (bool);
 procedure p1();
@@ -16,8 +16,6 @@ procedure p4() returns (r: bool)
 procedure p5() returns (r: bool);
 procedure p6()
 {
-entry:
-  goto next;
 next:
   z := true;
   goto b3;

@@ -223,6 +223,18 @@ module Bpl
         return nil
       end
 
+      def siblings
+        fail "unknown parent of #{self}" unless parent
+        _, ary, idx = parent.locate_child(self)
+        if idx
+          ary.dup.freeze
+        elsif ary
+          [ary]
+        else
+          fail "unknown child"
+        end
+      end
+
       def insert_siblings(where,*elems)
         fail "unknown parent of #{self}" unless parent
         sym, ary, idx = parent.locate_child(self)
