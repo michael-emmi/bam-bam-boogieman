@@ -20,6 +20,10 @@ module Bpl
         b.select {|x| x.is_a?(StorageIdentifier) && !x.is_global?}
       end.flatten.uniq(&:name)
 
+      mutable, immutable = locals.partition do |x|
+        x.declaration.parent.is_a?(Body)
+      end
+
       exits = blocks.collect do |b|
         b.select do |x|
           x.is_a?(LabelIdentifier) &&
@@ -28,7 +32,11 @@ module Bpl
       end.flatten.uniq(&:name)
 
       decl = bpl("procedure $loop.#{id}();")
-      locals.each do |x|
+      immutable.each do |x|
+        decl.append_children(:parameters,
+          StorageDeclaration.new(names: [x.name], type: x.type))
+      end
+      mutable.each do |x|
         decl.append_children(:parameters,
           StorageDeclaration.new(names: [x.name + ".0"], type: x.type))
         decl.append_children(:returns,
@@ -51,13 +59,13 @@ module Bpl
       decl.body.append_children(:blocks,
         *blocks.map(&:copy))
       decl.body.blocks.first.prepend_children(:statements,
-        *locals.map{|x| bpl("#{x.name} := #{x.name}.0;")})
+        *mutable.map{|x| bpl("#{x.name} := #{x.name}.0;")})
       decl.body.append_children(:blocks,
         *exits.map {|l| bpl("#{l}: assume !#{condition}; return;")})
 
       stmt = bpl %{
-        call #{locals.map(&:name) * ", "} #{":=" unless locals.empty?}
-        $loop.#{id}(#{locals.map(&:name) * ", "});
+        call #{mutable.map(&:name) * ", "} #{":=" unless locals.empty?}
+        $loop.#{id}(#{(immutable+mutable).map(&:name) * ", "});
       }
 
       return decl, stmt
