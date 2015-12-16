@@ -135,9 +135,9 @@ module Bpl
     end
 
     class CodeExpression < Expression
-      children :block
-      def eql?(ce) ce.is_a?(CodeExpression) && ce.block.eql?(@block) end
-      def show; "|#{yield @block}|" end
+      children :body
+      def eql?(ce) ce.is_a?(CodeExpression) && ce.block.eql?(@body) end
+      def show; "|#{yield @body}|" end
       def type; Type::Boolean end
     end
 
