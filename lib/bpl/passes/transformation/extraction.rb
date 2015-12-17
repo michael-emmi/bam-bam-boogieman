@@ -13,19 +13,18 @@ module Bpl
       id = fresh_id
 
       accs = blocks.collect do |b|
-        b.select {|x| x.is_a?(StorageIdentifier)}
-      end.flatten.uniq(&:name)
+        b.collect {|x| x.name if x.is_a?(StorageIdentifier)}.compact
+      end.flatten.uniq
 
       mods = blocks.collect do |b|
         b.collect do |s|
-          Modification.stmt_modifies(s) if s.is_a?(Statement)
-        end.flatten
-      end.flatten.compact.uniq(&:name)
+          Modification.stmt_modifies(s).map(&:name) if s.is_a?(Statement)
+        end.compact.flatten
+      end.flatten.uniq
 
-      local_mods, global_mods = mods.partition {|x| locals.include?(x.name)}
-      local_accs = accs.
-        reject {|x| mods.any? {|y| x.name == y.name}}.
-        select {|x| params.include?(x.name) || locals.include?(x.name)}
+      local_mods, global_mods = mods.partition {|x| locals.include?(x)}
+      local_accs = (accs - mods).
+        select {|x| params.include?(x) || locals.include?(x)}
 
       exits = blocks.collect do |b|
         b.select do |x|
@@ -37,17 +36,17 @@ module Bpl
       decl = bpl("procedure $loop.#{id}();")
       local_accs.each do |x|
         decl.append_children(:parameters,
-          StorageDeclaration.new(names: [x.name], type: x.type))
+          StorageDeclaration.new(names: [x], type: params[x] || locals[x]))
       end
       local_mods.each do |x|
         decl.append_children(:parameters,
-          StorageDeclaration.new(names: [x.name + ".0"], type: x.type))
+          StorageDeclaration.new(names: [x + ".0"], type: locals[x]))
         decl.append_children(:returns,
-          StorageDeclaration.new(names: [x.name], type: x.type))
+          StorageDeclaration.new(names: [x], type: locals[x]))
       end
       unless global_mods.empty?
         decl.append_children(:specifications,
-          bpl("modifies #{global_mods.map(&:name) * ", "};"))
+          bpl("modifies #{global_mods * ", "};"))
       end
       invariants.each do |i|
         decl.append_children(:specifications,
@@ -62,13 +61,13 @@ module Bpl
       decl.body.append_children(:blocks,
         *blocks.map(&:copy))
       decl.body.blocks.first.prepend_children(:statements,
-        *local_mods.map{|x| bpl("#{x.name} := #{x.name}.0;")})
+        *local_mods.map{|x| bpl("#{x} := #{x}.0;")})
       decl.body.append_children(:blocks,
         *exits.map {|l| bpl("#{l}: assume !#{condition}; return;")})
 
       stmt = bpl %{
-        call #{local_mods.map(&:name) * ", "} #{":=" unless local_mods.empty?}
-        $loop.#{id}(#{(local_accs + local_mods).map(&:name) * ", "});
+        call #{local_mods * ", "} #{":=" unless local_mods.empty?}
+        $loop.#{id}(#{(local_accs + local_mods) * ", "});
       }
 
       return decl, stmt
@@ -78,8 +77,10 @@ module Bpl
       program.declarations.each do |proc|
         next unless proc.is_a?(ProcedureDeclaration)
         next unless proc.body
-        params = Set.new(proc.parameters.map(&:names).flatten)
-        locals = Set.new((proc.returns + proc.body.locals).map(&:names).flatten)
+        params = proc.parameters.
+          map {|x| x.names.product([x.type])}.flatten(1).to_h
+        locals = (proc.returns + proc.body.locals).
+          map {|x| x.names.product([x.type])}.flatten(1).to_h
         proc.each(preorder: false) do |stmt|
           next unless stmt.is_a?(WhileStatement)
           next if stmt.invariants.empty?
@@ -99,8 +100,10 @@ module Bpl
       end
       loop_identification.loops.each do |head,body|
         proc = head.parent.parent
-        params = Set.new(proc.parameters.map(&:names).flatten)
-        locals = Set.new((proc.returns + proc.body.locals).map(&:names).flatten)
+        params = proc.parameters.
+          map {|x| x.names.product([x.type])}.flatten(1).to_h
+        locals = (proc.returns + proc.body.locals).
+          map {|x| x.names.product([x.type])}.flatten(1).to_h
 
         # NOTE filter out previously-removed blocks from nested loops
         body = body.select{|b| b.parent}
