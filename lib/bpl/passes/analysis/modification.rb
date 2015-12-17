@@ -15,6 +15,19 @@ module Bpl
     switch "--modification", "Compute modified variables."
     result :modifies, {}
 
+    def self.stmt_modifies(stmt)
+      case stmt
+      when HavocStatement
+        stmt.identifiers
+      when AssignStatement
+        stmt.lhs.map(&:ident)
+      when CallStatement
+        stmt.assignments.map(&:ident)
+      else
+        []
+      end
+    end
+
     def run! program
       work_list = []
       program.declarations.each do |proc|
@@ -22,17 +35,8 @@ module Bpl
         work_list << proc
         modifies[proc] = Set.new
         proc.each do |elem|
-          case elem
-          when HavocStatement
-            modifies[proc] +=
-              elem.identifiers.select(&:is_global?).map(&:name)
-          when AssignStatement
-            modifies[proc] +=
-              elem.lhs.map(&:ident).select(&:is_global?).map(&:name)
-          when CallStatement
-            modifies[proc] +=
-              elem.assignments.map(&:ident).select(&:is_global?).map(&:name)
-          end
+          modifies[proc] +=
+            self.class.stmt_modifies(elem).select(&:is_global?).map(&:name)
         end
       end
 
