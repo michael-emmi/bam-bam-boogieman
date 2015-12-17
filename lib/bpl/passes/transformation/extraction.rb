@@ -75,9 +75,14 @@ module Bpl
       program.declarations.each do |proc|
         next unless proc.is_a?(ProcedureDeclaration)
         next unless proc.body
-        proc.each do |stmt|
+        proc.each(preorder: false) do |stmt|
           next unless stmt.is_a?(WhileStatement)
           next if stmt.invariants.empty?
+
+          info "EXTRACTING WHILE LOOP"
+          info
+          info stmt.to_s.indent
+          info
 
           block = Block.new(names: [], statements: [stmt.copy])
           decl, call = extract(stmt.condition, stmt.invariants, [block])
@@ -88,6 +93,9 @@ module Bpl
       end
       loop_identification.loops.each do |head,body|
         condition = bpl("true")
+
+        # NOTE filter out previously-removed blocks from nested loops
+        body = body.select{|b| b.parent}
 
         ls = head.select {|l| l.is_a?(LabelIdentifier)}.map(&:name)
         exits = ls.select {|l| body.none? {|b| b.names.include?(l)}}
@@ -110,6 +118,11 @@ module Bpl
           end
         end
         next if invariants.empty?
+
+        info "EXTRACTING LOOP"
+        info
+        info "#{(body.to_a * "\n\n").indent}"
+        info
 
         decl, call = extract(condition, invariants, body.map(&:copy))
         program.append_children(:declarations, decl)

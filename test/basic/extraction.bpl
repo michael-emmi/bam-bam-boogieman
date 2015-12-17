@@ -16,6 +16,18 @@ procedure main()
     x := h(x);
   }
 
+  while (f(x))
+  invariant g(x);
+  {
+    x := h(x);
+    while (f(x))
+    invariant g(x);
+    {
+      x := h(x);
+    }
+    x := h(x);
+  }
+
   goto head1;
 
 head1:
@@ -36,6 +48,20 @@ head2:
 
 body2:
   assume f(x);
+  x := h(x);
+  goto nested_head;
+
+nested_head:
+  assert g(x);
+  goto nested_body, nested_exit;
+
+nested_body:
+  assume f(x);
+  x := h(x);
+  goto nested_head;
+
+nested_exit:
+  assume !f(x);
   x := h(x);
   goto head2;
 

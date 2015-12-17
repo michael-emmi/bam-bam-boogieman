@@ -1,41 +1,31 @@
 function f(bool) returns (bool);
 function g(bool) returns (bool);
 function h(bool) returns (bool);
-
 procedure main()
 {
   var x: bool;
-
   call x := $loop.1(x);
-
   while (f(x)) {
     x := h(x);
   }
-
+  call x := $loop.3(x);
   goto head1;
-
 head1:
   goto body1, exit1;
-
 body1:
   assume f(x);
   x := h(x);
   goto head1;
-
 exit1:
   assume !f(x);
   goto head2;
-
 head2:
-  call x := $loop.2(x);
+  call x := $loop.5(x);
   goto exit2;
-
 exit2:
   assume !f(x);
   return;
-
 }
-
 procedure $loop.1(x.0: bool) returns (x: bool)
 requires g(x);
 ensures g(x);
@@ -44,12 +34,56 @@ ensures !f(x);
   x := x.0;
   while (f(x))
   invariant g(x);
-  {
+   {
     x := h(x);
   }
 }
-
 procedure $loop.2(x.0: bool) returns (x: bool)
+requires g(x);
+ensures g(x);
+ensures !f(x);
+{
+  x := x.0;
+  while (f(x))
+  invariant g(x);
+   {
+    x := h(x);
+  }
+}
+procedure $loop.3(x.0: bool) returns (x: bool)
+requires g(x);
+ensures g(x);
+ensures !f(x);
+{
+  x := x.0;
+  while (f(x))
+  invariant g(x);
+   {
+    x := h(x);
+    call x := $loop.2(x);
+    x := h(x);
+  }
+}
+procedure $loop.4(x.0: bool) returns (x: bool)
+requires g(x);
+ensures g(x);
+ensures !f(x);
+{
+$entry:
+  x := x.0;
+  goto nested_head;
+nested_head:
+  assert g(x);
+  goto nested_body, nested_exit;
+nested_body:
+  assume f(x);
+  x := h(x);
+  goto nested_head;
+nested_exit:
+  assume !f(x);
+  return;
+}
+procedure $loop.5(x.0: bool) returns (x: bool)
 requires g(x);
 ensures g(x);
 ensures !f(x);
@@ -57,16 +91,20 @@ ensures !f(x);
 $entry:
   x := x.0;
   goto head2;
-
 head2:
   assert g(x);
   goto body2, exit2;
-
+nested_exit:
+  assume !f(x);
+  x := h(x);
+  goto head2;
+nested_head:
+  call x := $loop.4(x);
+  goto nested_exit;
 body2:
   assume f(x);
   x := h(x);
-  goto head2;
-
+  goto nested_head;
 exit2:
   assume !f(x);
   return;

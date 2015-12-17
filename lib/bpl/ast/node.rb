@@ -110,8 +110,8 @@ module Bpl
         other
       end
 
-      def each(&block)
-        enumerator = Enumerator.new {|y| enumerate(y)}
+      def each(preorder: true, &block)
+        enumerator = Enumerator.new {|y| enumerate(y, preorder)}
         if block_given?
           enumerator.each(&block)
         else
@@ -156,16 +156,17 @@ module Bpl
 
       # the following could be private
 
-      def enumerate(yielder)
-        yielder.yield(self)
+      def enumerate(yielder, preorder)
+        yielder.yield(self) if preorder
         self.class.children.each do |sym|
           case node = instance_variable_get("@#{sym}")
           when Node
-            node.enumerate(yielder)
+            node.enumerate(yielder, preorder)
           when Array
-            node.dup.each {|n| n.enumerate(yielder) if n.is_a?(Node)}
+            node.dup.each {|n| n.enumerate(yielder, preorder) if n.is_a?(Node)}
           end
         end
+        yielder.yield(self) unless preorder
       end
 
       def enumerate_children(yielder)
