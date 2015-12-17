@@ -94,17 +94,17 @@ $entry:
 head2:
   assert g(x);
   goto body2, exit2;
-nested_exit:
-  assume !f(x);
-  x := h(x);
-  goto head2;
-nested_head:
-  call x := $loop.4(x);
-  goto nested_exit;
 body2:
   assume f(x);
   x := h(x);
   goto nested_head;
+nested_head:
+  call x := $loop.4(x);
+  goto nested_exit;
+nested_exit:
+  assume !f(x);
+  x := h(x);
+  goto head2;
 exit2:
   assume !f(x);
   return;
