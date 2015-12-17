@@ -12,6 +12,12 @@ module Bpl
 
     def run! program
       program.declarations.select(&method(:split?)).each_with_index do |p,i|
+
+        info "SPLITTING PROCEDURE"
+        info
+        info "  #{p.name}"
+        info
+
         split = Program.new(declarations: [])
         program.declarations.each do |decl|
           d = decl.copy
