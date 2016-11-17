@@ -64,7 +64,7 @@ module Bpl
       end
 
       def get_attribute(key)
-        a = @attributes.first {|_a| _a.key == key}
+        a = @attributes.find {|_a| _a.key == key}
         a.values if a
       end
 
