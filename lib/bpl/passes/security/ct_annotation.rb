@@ -2,6 +2,7 @@ module Bpl
   class CtAnnotation < Pass
 
     depends :resolution
+    depends :cfg_construction, :conditional_identification
     switch "--ct-annotation", "Extract constant-time annotations."
 
     ANNOTATIONS = [
@@ -10,7 +11,13 @@ module Bpl
       :declassified_out,
     ]
 
+    BLOCK_ANNOTATIONS = [
+      :benign,
+    ]
+
     def run! program
+      cfg = cfg_construction
+
       program.declarations.each do |decl|
         next unless decl.is_a?(ProcedureDeclaration)
         next unless decl.body
@@ -39,6 +46,14 @@ module Bpl
               bpl("requires {:#{stmt.procedure.name} #{access * ", "}} true;")
             )
             invalidates :resolution
+
+          elsif stmt.procedure.name =~ /#{BLOCK_ANNOTATIONS * "|"}/
+            head = cfg.predecessors[stmt.parent].first
+            body = conditional_identification.conditionals[head]
+            next unless body
+            body.each do |blk|
+              blk.prepend_children(:statements, bpl("assume {:self_construction} true;"))
+            end
           end
 
         end
