@@ -17,13 +17,16 @@ module Bpl
           next unless branches.count > 1
           next unless (dominators[head] & branches).empty?
 
-          conditionals[head] = Set.new
-          conditionals[head].add(head)
+          conditionals[head] = { blocks: Set.new, sortie: nil }
+          conditionals[head][:blocks].add(head)
           work_list = [head]
           until work_list.empty?
             cfg.successors[work_list.shift].each do |blk|
-              next if (dominators[blk] & branches).empty?
-              conditionals[head].add(blk)
+              if (dominators[blk] & branches).empty?
+                conditionals[head][:sortie] ||= blk
+                next
+              end
+              conditionals[head][:blocks].add(blk)
               work_list |= [blk]
             end
           end
