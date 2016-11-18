@@ -89,7 +89,10 @@ module Bpl
       '\$alloc',
       '\$free',
       'boogie_si_',
-      '__VERIFIER_'
+      '__VERIFIER_',
+      '__SMACK_',
+      'llvm.dbg',
+      '\$initialize'
     ]
 
     MAGIC_LIST = [
