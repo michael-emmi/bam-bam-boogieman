@@ -9,6 +9,7 @@ module Bpl
     switch "--shadowing", "Construct the shadow product program."
 
     def shadow(x) "#{x}.shadow" end
+    def unshadow(x) "#{x}".sub(/[.]shadow\z/,'') end
     def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
     def decl(v)
       v.class.new(names: v.names.map(&method(:shadow)), type: v.type)
@@ -170,6 +171,14 @@ module Bpl
             shadow_block.each do |label|
               next unless label.is_a?(LabelIdentifier) && label.name != sortie
               label.replace_with(LabelIdentifier.new(name: shadow(label.name)))
+            end
+            shadow_block.each do |stmt|
+              next unless stmt.is_a?(AssumeStatement)
+              next unless values = stmt.get_attribute(:branchcond)
+              expr = bpl(unshadow values.first)
+              stmt.insert_after(shadow_assert(shadow_eq(expr)))
+              equalities.add(expr)
+
             end
 
             blocks_to_insert_before[sortie] ||= []
