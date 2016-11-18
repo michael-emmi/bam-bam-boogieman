@@ -52,8 +52,9 @@ module Bpl
             cond = conditional_identification.conditionals[head]
             next unless cond
             cond[:blocks].each do |blk|
-              blk.prepend_children(:statements, bpl("assume {:self_construction #{head.name}, #{cond[:sortie].name}} true;"))
+              blk.prepend_children(:statements, bpl("assume {:self_construction \"#{head.name}\", \"#{cond[:sortie].name}\"} true;"))
             end
+            stmt.remove
           end
 
         end

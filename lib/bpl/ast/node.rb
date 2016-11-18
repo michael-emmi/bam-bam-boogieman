@@ -196,7 +196,7 @@ module Bpl
           when :before then var.unshift(*elems)
           when :after  then var.push(*elems)
           when :inplace
-            var.each {|elem| elem.unlink}
+            var.each {|elem| elem.unlink if elem.respond_to?(:unlink)}
             var.clear
             var.push(*elems)
           end

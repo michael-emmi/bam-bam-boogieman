@@ -151,83 +151,110 @@ module Bpl
         equalities = Set.new
         arguments = Set.new
 
-        decl.body.each do |stmt|
-          case stmt
-          when AssumeStatement
+        blocks_to_insert_before = {}
 
-            # TODO should we be shadowing assume statements?
-            # NOTE apparently not; because when they appear as branch
-            # conditions, they make the preceding shadow assertion
-            # trivially true.
-            # stmt.insert_after(shadow_copy(stmt))
+        decl.body.blocks.each do |block|
+          block.insert_before *(blocks_to_insert_before[block.name] || [])
 
-            # XXX this is an ugly hack to deal with memory intrinsic
-            # XXX functions which are implemented with assume statemnts
-            if magic?(decl.name)
-              stmt.insert_after(shadow_copy(stmt))
+          if values = block.statements.first.get_attribute(:self_construction)
+            entree, sortie = values
+            block.statements.first.remove
+            shadow_block = shadow_copy(block)
+
+            block.each do |label|
+              next unless label.is_a?(LabelIdentifier) && label.name == sortie
+              label.replace_with(LabelIdentifier.new(name: shadow(entree)))
             end
 
-          when AssignStatement
-
-            # ensure the indicies to loads and stores are equal
-            accesses(stmt).each do |idx|
-              stmt.insert_before(shadow_assert(shadow_eq(idx)))
-              equalities.add(idx)
+            shadow_block.replace_children(:names, *shadow_block.names.map(&method(:shadow)))
+            shadow_block.each do |label|
+              next unless label.is_a?(LabelIdentifier) && label.name != sortie
+              label.replace_with(LabelIdentifier.new(name: shadow(label.name)))
             end
 
-            # shadow the assignment
-            stmt.insert_after(shadow_copy(stmt))
+            blocks_to_insert_before[sortie] ||= []
+            blocks_to_insert_before[sortie] << shadow_block
 
-          when CallStatement
-            if magic?(stmt.procedure.name)
-              stmt.arguments.each do |x|
-                unless x.type.is_a?(MapType)
-                  if x.any?{|id| id.is_a?(StorageIdentifier)}
-                    stmt.insert_before(shadow_assert(shadow_eq(x)))
-                    equalities.add(x)
+          else
+            block.each do |stmt|
+              case stmt
+              when AssumeStatement
+
+                # TODO should we be shadowing assume statements?
+                # NOTE apparently not; because when they appear as branch
+                # conditions, they make the preceding shadow assertion
+                # trivially true.
+                # stmt.insert_after(shadow_copy(stmt))
+
+                # XXX this is an ugly hack to deal with memory intrinsic
+                # XXX functions which are implemented with assume statemnts
+                if magic?(decl.name)
+                  stmt.insert_after(shadow_copy(stmt))
+                end
+
+              when AssignStatement
+
+                # ensure the indicies to loads and stores are equal
+                accesses(stmt).each do |idx|
+                  stmt.insert_before(shadow_assert(shadow_eq(idx)))
+                  equalities.add(idx)
+                end
+
+                # shadow the assignment
+                stmt.insert_after(shadow_copy(stmt))
+
+              when CallStatement
+                if magic?(stmt.procedure.name)
+                  stmt.arguments.each do |x|
+                    unless x.type.is_a?(MapType)
+                      if x.any?{|id| id.is_a?(StorageIdentifier)}
+                        stmt.insert_before(shadow_assert(shadow_eq(x)))
+                        equalities.add(x)
+                      end
+                    end
                   end
                 end
+
+                if exempt?(stmt.procedure.name)
+                  stmt.assignments.each do |x|
+                    stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
+                  end
+                else
+                  stmt.arguments.each do |x|
+                    arguments.add(x)
+                    x.insert_after(shadow_copy(x))
+                  end
+                  stmt.assignments.each do |x|
+                    x.insert_after(shadow_copy(x))
+                  end
+                end
+
+              when HavocStatement
+                nxt = stmt.next_sibling
+                if nxt and
+                   nxt.is_a?(AssumeStatement)
+                  nxt.insert_after(shadow_copy(nxt))
+                end
+                stmt.insert_after(shadow_copy(stmt))
+
+              when GotoStatement
+                next if stmt.identifiers.length < 2
+                unless stmt.identifiers.length == 2
+                  fail "Unexpected goto statement: #{stmt}"
+                end
+
+                if annotation = stmt.previous_sibling
+                  fail "Expected :branchcond annotation" unless
+                    annotation.has_attribute?(:branchcond)
+
+                  if expr = annotation.get_attribute(:branchcond).first
+                    stmt.insert_before(shadow_assert(shadow_eq(expr)))
+                    equalities.add(expr)
+                  end
+                end
+
               end
             end
-
-            if exempt?(stmt.procedure.name)
-              stmt.assignments.each do |x|
-                stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
-              end
-            else
-              stmt.arguments.each do |x|
-                arguments.add(x)
-                x.insert_after(shadow_copy(x))
-              end
-              stmt.assignments.each do |x|
-                x.insert_after(shadow_copy(x))
-              end
-            end
-
-          when HavocStatement
-            nxt = stmt.next_sibling
-            if nxt and
-               nxt.is_a?(AssumeStatement)
-              nxt.insert_after(shadow_copy(nxt))
-            end
-            stmt.insert_after(shadow_copy(stmt))
-
-          when GotoStatement
-            next if stmt.identifiers.length < 2
-            unless stmt.identifiers.length == 2
-              fail "Unexpected goto statement: #{stmt}"
-            end
-
-            if annotation = stmt.previous_sibling
-              fail "Expected :branchcond annotation" unless
-                annotation.has_attribute?(:branchcond)
-
-              if expr = annotation.get_attribute(:branchcond).first
-                stmt.insert_before(shadow_assert(shadow_eq(expr)))
-                equalities.add(expr)
-              end
-            end
-
           end
         end
 
