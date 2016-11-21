@@ -391,8 +391,12 @@ module Bpl
         end
 
         product_decl.replace_children(:name, "#{decl.name}.cross_product")
-        decl.insert_after(product_decl)
-        decl.remove_attribute(:entrypoint)
+
+        if decl.has_attribute?(:entrypoint)
+          decl.replace_with(product_decl)
+        else
+          decl.insert_after(product_decl)
+        end
       end
 
     end
