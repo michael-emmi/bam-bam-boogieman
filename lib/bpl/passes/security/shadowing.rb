@@ -391,10 +391,7 @@ module Bpl
         end
 
         add_assertions!(product_decl)
-
-        # TODO this step is taking a while
         add_loop_invariants!(product_decl, arguments, equalities)
-
         product_decl.replace_children(:name, "#{decl.name}.cross_product")
       end
 
