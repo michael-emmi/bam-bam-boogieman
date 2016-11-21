@@ -363,36 +363,36 @@ module Bpl
         next if exempt?(decl.name)
 
         product_decl = decl.copy
-        decl.insert_after(product_decl)
-        decl.remove_attribute(:entrypoint)
-
         add_shadow_variables!(product_decl)
 
-        next unless product_decl.body
+        if product_decl.body
+          equalities = Set.new
+          arguments = Set.new
+          block_insertions = {}
 
-        equalities = Set.new
-        arguments = Set.new
-        block_insertions = {}
+          product_decl.body.blocks.each do |block|
 
-        product_decl.body.blocks.each do |block|
+            block.insert_before *(block_insertions[block.name] || [])
 
-          block.insert_before *(block_insertions[block.name] || [])
+            if ins = self_composition_block(block)
+              block_insertions[ins[:before]] ||= []
+              block_insertions[ins[:before]] << ins[:block]
+              equalities.merge(ins[:eqs])
 
-          if ins = self_composition_block(block)
-            block_insertions[ins[:before]] ||= []
-            block_insertions[ins[:before]] << ins[:block]
-            equalities.merge(ins[:eqs])
-
-          else
-            eqs, args = cross_product_block!(block)
-            equalities.merge(eqs)
-            arguments.merge(args)
+            else
+              eqs, args = cross_product_block!(block)
+              equalities.merge(eqs)
+              arguments.merge(args)
+            end
           end
+
+          add_assertions!(product_decl)
+          add_loop_invariants!(product_decl, arguments, equalities)
         end
 
-        add_assertions!(product_decl)
-        add_loop_invariants!(product_decl, arguments, equalities)
         product_decl.replace_children(:name, "#{decl.name}.cross_product")
+        decl.insert_after(product_decl)
+        decl.remove_attribute(:entrypoint)
       end
 
     end
