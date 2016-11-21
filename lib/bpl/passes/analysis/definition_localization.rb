@@ -6,8 +6,9 @@ module Bpl
     result :definitions, {}
 
     def add_def(proc, id, stmt)
-      definitions[id.name] ||= Set.new
-      definitions[id.name].add(stmt)
+      definitions[proc.name] ||= {}
+      definitions[proc.name][id.name] ||= Set.new
+      definitions[proc.name][id.name].add(stmt)
     end
 
     def run! program

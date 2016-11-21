@@ -5,31 +5,50 @@ module Bpl
     switch "--conditional-identification", "Compute conditional blocks."
     result :conditionals, {}
 
-    def run! program
-      dominators = domination.dominators
-      cfg = cfg_construction
+    def successors blk; cfg_construction.successors[blk] end
+    def dominators blk; domination.dominators[blk] end
 
+    def exit_block?(blk, branches)
+      successors(blk).empty? || (dominators(blk) & branches).empty?
+    end
+
+    def back_edge?(blk)
+      (dominators(blk) & successors(blk)).any?
+    end
+
+    def save_result(head, blocks, exits)
+      conditionals[head] = { blocks: blocks, exits: exits }
+    end
+
+    def run! program
       program.declarations.each do |proc|
         next unless proc.is_a?(ProcedureDeclaration) && proc.body
+
         proc.body.blocks.each do |head|
-          branches = cfg.successors[head]
-
+          branches = successors(head)
           next unless branches.count > 1
-          next unless (dominators[head] & branches).empty?
 
-          conditionals[head] = { blocks: Set.new, sortie: nil }
-          conditionals[head][:blocks].add(head)
+          blocks = Set.new
+          exits = Set.new
           work_list = [head]
+
           until work_list.empty?
-            cfg.successors[work_list.shift].each do |blk|
-              if (dominators[blk] & branches).empty?
-                conditionals[head][:sortie] ||= blk
-                next
-              end
-              conditionals[head][:blocks].add(blk)
-              work_list |= [blk]
+            blk = work_list.shift
+            blocks << blk
+
+            if back_edge?(blk)
+              blocks = nil
+              break
+
+            elsif exit_block?(blk, branches)
+              exits << blk
+
+            else
+              successors(blk).each {|b| work_list |= blk}
             end
           end
+
+          save_result(head, blocks, exits) if blocks
         end
       end
     end

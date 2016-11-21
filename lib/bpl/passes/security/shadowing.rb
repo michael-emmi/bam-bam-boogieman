@@ -39,26 +39,30 @@ module Bpl
       end
     end
 
-    def dependent_variables(proc, expr)
-      work_list = [expr]
-      deps = Set.new
+    def dependent_variables(proc, exprs)
+      dependencies = Set.new
+
+      work_list = exprs.to_a.dup
       covered = Set.new(work_list)
+
       until work_list.empty?
-        stmt = work_list.shift
-        stmt.each do |id|
+
+        node = work_list.shift
+        node.each do |id|
           next unless id.is_a?(StorageIdentifier)
           next if id.declaration && id.declaration.parent.is_a?(Program)
-          defs = definition_localization.definitions[id.name]
-          next unless defs
-          deps.add(id.name)
-          defs.each do |s|
-            next if covered.include?(s)
-            covered.add(s)
-            work_list |= [s]
+          next unless definitions = definition_localization.definitions[proc.name][id.name]
+
+          dependencies.add(id.name)
+
+          definitions.each do |stmt|
+            next if covered.include?(stmt)
+            covered.add(stmt)
+            work_list << stmt
           end
         end
       end
-      deps
+      return dependencies
     end
 
     def loads(annotation)
@@ -142,17 +146,19 @@ module Bpl
     end
 
     def self_composition_block(block)
-      entree, sortie = block.statements.first.get_attribute(:selfcomp)
-      return nil unless entree
+      head, exits = block.statements.first.get_attribute(:selfcomp)
+      return nil unless head
 
       block.statements.first.remove
       shadow_block = shadow_copy(block)
 
       equalities = Set.new
 
+      fail "TODO: fix the following code"
+
       block.each do |label|
-        next unless label.is_a?(LabelIdentifier) && label.name == sortie
-        label.replace_with(LabelIdentifier.new(name: shadow(entree)))
+        next unless label.is_a?(LabelIdentifier) && exits.include?(label.name)
+        label.replace_with(LabelIdentifier.new(name: shadow(head)))
       end
 
       shadow_block.replace_children(:names, *shadow_block.names.map(&method(:shadow)))
@@ -302,26 +308,24 @@ module Bpl
 
     def add_loop_invariants!(proc_decl, arguments, equalities)
 
-      equality_dependencies =
-        equalities.
-        reduce(Set.new){|acc, expr| acc | dependent_variables(proc_decl, expr)}
+      equality_dependencies = dependent_variables(proc_decl, equalities)
 
       pointer_argument_dependencies =
-        arguments.select{|x|
-          x.is_a?(StorageIdentifier) &&
-          x.declaration &&
-          x.declaration.type.is_a?(CustomType) &&
-          x.declaration.type.name == "ref"}.
-        reduce(Set.new){|acc, expr| acc | dependent_variables(proc_decl, expr)} -
+        dependent_variables(proc_decl,
+          arguments.select{|x|
+            x.is_a?(StorageIdentifier) &&
+            x.declaration &&
+            x.declaration.type.is_a?(CustomType) &&
+            x.declaration.type.name == "ref"}) -
         equality_dependencies
 
       value_argument_dependencies =
-        arguments.select{|x|
-          x.is_a?(StorageIdentifier) &&
-          x.declaration &&
-          x.declaration.type.is_a?(CustomType) &&
-          x.declaration.type.name != "ref"}.
-        reduce(Set.new){|acc, expr| acc | dependent_variables(proc_decl, expr)} -
+        dependent_variables(proc_decl,
+          arguments.select{|x|
+            x.is_a?(StorageIdentifier) &&
+            x.declaration &&
+            x.declaration.type.is_a?(CustomType) &&
+            x.declaration.type.name != "ref"}) -
         equality_dependencies -
         pointer_argument_dependencies
 
@@ -362,7 +366,6 @@ module Bpl
         decl.insert_after(product_decl)
         decl.remove_attribute(:entrypoint)
 
-        product_decl.replace_children(:name, "#{decl.name}.cross_product")
         add_shadow_variables!(product_decl)
 
         next unless product_decl.body
@@ -388,7 +391,11 @@ module Bpl
         end
 
         add_assertions!(product_decl)
+
+        # TODO this step is taking a while
         add_loop_invariants!(product_decl, arguments, equalities)
+
+        product_decl.replace_children(:name, "#{decl.name}.cross_product")
       end
 
     end
