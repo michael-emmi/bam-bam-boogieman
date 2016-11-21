@@ -8,13 +8,9 @@ module Bpl
     def successors blk; cfg_construction.successors[blk] end
     def dominators blk; domination.dominators[blk] end
 
-    def exit_block?(blk, branches)
-      successors(blk).empty? || (dominators(blk) & branches).empty?
-    end
-
-    def back_edge?(blk)
-      (dominators(blk) & successors(blk)).any?
-    end
+    def exit?(blk) successors(blk).empty? end
+    def loop?(blk) (dominators(blk) & successors(blk)).any? end
+    def external?(blk, branches) (dominators(blk) & branches).empty? end
 
     def save_result(head, blocks, exits)
       conditionals[head] = { blocks: blocks, exits: exits }
@@ -34,17 +30,17 @@ module Bpl
 
           until work_list.empty?
             blk = work_list.shift
-            blocks << blk
 
-            if back_edge?(blk)
+            if loop?(blk)
               blocks = nil
               break
 
-            elsif exit_block?(blk, branches)
+            elsif external?(blk, branches)
               exits << blk
 
             else
-              successors(blk).each {|b| work_list |= blk}
+              blocks << blk
+              successors(blk).each {|b| work_list |= blk} unless exit?(blk)
             end
           end
 
