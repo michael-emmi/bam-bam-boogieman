@@ -68,7 +68,7 @@ module Bpl
         a.values if a
       end
 
-      def add_attribute(key, values = [])
+      def add_attribute(key, *values)
         append_children(:attributes, Attribute.new(key: key, values: values))
       end
 

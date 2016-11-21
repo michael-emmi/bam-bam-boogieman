@@ -146,24 +146,32 @@ module Bpl
     end
 
     def self_composition_block(block)
-      head, exits = block.statements.first.get_attribute(:selfcomp)
-      return nil unless head
+      return nil unless block.statements.first.has_attribute?(:selfcomp)
+      head, tail = block.statements.first.get_attribute(:selfcomp)
 
-      block.statements.first.remove
       shadow_block = shadow_copy(block)
 
       equalities = Set.new
 
-      fail "TODO: fix the following code"
-
-      block.each do |label|
-        next unless label.is_a?(LabelIdentifier) && exits.include?(label.name)
-        label.replace_with(LabelIdentifier.new(name: shadow(head)))
+      # replace returns and exits in the original block
+      block.each do |stmt|
+        case stmt
+        when ReturnStatement
+        when GotoStatement
+          if stmt.identifiers.map(&:name).include?(tail)
+            fail "Unexpected branching exit" unless stmt.identifiers.count == 1
+          else
+            next
+          end
+        else
+          next
+        end
+        stmt.replace_with(bpl("goto #{shadow(head)};"))
       end
 
       shadow_block.replace_children(:names, *shadow_block.names.map(&method(:shadow)))
       shadow_block.each do |label|
-        next unless label.is_a?(LabelIdentifier) && label.name != sortie
+        next unless label.is_a?(LabelIdentifier) && label.name != tail
         label.replace_with(LabelIdentifier.new(name: shadow(label.name)))
       end
 
@@ -175,7 +183,7 @@ module Bpl
         equalities.add(expr)
       end
 
-      return { block: shadow_block, before: sortie, eqs: equalities }
+      return { block: shadow_block, before: tail, eqs: equalities }
     end
 
     def cross_product_block!(block)

@@ -24,9 +24,9 @@ module Bpl
           branches = successors(head)
           next unless branches.count > 1
 
-          blocks = Set.new
+          blocks = Set.new([head])
           exits = Set.new
-          work_list = [head]
+          work_list = branches.to_a
 
           until work_list.empty?
             blk = work_list.shift
@@ -40,7 +40,7 @@ module Bpl
 
             else
               blocks << blk
-              successors(blk).each {|b| work_list |= blk} unless exit?(blk)
+              successors(blk).each {|b| work_list |= [b]} unless exit?(blk)
             end
           end
 

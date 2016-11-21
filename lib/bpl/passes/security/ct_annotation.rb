@@ -52,9 +52,10 @@ module Bpl
             cond = conditional_identification.conditionals[head]
             next unless cond
             cond[:blocks].each do |blk|
-              block_list = (head + cond[:exits]).map{|b| "\"#{b.name}\""}
-              blk.prepend_children(:statements,
-                bpl("assume {:selfcomp #{block_list * ", "}} true;"))
+              fail "Unexpected conditional exits" if cond[:exits].count > 1
+              block_list = ([head] + cond[:exits].first(1)).map(&:name)
+              blk.prepend_children(:statements, bpl("assume true;"))
+              blk.statements.first.add_attribute(:selfcomp, *block_list)
             end
             stmt.remove
           end
