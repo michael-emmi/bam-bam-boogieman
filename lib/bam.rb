@@ -124,13 +124,13 @@ begin
   @passes = {}
   @stages = []
 
+  command_line_options.parse!
+
   unless $quiet
     info "BAM! BAM! Boogieman version #{BAM::VERSION}".bold,
       "#{" " * 20}copyright (c) 2015, Michael Emmi".bold
     info
   end
-
-  command_line_options.parse!
 
   cache = Hash.new
   programs = []
