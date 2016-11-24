@@ -276,6 +276,7 @@ module Bpl
     end
 
     def add_assertions!(proc_decl)
+      equalities = Set.new
 
       annotations = annotated_specifications(proc_decl)
 
@@ -312,6 +313,7 @@ module Bpl
           each{|r| r.insert_before(bpl("assert $shadow_ok;"))}
       end
 
+      return equalities
     end
 
     def add_loop_invariants!(proc_decl, arguments, equalities)
@@ -394,7 +396,7 @@ module Bpl
             end
           end
 
-          add_assertions!(product_decl)
+          equalities.merge( add_assertions!(product_decl) )
           add_loop_invariants!(product_decl, arguments, equalities)
         end
 
