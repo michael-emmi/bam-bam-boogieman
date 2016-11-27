@@ -8,7 +8,9 @@ macro
   MLC_OPEN    \/\*
   MLC_CLOSE   \*\/
   SLC         \/\/
-  IDENT     [a-zA-Z_.$\#'`~^\\?][\w.$\#'`~^\\?]*
+  ID_INIT   [a-zA-Z_.$\#'`~^\\?]
+  ID_CHAR   [\w.$\#'`~^\\?]
+  IDENT     {ID_INIT}{ID_CHAR}*
   OPERATOR  <==>|==>|\|\||&&|==|!=|<:|<=|<|>=|>|\+\+|\+|-|\*|\/|{:|:=|::|:|\|
   KEYWORD   \b(assert|assume|axiom|bool|break|bv(\d+)|call|complete|const|else|ensures|exists|false|finite|forall|free|function|goto|havoc|if|implementation|int|invariant|modifies|old|procedure|requires|return|returns|then|true|type|unique|var|where|while)\b
 
@@ -34,7 +36,7 @@ rule
           \d+               { [:NUMBER, text.to_i] }
           bv\d+\b           { [:BVTYPE, text[2..-1].to_i] }
 
-          {KEYWORD}         { [text, Token.new(lineno)] }
+          {KEYWORD}(?!{ID_CHAR}) { [text, Token.new(lineno)] }
 
           {IDENT}           { [:IDENTIFIER, text] }
           .                 { [text, text] }

@@ -166,10 +166,14 @@ rescue Interrupt
 rescue ParseError => e
   unless e.message.match(/parse error on value \#<.* @line=(?<line>\d+)> \("(?<token>.*)"\)/) do |m|
     line_no = m[:line].to_i
-    File.open(src) do |f|
-      line_no.times { f.gets }
-      abort("parse error at token \"#{m[:token]}\" on line #{line_no}:\n\n  #{$_}")
-    end
+    abort("parse error at token #{m[:token]} on line #{m[:line]}")
+
+    # TODO track down the source of the parse error
+    # File.open(_src_) do |f|
+    #   line_no.times { f.gets }
+    #   abort("parse error at token \"#{m[:token]}\" on line #{line_no}:\n\n  #{$_}")
+    # end
+
   end
     abort("unidentified parse error: #{e.message.strip}")
   end
