@@ -12,7 +12,7 @@ facilitates the creation of new AST passes.
 
 Install from Ruby’s package manager:
 
-    $ gem install hello
+    $ gem install bam-bam-boogieman
 
 To enable the C/LLVM front end, ensure that [SMACK][smack] is in your executable
 path.
