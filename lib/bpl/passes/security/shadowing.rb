@@ -339,24 +339,30 @@ module Bpl
         equality_dependencies -
         pointer_argument_dependencies
 
-      loop_identification.loops.each do |head,body|
-        next unless head.parent == proc_decl.body
+      loop_identification.loops.each do |head,_|
+        block = proc_decl.body.blocks.find do |b|
+          b.name == head.name && proc_decl.name == head.parent.parent.name
+        end
+
+        next unless block
+
         value_argument_dependencies.each do |x|
           next unless liveness.live[head].include?(x)
-          head.prepend_children(:statements,
+          block.prepend_children(:statements,
             bpl("assert {:unlikely_shadow_invariant #{x} == #{shadow x}} true;"))
         end
         pointer_argument_dependencies.each do |x|
           next unless liveness.live[head].include?(x)
-          head.prepend_children(:statements,
+          block.prepend_children(:statements,
             bpl("assert {:likely_shadow_invariant} #{x} == #{shadow x};"))
         end
         equality_dependencies.each do |x|
           next unless liveness.live[head].include?(x)
-          head.prepend_children(:statements,
+          block.prepend_children(:statements,
             bpl("assert {:shadow_invariant} #{x} == #{shadow x};"))
         end
-        head.prepend_children(:statements,
+
+        block.prepend_children(:statements,
           bpl("assert {:shadow_invariant} $shadow_ok;"))
       end
     end
