@@ -1,3 +1,3 @@
 module BAM
-  VERSION = "1.0-110-g2032afa"
+  VERSION = "1.0.0-alpha"
 end
