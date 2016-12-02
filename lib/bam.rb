@@ -2,7 +2,7 @@
 
 require 'set'
 require 'optparse'
-require_relative 'bam/version'
+require_relative 'bam-bam-boogieman/version'
 require_relative 'bam/prelude'
 require_relative 'bam/frontend'
 require_relative 'bpl/parser.tab'
