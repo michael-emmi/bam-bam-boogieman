@@ -95,8 +95,7 @@ module Bpl
       'boogie_si_',
       '__VERIFIER_',
       '__SMACK_',
-      'llvm.dbg',
-      '\$initialize'
+      'llvm.dbg'
     ]
 
     MAGIC_LIST = [
@@ -230,7 +229,7 @@ module Bpl
             end
           end
 
-          if exempt?(stmt.procedure.name)
+          if exempt?(stmt.procedure.name) and stmt.procedure.name != '__SMACK_static_init'
             stmt.assignments.each do |x|
               stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
             end
@@ -376,7 +375,7 @@ module Bpl
       # duplicate parameters, returns, and local variables
       program.each_child do |decl|
         next unless decl.is_a?(ProcedureDeclaration)
-        next if exempt?(decl.name)
+        next if exempt?(decl.name) and decl.name != '__SMACK_static_init'
 
         product_decl = decl.copy
         add_shadow_variables!(product_decl)
