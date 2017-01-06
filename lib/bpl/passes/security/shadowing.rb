@@ -94,9 +94,8 @@ module Bpl
       '\$free',
       'boogie_si_',
       '__VERIFIER_',
-      '__SMACK_',
-      'llvm.dbg',
-      '\$initialize'
+      '__SMACK_(?!static_init)',
+      'llvm.dbg'
     ]
 
     MAGIC_LIST = [
