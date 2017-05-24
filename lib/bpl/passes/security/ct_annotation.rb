@@ -26,7 +26,6 @@ module Bpl
 
         decl.body.each do |stmt|
           next unless stmt.is_a?(CallStatement)
-
           if stmt.procedure.name =~ /__SMACK_value/
             name = stmt.attributes.find{|a| a.key =~ /name/}
             kind = stmt.attributes.find{|a| a.key =~ /array|field/}
@@ -36,7 +35,6 @@ module Bpl
               kind: kind && kind.key,
               access: kind && kind.values
             }
-
           elsif stmt.procedure.name =~ /#{ANNOTATIONS * "|"}/
             var = stmt.arguments.first.name
             v = values[var]
@@ -46,6 +44,7 @@ module Bpl
               bpl("requires {:#{stmt.procedure.name} #{access * ", "}} true;")
             )
             invalidates :resolution
+            stmt.remove
 
           elsif stmt.procedure.name =~ /#{BLOCK_ANNOTATIONS * "|"}/
             head = cfg.predecessors[stmt.parent].first
