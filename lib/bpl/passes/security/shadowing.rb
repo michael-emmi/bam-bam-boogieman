@@ -436,52 +436,111 @@ module Bpl
       end
     end
 
-    def run! program
+    def shadow_decl(decl)
 
-      # # add cost global variable
-      # program.prepend_children(:declarations, bpl("var $l: int;"))
+      s_decl = decl.copy
+      s_decl.replace_children(:name, "#{decl.name}.shadow")
 
-      # # update cost global variable
-      # program.each_child do |decl|
-      #   next unless decl.is_a?(ProcedureDeclaration)
-      #   next if exempt?(decl.name)
-      #   decl.body.blocks.each do |block|
-      #     block.each do |stmt|
-      #       next unless stmt.is_a?(AssumeStatement)
-      #       next unless values = stmt.get_attribute(:'smack.InstTimingCost.Int64')
-      #       stmt.insert_after(bpl("$l := add.i32($l, #{values.first});"))
-      #     end
-      #   end
-      # end
+      # shadow global variables
+
+      s_decl.body.blocks.each do |block|
+        block.each do |expr|
+          if expr.is_a?(Identifier) && expr.is_variable? && expr.is_global?
+            expr.name = shadow(expr)
+          end
+          if expr.is_a?(CallStatement)
+            next if exempt?(expr.procedure.name)
+            expr.procedure.replace_with(bpl("#{expr.procedure}.shadow"))
+          end
+        end
+      end
+      s_decl
+    end
+
+
+    def test_globals(decl)
+      decl.body.blocks.each do |block|
+        block.each do |expr|
+          if expr.is_a?(Identifier) && expr.is_variable? && expr.is_global?
+            puts expr
+          end
+          if expr.is_a?(CallStatement)
+            next if exempt?(expr.procedure.name)
+            puts expr.procedure.name
+            #expr.procedure.replace_with(bpl("#{stmt.procedure}.shadow"))
+          end
+        end
+      end
+    end
+
+  def run! program
+
 
       # duplicate global variables
       program.global_variables.each {|v| v.insert_after(decl(v))}
       program.prepend_children(:declarations, bpl("var $shadow_ok: bool;"))
+
+
 
       # duplicate parameters, returns, and local variables
       program.each_child do |decl|
         next unless decl.is_a?(ProcedureDeclaration)
         next if exempt?(decl.name)
 
-        product_decl = decl.copy
-        add_shadow_variables!(product_decl)
-
-        # MY stuff
-        if product_decl.body
-          if !product_decl.body.blocks.first.name
-            head=nil
-          else
-            head=product_decl.body.blocks.first.id
+        if decl.body
+          new = shadow_decl(decl)
+          if decl.has_attribute?(:entrypoint)
+            args=[]
+            asmt=[]
+            decl.parameters.each {|d| args.push(d.names.flatten).flatten}
+            decl.returns.each {|d| asmt.push(d.names.flatten).flatten}
+            args=args.flatten
+            asmt=asmt.flatten
+            c1 = CallStatement.new(procedure: decl.name,
+                                   arguments: args,
+                                   assignments: asmt)
+            c2 = CallStatement.new(procedure: "#{decl.name}.shadow",
+                                   arguments: args.map(&method(:shadow)),
+                                   assignments: asmt.map(&method(:shadow)))
+            r = ReturnStatement.new()
+            b = Block.new(names: [], statements: [c1,c2,r])
+            original=decl.copy
+            original.remove_attribute(:entrypoint)
+            original.add_attribute(:inline, 1)
+            new.remove_attribute(:entrypoint)
+            new.add_attribute(:inline, 1)
+            add_shadow_variables!(decl)
+            decl.replace_children(:name, "#{decl.name}.wrapper")
+            decl.body.replace_children(:locals, [])
+            decl.body.replace_children(:blocks, b)
+            #puts decl.body.blocks.first.class
+            #puts original.body.blocks.first.class
+            add_assertions!(decl)
+            decl.insert_after(original)
           end
-
-          last = product_decl.body.blocks.last
-          product_decl.body.blocks.each do |block|
-            self_comp = my_self_composition_block(block, head)
-            last.insert_after(self_comp || [])
-            last = product_decl.body.blocks.last
-          end
-          add_assertions!(product_decl)
+          decl.insert_after(new)
         end
+
+
+        #   product_decl = decl.copy
+      #   add_shadow_variables!(product_decl)
+
+      #   # MY stuff
+      #   if product_decl.body
+      #     if !product_decl.body.blocks.first.name
+      #       head=nil
+      #     else
+      #       head=product_decl.body.blocks.first.id
+      #     end
+
+      #     last = product_decl.body.blocks.last
+      #     product_decl.body.blocks.each do |block|
+      #       self_comp = my_self_composition_block(block, head)
+      #       last.insert_after(self_comp || [])
+      #       last = product_decl.body.blocks.last
+      #     end
+      #     add_assertions!(product_decl)
+      #   end
 
         #puts product_decl
           # if product_decl.body
@@ -510,13 +569,14 @@ module Bpl
         #   add_loop_invariants!(product_decl, arguments, equalities)
         # end
 
-        product_decl.replace_children(:name, "#{decl.name}.cross_product")
+        # product_decl.replace_children(:name, "#{decl.name}.cross_product")
 
-        if decl.has_attribute?(:entrypoint)
-          decl.replace_with(product_decl)
-        else
-          decl.insert_after(product_decl)
-        end
+        # if decl.has_attribute?(:entrypoint)
+        #   decl.replace_children(:name, "{decl.name}.wrapper")
+        #   decl.replace_with(product_decl)
+        # else
+        #   decl.insert_after(product_decl)
+        # end
       end
 
     end
