@@ -135,6 +135,10 @@ begin
   cache = Hash.new
   programs = []
 
+  if !STDIN.tty? && code = STDIN.read
+    programs.push(BoogieLanguage.new.parse(code))
+  end
+
   until @stages.empty? do
     name, args = @stages.shift
     klass = @passes[name]
