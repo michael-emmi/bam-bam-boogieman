@@ -6,6 +6,7 @@ module Bpl
       '\$free',
       'boogie_si_',
       '__VERIFIER_',
+      '__SIDEWINDER_',
       '__SMACK_(?!static_init)',
       'llvm.dbg'
     ]

@@ -369,7 +369,10 @@ module Bpl
         end
       end
 
+      
       if proc_decl.has_attribute? :entrypoint
+        proc_decl.body.select{|r| r.is_a?(CallStatement)}.
+          each{|r| puts(r)}
         # proc_decl.body.blocks.first.statements.first.insert_before(
         #   bpl("$shadow_ok := true;"))
         # proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.
@@ -490,6 +493,17 @@ module Bpl
         if decl.body
           new = shadow_decl(decl)
           if decl.has_attribute?(:entrypoint)
+            #If it has a __SIDEWINDER annotation, apply it
+            decl.body.select{|r| r.is_a?(CallStatement)}.each do |r|
+              if r.procedure == "__SIDEWINDER_MAX_LEAKAGE"
+                puts "#{r.procedure}, #{r.arguments}"
+                r.arguments.each do |v|
+                  if v.respond_to?("value")
+                    puts "#{v.value}"
+                  end
+                end
+              end
+            end
             args=[]
             asmt=[]
             decl.parameters.each {|d| args.push(d.names.flatten).flatten}
