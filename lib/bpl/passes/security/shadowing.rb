@@ -339,7 +339,7 @@ module Bpl
       return equalities, arguments
     end
 
-    def add_assertions!(proc_decl)
+    def add_assertions!(proc_decl, max_leakage)
       equalities = Set.new
 
       annotations = annotated_specifications(proc_decl)
@@ -381,8 +381,16 @@ module Bpl
           bpl("$l := 0;"))
         proc_decl.body.blocks.first.statements.first.insert_before(
           bpl("$l.shadow := 0;"))
-        proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.
-           each{|r| r.insert_before(bpl("assert $l==$l.shadow;"))}
+
+        if(max_leakage)
+          proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.each do |r|
+            r.insert_before(bpl("assume $l >= $l.shadow;"))
+            r.insert_before(bpl("assert $l <= ($l.shadow + #{max_leakage});"))
+          end
+        else 
+          proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.
+            each{|r| r.insert_before(bpl("assert $l==$l.shadow;"))}
+        end
       end
 
       return equalities
@@ -476,6 +484,20 @@ module Bpl
       end
     end
 
+    #returns the max leakage annotation, if any.
+    #otherwise returns nil
+    def get_max_leakage_annotation(decl)
+      raise "no body in #{decl}" unless decl.body
+      if decl.has_attribute?(:entrypoint)
+        decl.body.select{|r| r.is_a?(CallStatement)}.each do |r|
+          if r.procedure.to_s == "__VERIFIER_ASSERT_MAX_LEAKAGE"
+            r.arguments.each { |v| return v.value if v.respond_to?("value") }
+          end
+        end
+      end
+      return nil
+    end
+      
   def run! program
 
 
@@ -483,27 +505,16 @@ module Bpl
       program.global_variables.each {|v| v.insert_after(decl(v))}
       program.prepend_children(:declarations, bpl("var $shadow_ok: bool;"))
 
-
-
       # duplicate parameters, returns, and local variables
       program.each_child do |decl|
         next unless decl.is_a?(ProcedureDeclaration)
         next if exempt?(decl.name)
-
+        
         if decl.body
+          max_leakage = get_max_leakage_annotation decl
+        
           new = shadow_decl(decl)
           if decl.has_attribute?(:entrypoint)
-            #If it has a __SIDEWINDER annotation, apply it
-            decl.body.select{|r| r.is_a?(CallStatement)}.each do |r|
-              if r.procedure == "__SIDEWINDER_MAX_LEAKAGE"
-                puts "#{r.procedure}, #{r.arguments}"
-                r.arguments.each do |v|
-                  if v.respond_to?("value")
-                    puts "#{v.value}"
-                  end
-                end
-              end
-            end
             args=[]
             asmt=[]
             decl.parameters.each {|d| args.push(d.names.flatten).flatten}
@@ -529,7 +540,7 @@ module Bpl
             decl.body.replace_children(:blocks, b)
             #puts decl.body.blocks.first.class
             #puts original.body.blocks.first.class
-            add_assertions!(decl)
+            add_assertions!(decl, max_leakage)
             decl.insert_after(original)
           end
           decl.insert_after(new)
