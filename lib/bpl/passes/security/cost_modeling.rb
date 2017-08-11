@@ -13,6 +13,8 @@ module Bpl
 
     EXEMPTIONS = /#{EXEMPTION_LIST * "|"}/
 
+    LEAKAGE_ANNOTATION_NAME =  "__VERIFIER_ASSUME_LEAKAGE"
+
     def exempt? decl
       EXEMPTIONS.match(decl) && true
     end
@@ -25,6 +27,39 @@ module Bpl
     switch "--cost-modeling", "Add cost-tracking variables."
 
 
+    def is_leakage_annotation_stmt? stmt
+      return false unless stmt.is_a?(CallStatement)
+      return stmt.procedure.to_s == LEAKAGE_ANNOTATION_NAME
+    end
+
+    #
+    def has_leakage_annotation? decl
+      return false unless decl.body
+      return (not (decl.body.select{|r| is_leakage_annotation_stmt? r }.empty?))
+    end
+
+
+    #the annotation should have one argument, and we just want whatever it is
+    def get_annotation_value annotationStmt
+      raise "not an annotation stmt" unless is_leakage_annotation_stmt? annotationStmt
+      raise "annotation should have one argument" unless annotationStmt.arguments.length == 1
+      return annotationStmt.arguments[0].to_s
+    end
+    
+    def annotate_function_body! decl
+      if (has_leakage_annotation? decl) then
+        decl.body.select{ |s| is_leakage_annotation_stmt? s }.each do |s| 
+          value = get_annotation_value s
+          s.insert_after(bpl("$l := $l + #{value};"))
+        end
+      else
+        decl.body.select{ |s| s.is_a?(AssumeStatement)}.each do |stmt|
+          next unless values = stmt.get_attribute(:'smack.InstTimingCost.Int64')
+          stmt.insert_after(bpl("$l := $add.i32($l, #{values.first});"))
+        end
+      end
+    end
+ 
     def run! program
       @@foo = true
       # add cost global variable
@@ -35,13 +70,7 @@ module Bpl
         next unless decl.is_a?(ProcedureDeclaration)
         next if exempt?(decl.name)
         next unless decl.body
-        decl.body.blocks.each do |block|
-          block.each do |stmt|
-            next unless stmt.is_a?(AssumeStatement)
-            next unless values = stmt.get_attribute(:'smack.InstTimingCost.Int64')
-            stmt.insert_after(bpl("$l := $add.i32($l, #{values.first});"))
-          end
-        end
+        annotate_function_body! decl
       end
 
     end
