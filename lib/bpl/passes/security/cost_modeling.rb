@@ -28,7 +28,7 @@ module Bpl
 
     def is_annotation_stmt? (stmt, annot_name)
       return false unless stmt.is_a?(CallStatement)
-      return stmt.procedure.to_s == LEAKAGE_ANNOTATION_NAME
+      return stmt.procedure.to_s == annot_name
     end
 
     def has_annotation?(decl, annot_name)
@@ -39,9 +39,8 @@ module Bpl
 
     #the annotation should have one argument, and we just want whatever it is
     def get_annotation_value annotationStmt
-      raise "not an annotation stmt" unless is_annotation_stmt?(annotationStmt,LEAKAGE_ANNOTATION_NAME)
       raise "annotation should have one argument" unless annotationStmt.arguments.length == 1
-      return annotationStmt.arguments[0].to_s
+      return annotationStmt.arguments.first.to_s
     end
     
     def annotate_function_body! decl
