@@ -26,29 +26,27 @@ module Bpl
     invalidates :all
     switch "--cost-modeling", "Add cost-tracking variables."
 
-
-    def is_leakage_annotation_stmt? stmt
+    def is_annotation_stmt? (stmt, annot_name)
       return false unless stmt.is_a?(CallStatement)
       return stmt.procedure.to_s == LEAKAGE_ANNOTATION_NAME
     end
 
-    #
-    def has_leakage_annotation? decl
+    def has_annotation?(decl, annot_name)
       return false unless decl.body
-      return (not (decl.body.select{|r| is_leakage_annotation_stmt? r }.empty?))
+      return (not (decl.body.select{|r| is_annotation_stmt?(r,annot_name)}.empty?))
     end
-
+    
 
     #the annotation should have one argument, and we just want whatever it is
     def get_annotation_value annotationStmt
-      raise "not an annotation stmt" unless is_leakage_annotation_stmt? annotationStmt
+      raise "not an annotation stmt" unless is_annotation_stmt?(annotationStmt,LEAKAGE_ANNOTATION_NAME)
       raise "annotation should have one argument" unless annotationStmt.arguments.length == 1
       return annotationStmt.arguments[0].to_s
     end
     
     def annotate_function_body! decl
-      if (has_leakage_annotation? decl) then
-        decl.body.select{ |s| is_leakage_annotation_stmt? s }.each do |s| 
+      if (has_annotation?(decl, LEAKAGE_ANNOTATION_NAME)) then
+        decl.body.select{ |s| is_annotation_stmt?(s, LEAKAGE_ANNOTATION_NAME)}.each do |s| 
           value = get_annotation_value s
           s.insert_after(bpl("$l := $l + #{value};"))
         end
