@@ -6,11 +6,14 @@ module Bpl
       '\$free',
       'boogie_si_',
       '__VERIFIER_',
+      '__SIDEWINDER_',
       '__SMACK_(?!static_init)',
       'llvm.dbg'
     ]
 
     EXEMPTIONS = /#{EXEMPTION_LIST * "|"}/
+
+    LEAKAGE_ANNOTATION_NAME =  "__VERIFIER_ASSUME_LEAKAGE"
 
     def exempt? decl
       EXEMPTIONS.match(decl) && true
@@ -23,7 +26,37 @@ module Bpl
     invalidates :all
     switch "--cost-modeling", "Add cost-tracking variables."
 
+    def is_annotation_stmt? (stmt, annot_name)
+      return false unless stmt.is_a?(CallStatement)
+      return stmt.procedure.to_s == annot_name
+    end
 
+    def has_annotation?(decl, annot_name)
+      return false unless decl.body
+      return (not (decl.body.select{|r| is_annotation_stmt?(r,annot_name)}.empty?))
+    end
+    
+
+    #the annotation should have one argument, and we just want whatever it is
+    def get_annotation_value annotationStmt
+      raise "annotation should have one argument" unless annotationStmt.arguments.length == 1
+      return annotationStmt.arguments.first.to_s
+    end
+    
+    def annotate_function_body! decl
+      if (has_annotation?(decl, LEAKAGE_ANNOTATION_NAME)) then
+        decl.body.select{ |s| is_annotation_stmt?(s, LEAKAGE_ANNOTATION_NAME)}.each do |s| 
+          value = get_annotation_value s
+          s.insert_after(bpl("$l := $l + #{value};"))
+        end
+      else
+        decl.body.select{ |s| s.is_a?(AssumeStatement)}.each do |stmt|
+          next unless values = stmt.get_attribute(:'smack.InstTimingCost.Int64')
+          stmt.insert_after(bpl("$l := $add.i32($l, #{values.first});"))
+        end
+      end
+    end
+ 
     def run! program
       @@foo = true
       # add cost global variable
@@ -34,13 +67,7 @@ module Bpl
         next unless decl.is_a?(ProcedureDeclaration)
         next if exempt?(decl.name)
         next unless decl.body
-        decl.body.blocks.each do |block|
-          block.each do |stmt|
-            next unless stmt.is_a?(AssumeStatement)
-            next unless values = stmt.get_attribute(:'smack.InstTimingCost.Int64')
-            stmt.insert_after(bpl("$l := $add.i32($l, #{values.first});"))
-          end
-        end
+        annotate_function_body! decl
       end
 
     end

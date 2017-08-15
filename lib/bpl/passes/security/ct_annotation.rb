@@ -5,16 +5,20 @@ module Bpl
     depends :cfg_construction, :conditional_identification
     switch "--ct-annotation", "Extract constant-time annotations."
 
-    ANNOTATIONS = [
+    VARIABLE_ANNOTATIONS = [
       :public_in,
       :public_out,
-      :declassified_out,
+      :declassified_out
     ]
 
     BLOCK_ANNOTATIONS = [
       :benign,
     ]
 
+    FUNCTION_ANNOTATIONS = [
+      :__VERIFIER_ASSERT_MAX_LEAKAGE
+    ]
+    
     def run! program
       cfg = cfg_construction
 
@@ -35,7 +39,7 @@ module Bpl
               kind: kind && kind.key,
               access: kind && kind.values
             }
-          elsif stmt.procedure.name =~ /#{ANNOTATIONS * "|"}/
+          elsif stmt.procedure.name =~ /#{VARIABLE_ANNOTATIONS * "|"}/
             var = stmt.arguments.first.name
             v = values[var]
             fail "Unknown value: #{var}" unless v
@@ -46,6 +50,16 @@ module Bpl
             invalidates :resolution
             stmt.remove
 
+          elsif stmt.procedure.name =~ /#{FUNCTION_ANNOTATIONS * "|"}/
+            var = stmt.arguments.first
+            decl.append_children(:specifications,
+              bpl("requires {:#{stmt.procedure.name} #{var}} true;")
+            )
+            invalidates :resolution
+            stmt.remove
+
+
+            
           elsif stmt.procedure.name =~ /#{BLOCK_ANNOTATIONS * "|"}/
             head = cfg.predecessors[stmt.parent].first
             cond = conditional_identification.conditionals[head]

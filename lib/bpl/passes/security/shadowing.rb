@@ -117,11 +117,17 @@ module Bpl
       MAGICS.match(decl) && true
     end
 
+    #combines both VARIABLE_ANNOTATIONS and BLOCK_ANNOTATIONS from ct_annotation.rb
     ANNOTATIONS = [
       :public_in,
       :public_out,
-      :declassified_out
+      :declassified_out,
+      :__VERIFIER_ASSERT_MAX_LEAKAGE
     ]
+
+    TIMING_ANNOTATIONS = [
+    ]
+    
 
     def annotated_specifications(proc_decl)
       hash = ANNOTATIONS.map{|ax| [ax,[]]}.to_h
@@ -370,18 +376,25 @@ module Bpl
       end
 
       if proc_decl.has_attribute? :entrypoint
-        # proc_decl.body.blocks.first.statements.first.insert_before(
-        #   bpl("$shadow_ok := true;"))
-        # proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.
-        #  each{|r| puts r}
         proc_decl.body.blocks.first.statements.first.insert_before(
           bpl("$l := 0;"))
         proc_decl.body.blocks.first.statements.first.insert_before(
           bpl("$l.shadow := 0;"))
-        proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.
-           each{|r| r.insert_before(bpl("assert $l==$l.shadow;"))}
-      end
 
+        #this is ugly, but seems to be how to destructure the annotation here
+        if max_leakage = annotations[:__VERIFIER_ASSERT_MAX_LEAKAGE]&.first&.first
+          proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.each do |r|
+            puts "max was #{max_leakage}"
+            r.insert_before(bpl("assume $l >= $l.shadow;"))
+            r.insert_before(bpl("assert $l <= ($l.shadow + #{max_leakage});"))
+          end
+        else
+          puts "no max"                                        
+          proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.
+            each{|r| r.insert_before(bpl("assert $l==$l.shadow;"))}
+        end
+      end
+      
       return equalities
     end
 
