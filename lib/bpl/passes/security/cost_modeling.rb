@@ -1,5 +1,4 @@
 module Bpl
-  @@foo=false
   class CostModeling < Pass
     EXEMPTION_LIST = [
       '\$alloc',
@@ -58,7 +57,6 @@ module Bpl
     end
  
     def run! program
-      @@foo = true
       # add cost global variable
       program.prepend_children(:declarations, bpl("var $l: int;"))
 

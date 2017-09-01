@@ -6,7 +6,12 @@ module Bpl
     depends :resolution, :loop_identification
     depends :definition_localization, :liveness
     invalidates :all
-    switch "--shadowing", "Construct the shadow product program."
+
+    option :full
+    
+    switch "--shadowing [FULL]", "Construct the shadow product program." do |y, f|
+      y.yield :full, f
+    end
 
     def shadow(x) "#{x}.shadow" end
     def unshadow(x) "#{x}".sub(/[.]shadow\z/,'') end
@@ -148,72 +153,6 @@ module Bpl
     def add_shadow_variables!(proc_decl)
       (proc_decl.parameters + proc_decl.returns).each {|d| d.insert_after(decl(d))}
       proc_decl.body.locals.each {|d| d.insert_after(decl(d))} if proc_decl.body
-    end
-
-
-    def my_self_composition_block(block, head)
-      tail =nil
-      #puts head
-      shadow_block = shadow_copy(block)
-
-      #remove redundant init statement
-      shadow_block.each do |stmt|
-        next unless stmt.is_a?(CallStatement)
-        if stmt.procedure.name.eql?("$initialize")
-          stmt.remove
-        end
-      end
-      equalities = Set.new
-
-
-      block.each do |stmt|
-        case stmt
-        when CallStatement
-          if exempt?(stmt.procedure.name)
-            stmt.assignments.each do |x|
-              stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
-            end
-          else
-            stmt.procedure.replace_with(bpl("#{stmt.procedure}.cross_product"))
-            stmt.arguments.each do |x|
-              #arguments.add(x)
-              x.insert_after(shadow_copy(x))
-            end
-            stmt.assignments.each do |x|
-              x.insert_after(shadow_copy(x))
-            end
-          end
-        end
-      end
-
-      # replace returns and exits in the original block
-      block.each do |stmt|
-        case stmt
-        when ReturnStatement
-        when GotoStatement
-          if stmt.identifiers.map(&:name).include?(tail)
-            fail "Unexpected branching exit" unless stmt.identifiers.count == 1
-          else
-            next
-          end
-        else
-          next
-        end
-        if head
-          stmt.replace_with(bpl("goto #{shadow(head)};"))
-        else
-          stmt.remove
-        end
-      end
-
-      shadow_block.replace_children(:names, *shadow_block.names.map(&method(:shadow)))
-      shadow_block.each do |label|
-        next unless label.is_a?(LabelIdentifier)
-        label.replace_with(LabelIdentifier.new(name: shadow(label.name)))
-      end
-
-
-      return  shadow_block
     end
 
     def self_composition_block(block)
@@ -486,112 +425,108 @@ module Bpl
       end
     end
 
-  def run! program
+    def create_wrapper_block(decl)
+      args = []
+      asmt = []
+      decl.parameters.each {|d| args.push(d.names.flatten).flatten}
+      decl.returns.each {|d| asmt.push(d.names.flatten).flatten}
+      args=args.flatten
+      asmt=asmt.flatten
+      c1 = CallStatement.new(procedure: decl.name,
+                             arguments: args,
+                             assignments: asmt)
+      c2 = CallStatement.new(procedure: "#{decl.name}.shadow",
+                             arguments: args.map(&method(:shadow)),
+                             assignments: asmt.map(&method(:shadow)))
+      r = ReturnStatement.new()
+      Block.new(names: [], statements: [c1,c2,r])
+    end
 
+    def full_self_composition(decl)
+      if decl.body
+        shadow = shadow_decl(decl)
+        if decl.has_attribute?(:entrypoint)
 
+          original = decl.copy
+
+          # transform entry function to wrapper function that calls
+          # calls original and shadowed entry functions
+          wrapper_block = create_wrapper_block(decl)
+          add_shadow_variables!(decl)
+          decl.replace_children(:name, "#{decl.name}.wrapper")
+          decl.body.replace_children(:locals, [])
+          decl.body.replace_children(:blocks, wrapper_block)
+
+          add_assertions!(decl)
+
+          decl.insert_after(original)
+
+          # update attributes of original and shadowed entry functions
+          original.remove_attribute(:entrypoint)
+          original.add_attribute(:inline, 1)
+          shadow.remove_attribute(:entrypoint)
+          shadow.add_attribute(:inline, 1)
+
+        end
+        decl.insert_after(shadow)
+      end
+    end
+
+    def selective_self_composition(decl)
+      product_decl = decl.copy
+      add_shadow_variables!(product_decl)
+      
+      if product_decl.body
+        equalities = Set.new
+        arguments = Set.new
+        block_insertions = {}
+        
+        product_decl.body.blocks.each do |block|
+
+          block.insert_before *(block_insertions[block.name] || [])
+
+          if ins = self_composition_block(block)
+            block_insertions[ins[:before]] ||= []
+            block_insertions[ins[:before]] << ins[:block]
+            equalities.merge(ins[:eqs])
+
+          else
+            eqs, args = cross_product_block!(block)
+            equalities.merge(eqs)
+            arguments.merge(args)
+          end
+        end
+
+        equalities.merge( add_assertions!(product_decl) )
+        add_loop_invariants!(product_decl, arguments, equalities)
+      end
+
+      product_decl.replace_children(:name, "#{decl.name}.cross_product")
+
+      if decl.has_attribute?(:entrypoint)
+        decl.replace_with(product_decl)
+      else
+        decl.insert_after(product_decl)
+      end
+    end
+
+    def run! program
+    
       # duplicate global variables
       program.global_variables.each {|v| v.insert_after(decl(v))}
       program.prepend_children(:declarations, bpl("var $shadow_ok: bool;"))
-
-
 
       # duplicate parameters, returns, and local variables
       program.each_child do |decl|
         next unless decl.is_a?(ProcedureDeclaration)
         next if exempt?(decl.name)
-
-        if decl.body
-          new = shadow_decl(decl)
-          if decl.has_attribute?(:entrypoint)
-            args=[]
-            asmt=[]
-            decl.parameters.each {|d| args.push(d.names.flatten).flatten}
-            decl.returns.each {|d| asmt.push(d.names.flatten).flatten}
-            args=args.flatten
-            asmt=asmt.flatten
-            c1 = CallStatement.new(procedure: decl.name,
-                                   arguments: args,
-                                   assignments: asmt)
-            c2 = CallStatement.new(procedure: "#{decl.name}.shadow",
-                                   arguments: args.map(&method(:shadow)),
-                                   assignments: asmt.map(&method(:shadow)))
-            r = ReturnStatement.new()
-            b = Block.new(names: [], statements: [c1,c2,r])
-            original=decl.copy
-            original.remove_attribute(:entrypoint)
-            original.add_attribute(:inline, 1)
-            new.remove_attribute(:entrypoint)
-            new.add_attribute(:inline, 1)
-            add_shadow_variables!(decl)
-            decl.replace_children(:name, "#{decl.name}.wrapper")
-            decl.body.replace_children(:locals, [])
-            decl.body.replace_children(:blocks, b)
-            #puts decl.body.blocks.first.class
-            #puts original.body.blocks.first.class
-            add_assertions!(decl)
-            decl.insert_after(original)
-          end
-          decl.insert_after(new)
+        
+        if full
+          full_self_composition(decl)
+        else
+          selective_self_composition(decl)
         end
-
-
-        #   product_decl = decl.copy
-      #   add_shadow_variables!(product_decl)
-
-      #   # MY stuff
-      #   if product_decl.body
-      #     if !product_decl.body.blocks.first.name
-      #       head=nil
-      #     else
-      #       head=product_decl.body.blocks.first.id
-      #     end
-
-      #     last = product_decl.body.blocks.last
-      #     product_decl.body.blocks.each do |block|
-      #       self_comp = my_self_composition_block(block, head)
-      #       last.insert_after(self_comp || [])
-      #       last = product_decl.body.blocks.last
-      #     end
-      #     add_assertions!(product_decl)
-      #   end
-
-        #puts product_decl
-          # if product_decl.body
-
-        #   equalities = Set.new
-        #   arguments = Set.new
-        #   block_insertions = {}
-
-        #   product_decl.body.blocks.each do |block|
-
-        #     block.insert_before *(block_insertions[block.name] || [])
-
-        #     if ins = self_composition_block(block)
-        #       block_insertions[ins[:before]] ||= []
-        #       block_insertions[ins[:before]] << ins[:block]
-        #       equalities.merge(ins[:eqs])
-
-        #     else
-        #       eqs, args = cross_product_block!(block)
-        #       equalities.merge(eqs)
-        #       arguments.merge(args)
-        #     end
-        #   end
-
-        #   equalities.merge( add_assertions!(product_decl) )
-        #   add_loop_invariants!(product_decl, arguments, equalities)
-        # end
-
-        # product_decl.replace_children(:name, "#{decl.name}.cross_product")
-
-        # if decl.has_attribute?(:entrypoint)
-        #   decl.replace_children(:name, "{decl.name}.wrapper")
-        #   decl.replace_with(product_decl)
-        # else
-        #   decl.insert_after(product_decl)
-        # end
       end
-
     end
   end
 end
