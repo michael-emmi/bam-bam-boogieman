@@ -16,7 +16,8 @@ module Bpl
     ]
 
     FUNCTION_ANNOTATIONS = [
-      :__VERIFIER_ASSERT_MAX_LEAKAGE
+      :__VERIFIER_ASSERT_MAX_LEAKAGE,
+      :__VERIFIER_TIMING_CONTRACT
     ]
     
     def run! program
@@ -58,8 +59,6 @@ module Bpl
             invalidates :resolution
             stmt.remove
 
-
-            
           elsif stmt.procedure.name =~ /#{BLOCK_ANNOTATIONS * "|"}/
             head = cfg.predecessors[stmt.parent].first
             cond = conditional_identification.conditionals[head]

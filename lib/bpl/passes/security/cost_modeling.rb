@@ -12,6 +12,12 @@ module Bpl
 
     EXEMPTIONS = /#{EXEMPTION_LIST * "|"}/
 
+    STUB_ANNOTATION = :__VERIFIER_TIMING_CONTRACT
+
+    def stub? decl
+      decl.specifications.each.any? { |s| s.has_attribute? STUB_ANNOTATION }
+    end
+
     LEAKAGE_ANNOTATION_NAME =  "__VERIFIER_ASSUME_LEAKAGE"
 
     def exempt? decl
@@ -55,7 +61,19 @@ module Bpl
         end
       end
     end
- 
+
+    def redirect_to_stub! decl
+      args, asmt = [], []
+      decl.parameters.each {|d| args.push(d.names.flatten).flatten}
+      decl.returns.each {|d| asmt.push(d.names.flatten).flatten}
+      args, asmt = args.flatten, asmt.flatten
+      stub_name = decl.specifications.first.get_attribute(STUB_ANNOTATION)&.first&.first
+      stub_call = bpl("call #{asmt.join(",")} := #{stub_name}(#{args.join(",")});")
+      myblock = Block.new(names: [], statements: [stub_call])
+      decl.body.replace_children(:locals, [])
+      decl.body.replace_children(:blocks, myblock)
+    end
+
     def run! program
       # add cost global variable
       program.prepend_children(:declarations, bpl("var $l: int;"))
@@ -65,7 +83,11 @@ module Bpl
         next unless decl.is_a?(ProcedureDeclaration)
         next if exempt?(decl.name)
         next unless decl.body
+
+        redirect_to_stub!(decl) if stub?(decl)
+
         annotate_function_body! decl
+
       end
 
     end

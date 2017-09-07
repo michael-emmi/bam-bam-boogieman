@@ -444,6 +444,7 @@ module Bpl
 
     def full_self_composition(decl)
       if decl.body
+
         shadow = shadow_decl(decl)
         if decl.has_attribute?(:entrypoint)
 
@@ -511,7 +512,7 @@ module Bpl
     end
 
     def run! program
-    
+
       # duplicate global variables
       program.global_variables.each {|v| v.insert_after(decl(v))}
       program.prepend_children(:declarations, bpl("var $shadow_ok: bool;"))
