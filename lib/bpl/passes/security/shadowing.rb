@@ -100,7 +100,10 @@ module Bpl
       'boogie_si_',
       '__VERIFIER_',
       '__SMACK_(?!static_init)',
-      'llvm.dbg'
+      '__memcpy_chk',
+      'llvm.dbg',
+      'llvm.lifetime',
+      'llvm.objectsize'
     ]
 
     MAGIC_LIST = [
@@ -137,7 +140,7 @@ module Bpl
     def annotated_specifications(proc_decl)
       hash = ANNOTATIONS.map{|ax| [ax,[]]}.to_h
       proc_decl.specifications.each do |s|
-        hash.keys.each {|ax| hash[ax] << s.get_attribute(ax) if s.has_attribute?(ax)}
+       hash.keys.each {|ax| hash[ax] << s.get_attribute(ax) if s.has_attribute?(ax)}
       end
       hash
     end
@@ -325,7 +328,9 @@ module Bpl
           proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.each do |r|
             puts "max was #{max_leakage}"
             r.insert_before(bpl("assume $l >= $l.shadow;"))
+            r.insert_before(bpl("$__delta := $l - $l.shadow;"));
             r.insert_before(bpl("assert $l <= ($l.shadow + #{max_leakage});"))
+
           end
         else
           puts "no max"                                        
@@ -447,27 +452,27 @@ module Bpl
 
         shadow = shadow_decl(decl)
         if decl.has_attribute?(:entrypoint)
-
+          
           original = decl.copy
-
-          # transform entry function to wrapper function that calls
+          
+          # transform entry function to wrapper function that 
           # calls original and shadowed entry functions
           wrapper_block = create_wrapper_block(decl)
           add_shadow_variables!(decl)
           decl.replace_children(:name, "#{decl.name}.wrapper")
           decl.body.replace_children(:locals, [])
           decl.body.replace_children(:blocks, wrapper_block)
-
+          
           add_assertions!(decl)
-
+          
           decl.insert_after(original)
-
+          
           # update attributes of original and shadowed entry functions
           original.remove_attribute(:entrypoint)
           original.add_attribute(:inline, 1)
           shadow.remove_attribute(:entrypoint)
           shadow.add_attribute(:inline, 1)
-
+          
         end
         decl.insert_after(shadow)
       end

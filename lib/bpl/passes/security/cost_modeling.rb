@@ -1,5 +1,7 @@
 module Bpl
   class CostModeling < Pass
+
+    # TODO: This has to refactored -- it is copied from shadowing.rb
     EXEMPTION_LIST = [
       '\$alloc',
       '\$free',
@@ -7,7 +9,10 @@ module Bpl
       '__VERIFIER_',
       '__SIDEWINDER_',
       '__SMACK_(?!static_init)',
-      'llvm.dbg'
+      '__memcpy_chk',
+      'llvm.dbg',
+      'llvm.lifetime',
+      'llvm.objectsize'
     ]
 
     EXEMPTIONS = /#{EXEMPTION_LIST * "|"}/
@@ -52,7 +57,7 @@ module Bpl
       if (has_annotation?(decl, LEAKAGE_ANNOTATION_NAME)) then
         decl.body.select{ |s| is_annotation_stmt?(s, LEAKAGE_ANNOTATION_NAME)}.each do |s| 
           value = get_annotation_value s
-          s.insert_after(bpl("$l := $l + #{value};"))
+          s.insert_after(bpl("$l := $add.i32($l, #{value});"))
         end
       else
         decl.body.select{ |s| s.is_a?(AssumeStatement)}.each do |stmt|
@@ -77,6 +82,7 @@ module Bpl
     def run! program
       # add cost global variable
       program.prepend_children(:declarations, bpl("var $l: int;"))
+      program.prepend_children(:declarations, bpl("var $__delta: int;"))
 
       # update cost global variable
       program.each_child do |decl|
