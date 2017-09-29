@@ -1,5 +1,7 @@
 module Bpl
   class CostModeling < Pass
+
+    # TODO: This has to refactored -- it is copied from shadowing.rb
     EXEMPTION_LIST = [
       '\$alloc',
       '\$free',
@@ -7,10 +9,21 @@ module Bpl
       '__VERIFIER_',
       '__SIDEWINDER_',
       '__SMACK_(?!static_init)',
-      'llvm.dbg'
+      '__memcpy_chk',
+      'llvm.dbg',
+      'llvm.lifetime',
+      'llvm.objectsize',
+      'llvm.stacksave',
+      'llvm.stackrestore'
     ]
 
     EXEMPTIONS = /#{EXEMPTION_LIST * "|"}/
+
+    STUB_ANNOTATION = :__VERIFIER_TIMING_CONTRACT
+
+    def stub? decl
+      decl.specifications.each.any? { |s| s.has_attribute? STUB_ANNOTATION }
+    end
 
     LEAKAGE_ANNOTATION_NAME =  "__VERIFIER_ASSUME_LEAKAGE"
 
@@ -46,7 +59,7 @@ module Bpl
       if (has_annotation?(decl, LEAKAGE_ANNOTATION_NAME)) then
         decl.body.select{ |s| is_annotation_stmt?(s, LEAKAGE_ANNOTATION_NAME)}.each do |s| 
           value = get_annotation_value s
-          s.insert_after(bpl("$l := $l + #{value};"))
+          s.insert_after(bpl("$l := $add.i32($l, #{value});"))
         end
       else
         decl.body.select{ |s| s.is_a?(AssumeStatement)}.each do |stmt|
@@ -55,17 +68,38 @@ module Bpl
         end
       end
     end
- 
+
+    def redirect_to_stub! decl
+      args, asmt = [], []
+      decl.parameters.each {|d| args.push(d.names.flatten).flatten}
+      decl.returns.each {|d| asmt.push(d.names.flatten).flatten}
+      args, asmt = args.flatten, asmt.flatten
+      stub_name = decl.specifications.first.get_attribute(STUB_ANNOTATION)&.first&.first
+      stub_call = bpl("call #{asmt.join(",")} := #{stub_name}(#{args.join(",")});")
+      myblock = Block.new(names: [], statements: [stub_call])
+      decl.body.replace_children(:locals, [])
+      decl.body.replace_children(:blocks, myblock)
+    end
+
     def run! program
       # add cost global variable
       program.prepend_children(:declarations, bpl("var $l: int;"))
+      program.prepend_children(:declarations, bpl("var $__delta: int;"))
 
       # update cost global variable
       program.each_child do |decl|
         next unless decl.is_a?(ProcedureDeclaration)
         next if exempt?(decl.name)
         next unless decl.body
+
+        decl.add_attribute(:cost_modeling)
+
+        redirect_to_stub!(decl) if stub?(decl)
+        if decl.has_attribute?(:entrypoint)
+          decl.body.blocks.first.statements.first.insert_before(bpl("$l := 0;"))
+        end
         annotate_function_body! decl
+
       end
 
     end
