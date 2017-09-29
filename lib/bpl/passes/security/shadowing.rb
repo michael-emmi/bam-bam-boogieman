@@ -323,7 +323,6 @@ module Bpl
       if proc_decl.has_attribute?(:entrypoint)
         
         if proc_decl.has_attribute?(:cost_modeling)
-          
           #this is ugly, but seems to be how to destructure the annotation here
           if max_leakage = annotations[:__VERIFIER_ASSERT_MAX_LEAKAGE]&.first&.first
             
@@ -431,6 +430,7 @@ module Bpl
       end
       s_decl
     end
+
 
     def create_wrapper_block(decl)
       args = []
