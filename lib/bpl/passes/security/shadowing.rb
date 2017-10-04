@@ -19,7 +19,7 @@ module Bpl
     def decl(v)
       v.class.new(names: v.names.map(&method(:shadow)), type: v.type)
     end
-
+    def bpl_assert(x) bpl("assert #{x};") end
     def shadow_copy(node)
       shadow = node.copy
       shadow.each do |expr|
@@ -280,6 +280,7 @@ module Bpl
 
             if expr = annotation.get_attribute(:branchcond).first
               stmt.insert_before(shadow_assert(shadow_eq(expr)))
+              stmt.insert_before(bpl_assert(shadow_eq(expr)))
               equalities.add(expr)
             end
           end
