@@ -33,12 +33,23 @@ module Bpl
     def shadow_copy(node)
       shadow = node.copy
       shadow.each do |expr|
-        next unless expr.is_a?(StorageIdentifier)
-        next if expr.declaration &&
-                ( expr.declaration.is_a?(ConstantDeclaration) ||
-                  expr.declaration.parent.is_a?(QuantifiedExpression) )
-        # expr.replace_with(StorageIdentifier.new(name: shadow(expr)))
-        expr.name = shadow(expr)
+        case expr
+        when StorageIdentifier
+          next if expr.declaration &&
+                  ( expr.declaration.is_a?(ConstantDeclaration) ||
+                    expr.declaration.parent.is_a?(QuantifiedExpression) )
+          expr.name = shadow(expr)
+        when CallStatement
+          puts "name was #{expr.procedure.name}"
+           next if exempt?(expr.procedure.name)
+           next if magic?(expr.procedure.name)
+           puts "1 #{node.name} #{expr.procedure}"
+           expr.procedure.replace_with(bpl(shadow("#{expr.procedure}")))
+           puts "2 #{node.name} #{expr.procedure}"
+        end
+      end
+      shadow.each do |s|
+        puts "7 #{shadow.name} #{s.procedure.name}"  if s.is_a?(CallStatement)
       end
       shadow
     end
@@ -171,12 +182,19 @@ module Bpl
       proc_decl.body.locals.each {
         |d| d.insert_after(shadow_var_decl(d))} if proc_decl.body
     end
-
-    def self_composition_block(block)
+    
+    def self_composition_block!(block)
       return nil unless block.statements.first.has_attribute?(:selfcomp)
       head, tail = block.statements.first.get_attribute(:selfcomp)
 
+      puts "block #{block.name}\thead #{head}\ttail #{tail}"
+      
       shadow_block = shadow_copy(block)
+
+      shadow_block.each do |s|
+        puts "6 #{shadow_block.name} #{s.procedure.name}"  if s.is_a?(CallStatement)
+      end
+
       
       equalities = Set.new
 
@@ -435,7 +453,9 @@ module Bpl
           end
           if expr.is_a?(CallStatement)
             next if exempt?(expr.procedure.name)
+            puts "3 #{decl.name} #{block.name} #{expr.procedure}"
             expr.procedure.replace_with(bpl("#{expr.procedure}.shadow"))
+            puts "4 #{decl.name} #{block.name} #{expr.procedure}"
           end
         end
       end
@@ -498,21 +518,25 @@ module Bpl
     end
 
     def selective_self_composition(decl)
+      #we need to create three copies of each function, to be called depending on
+      #the conext:
+      # The cross_product copy, called from cross product context
+      # The origional and shadow copies, called from selective-self-composition context
+
+      #decl is the original - should not be touched by this function
+
+      
       product_decl = decl.copy
       add_shadow_variables!(product_decl)
       
       if product_decl.body
         equalities = Set.new
         arguments = Set.new
-        block_insertions = {}
         
         product_decl.body.blocks.each do |block|
-          
-          block.insert_before *(block_insertions[block.name] || [])
-          
-          if ins = self_composition_block(block)
-            block_insertions[ins[:before]] ||= []
-            block_insertions[ins[:before]] << ins[:block]
+
+          if ins = self_composition_block!(block)
+            block.insert_before(ins[:block])
             equalities.merge(ins[:eqs])
 
           else
@@ -525,14 +549,17 @@ module Bpl
         equalities.merge( add_assertions!(product_decl) )
         add_loop_invariants!(product_decl, arguments, equalities)
       end
-      
+
       product_decl.replace_children(:name, "#{decl.name}.cross_product")
       
       if decl.has_attribute?(:entrypoint)
         decl.replace_with(product_decl)
       else
         decl.insert_after(product_decl)
+        #shadow is for the shadow calls 
+        decl.insert_after(shadow_decl(decl)) if decl.body
       end
+
     end
 
     #build a symbol table that maps function name to decl
