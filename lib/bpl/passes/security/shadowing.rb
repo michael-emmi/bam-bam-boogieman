@@ -432,7 +432,6 @@ module Bpl
       s_decl
     end
 
-
     def create_wrapper_block(decl)
       args = []
       asmt = []

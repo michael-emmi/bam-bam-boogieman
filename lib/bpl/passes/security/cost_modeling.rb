@@ -26,6 +26,7 @@ module Bpl
     end
 
     LEAKAGE_ANNOTATION_NAME =  "__VERIFIER_ASSUME_LEAKAGE"
+    CURRENT_LEAKAGE_NAME = "__VERIFIER_CURRENT_LEAKAGE"
 
     def exempt? decl
       EXEMPTIONS.match(decl) && true
@@ -47,7 +48,6 @@ module Bpl
       return false unless decl.body
       return (not (decl.body.select{|r| is_annotation_stmt?(r,annot_name)}.empty?))
     end
-    
 
     #the annotation should have one argument, and we just want whatever it is
     def get_annotation_value annotationStmt
@@ -69,6 +69,92 @@ module Bpl
       end
     end
 
+
+
+    def cost_of block
+      assumes = block.select{ |s| s.is_a?(AssumeStatement)}
+      assumes.inject(0) do |acc, stmt|
+        if values = stmt.get_attribute(:'smack.InstTimingCost.Int64')
+          acc += values.first.show.to_i
+        end
+        acc
+      end
+    end
+    
+    def extract_control_blocks(head, blocks, cfg)
+
+      control_blocks = []
+      blocks.each do |b|
+        cfg.successors[b].each do |succ|
+          next if blocks.include?(succ)
+          control_blocks.push(b)
+        end
+      end
+      
+      raise StandardError unless control_blocks.size.equal? 1
+      
+      exit_block = cfg.successors[control_blocks[0]].detect{|b| !blocks.include?(b)}
+      
+      return control_blocks, exit_block if control_blocks[0] == head
+      
+      work_list = control_blocks.clone
+      until work_list.empty?
+        cfg.predecessors[work_list.shift].each do |pred|
+          next if control_blocks.include?(pred)
+          next if pred == head && (control_blocks.push(pred) || true)
+          control_blocks.push(pred)
+          work_list |= [pred]
+        end
+      end
+      
+      return control_blocks, exit_block
+    end
+    
+                  
+    def summarize_loops! decl
+
+      cfg = cfg_construction
+
+      loop_identification.loops.each do |head, blocks|
+
+        block = decl.body.blocks.find do |b|
+          b.name == head.name && decl.name == head.parent.parent.name
+        end
+        
+        next unless block
+        
+        # identify entry block and insert current leakage var
+        entry = cfg.predecessors[head].detect{ |b| !blocks.include?(b) }
+        entry_lkg = entry.detect{|s| is_annotation_stmt?(s, CURRENT_LEAKAGE_NAME) }
+
+        next unless entry_lkg
+          
+        curr_lkg = entry_lkg.assignments.first
+        entry_lkg.replace_with(AssignStatement.new lhs: curr_lkg, rhs:  bpl("$l"))
+        
+
+        # idenify loop segments and compute costs
+        cntr, ex = extract_control_blocks(head, blocks, cfg)
+        body = blocks - cntr
+
+        cntr_cost = cntr.inject(0) { |acc, blk| (acc + (cost_of blk)) }
+        body_cost = body.inject(0) { |acc, blk| (acc + (cost_of blk)) }
+        puts cntr_cost
+        puts body_cost
+
+        # identify loop counter
+        cnt_update_block = cfg.predecessors[head].detect{ |b| blocks.include?(b) }
+        args = decl.declarations.inject([]) { |acc, d| acc << d.idents[0].name }
+        counter = (liveness.live[head] & liveness.live[cnt_update_block]) - args
+        
+        # compute and insert cost invariant
+        head.prepend_children(:statements,
+          bpl("assert ($l == #{curr_lkg}+#{counter.first}*(#{body_cost}+#{cntr_cost}));"))
+       
+      end
+      
+    end
+    
     def redirect_to_stub! decl
       args, asmt = [], []
       decl.parameters.each {|d| args.push(d.names.flatten).flatten}
@@ -98,6 +184,9 @@ module Bpl
         if decl.has_attribute?(:entrypoint)
           decl.body.blocks.first.statements.first.insert_before(bpl("$l := 0;"))
         end
+
+        summarize_loops! decl
+
         annotate_function_body! decl
 
       end
