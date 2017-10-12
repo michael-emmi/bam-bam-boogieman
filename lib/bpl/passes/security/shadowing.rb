@@ -39,19 +39,14 @@ module Bpl
                   ( expr.declaration.is_a?(ConstantDeclaration) ||
                     expr.declaration.parent.is_a?(QuantifiedExpression) )
           expr.name = shadow(expr)
+
         when CallStatement
-          puts "name was #{expr.procedure.name}"
-           next if exempt?(expr.procedure.name)
-           next if magic?(expr.procedure.name)
-           puts "1 #{node.name} #{expr.procedure}"
-           expr.procedure.replace_with(bpl(shadow("#{expr.procedure}")))
-           puts "2 #{node.name} #{expr.procedure}"
+          next if exempt?(expr.procedure.name)
+          next if magic?(expr.procedure.name)
+          expr.procedure.name = shadow(expr.procedure.name)
         end
       end
-      shadow.each do |s|
-        puts "7 #{shadow.name} #{s.procedure.name}"  if s.is_a?(CallStatement)
-      end
-      shadow
+      return shadow
     end
 
     def accesses(stmt)
@@ -192,7 +187,7 @@ module Bpl
       shadow_block = shadow_copy(block)
 
       shadow_block.each do |s|
-        puts "6 #{shadow_block.name} #{s.procedure.name}"  if s.is_a?(CallStatement)
+        puts "4 #{shadow_block.name} #{s.procedure.name}"  if s.is_a?(CallStatement)
       end
 
       
@@ -453,9 +448,7 @@ module Bpl
           end
           if expr.is_a?(CallStatement)
             next if exempt?(expr.procedure.name)
-            puts "3 #{decl.name} #{block.name} #{expr.procedure}"
             expr.procedure.replace_with(bpl("#{expr.procedure}.shadow"))
-            puts "4 #{decl.name} #{block.name} #{expr.procedure}"
           end
         end
       end
