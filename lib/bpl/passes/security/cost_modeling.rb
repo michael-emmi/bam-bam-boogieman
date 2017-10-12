@@ -123,14 +123,17 @@ module Bpl
 
         next unless block
 
-        # identify entry block and insert current leakage var
+        # identify entry block and insert current leakage variable
         entry = cfg.predecessors[head].detect{ |b| !blocks.include?(b) }
         entry_lkg = entry.detect{|s| is_annotation_stmt?(s, CURRENT_LEAKAGE_NAME) }
 
         next unless entry_lkg
 
-        curr_lkg = entry_lkg.assignments.first
-        entry_lkg.replace_with(AssignStatement.new lhs: curr_lkg, rhs:  bpl("$l"))
+        entry_lkg.remove
+        curr_lkg_var = entry_lkg.assignments.first
+        curr_lkg_asn = AssignStatement.new lhs:curr_lkg_var, rhs: bpl("$l")
+
+        entry.statements.last.insert_before(curr_lkg_asn)
 
 
         # idenify loop segments and compute costs
@@ -149,7 +152,7 @@ module Bpl
 
         # compute and insert cost invariant
         head.prepend_children(:statements,
-          bpl("assert ($l == #{curr_lkg}+#{counter.first}*(#{body_cost}+#{cntr_cost}));"))
+          bpl("assert ($l == #{curr_lkg_var}+#{counter.first}*(#{body_cost}+#{cntr_cost}));"))
 
       end
 
