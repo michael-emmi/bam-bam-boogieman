@@ -142,8 +142,6 @@ module Bpl
 
         cntr_cost = cntr.inject(0) { |acc, blk| (acc + (cost_of blk)) }
         body_cost = body.inject(0) { |acc, blk| (acc + (cost_of blk)) }
-        puts cntr_cost
-        puts body_cost
 
         # identify loop counter
         cnt_update_block = cfg.predecessors[head].detect{ |b| blocks.include?(b) }
