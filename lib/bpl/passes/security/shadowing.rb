@@ -181,15 +181,8 @@ module Bpl
     def self_composition_block!(block)
       return nil unless block.statements.first.has_attribute?(:selfcomp)
       head, tail = block.statements.first.get_attribute(:selfcomp)
-
-      puts "block #{block.name}\thead #{head}\ttail #{tail}"
       
       shadow_block = shadow_copy(block)
-
-      shadow_block.each do |s|
-        puts "4 #{shadow_block.name} #{s.procedure.name}"  if s.is_a?(CallStatement)
-      end
-
       
       equalities = Set.new
 
