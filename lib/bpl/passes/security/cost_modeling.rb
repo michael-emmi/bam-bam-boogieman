@@ -123,16 +123,13 @@ module Bpl
 
         next unless block
 
-        # identify entry block and insert current leakage variable
-        entry = cfg.predecessors[head].detect{ |b| !blocks.include?(b) }
-        entry_lkg = entry.detect{|s| is_annotation_stmt?(s, CURRENT_LEAKAGE_NAME) }
 
-        next unless entry_lkg
+        # create current leakage variable and insert at entry block
 
-        entry_lkg.remove
-        curr_lkg_var = entry_lkg.assignments.first
+        curr_lkg_var = decl.body.fresh_var("$loop_l","i32")
         curr_lkg_asn = AssignStatement.new lhs:curr_lkg_var, rhs: bpl("$l")
 
+        entry = cfg.predecessors[head].detect{ |b| !blocks.include?(b) }
         entry.statements.last.insert_before(curr_lkg_asn)
 
 
