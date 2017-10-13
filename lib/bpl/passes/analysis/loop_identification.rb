@@ -1,7 +1,7 @@
 module Bpl
   class LoopIdentification < Pass
 
-    depends :cfg_construction, :domination
+    depends :cfg_construction, :domination, :unreachable_block_elimination
     switch "--loop-identification", "Compute loops."
     result :loops, {}
 
