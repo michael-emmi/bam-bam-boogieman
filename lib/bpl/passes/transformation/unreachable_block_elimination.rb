@@ -3,7 +3,7 @@ module Bpl
   class UnreachableBlockElimination < Pass
 
     depends :cfg_construction
-    switch "--unreachable-code-elimination", "Remove unreachable blocks."
+    switch "--unreachable-block-elimination", "Remove unreachable blocks."
 
 
     def exists_path?(entry, target, cfg)
