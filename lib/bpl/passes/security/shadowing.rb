@@ -164,7 +164,8 @@ module Bpl
     end
 
     def shadow_assert(expr)
-      bpl("$shadow_ok := $shadow_ok && #{expr};")
+      bpl("assume true;")
+      #bpl("$shadow_ok := $shadow_ok && #{expr};")
     end
 
     def cross_product(proc)
@@ -369,7 +370,7 @@ module Bpl
     end
 
     def add_loop_invariants!(proc_decl, arguments, equalities)
-
+      #DSN TODO this might need to be changed for the timing example
       equality_dependencies = dependent_variables(proc_decl, equalities)
 
 
@@ -581,3 +582,4 @@ module Bpl
     end
   end
 end
+
