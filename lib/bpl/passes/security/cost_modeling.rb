@@ -70,7 +70,7 @@ module Bpl
     end
 
 
-
+    # Iterates over timing annotations of a block and sums them up.
     def cost_of block
       assumes = block.select{ |s| s.is_a?(AssumeStatement)}
       assumes.inject(0) do |acc, stmt|
@@ -81,6 +81,8 @@ module Bpl
       end
     end
 
+
+    # Given a loop, this function returns the loop's control blocks and exit block.
     def extract_control_blocks(head, blocks, cfg)
 
       control_blocks = []
@@ -111,43 +113,47 @@ module Bpl
     end
 
 
+    # This function automatically computes and inserts leakage-related loop invariants.
+    # The invariants are of the form:
+    # leakage = leakage_before_entering + loop_counter * (loop_body_cost + control_block_cost)
     def summarize_loops! decl
 
       cfg = cfg_construction
 
       loop_identification.loops.each do |head, blocks|
 
+        # only deal with loops that are in the procedure we are processing
         block = decl.body.blocks.find do |b|
           b.name == head.name && decl.name == head.parent.parent.name
         end
 
         next unless block
 
-
-        # create current leakage variable and insert at entry block
-
-        curr_lkg_var = decl.body.fresh_var("$loop_l","i32")
-        curr_lkg_asn = AssignStatement.new lhs:curr_lkg_var, rhs: bpl("$l")
+        # create leakage_before_entering variable and insert right before the loop head
+        lkg_before_var = decl.body.fresh_var("$loop_l","i32")
+        lkg_before_asn = AssignStatement.new lhs: lkg_before_var, rhs: bpl("$l")
 
         entry = cfg.predecessors[head].detect{ |b| !blocks.include?(b) }
-        entry.statements.last.insert_before(curr_lkg_asn)
+        entry.statements.last.insert_before(lkg_before_asn)
 
 
-        # idenify loop segments and compute costs
+        # identify control-blocks, body-blocks and compute their costs
         cntr, ex = extract_control_blocks(head, blocks, cfg)
         body = blocks - cntr
 
         cntr_cost = cntr.inject(0) { |acc, blk| (acc + (cost_of blk)) }
         body_cost = body.inject(0) { |acc, blk| (acc + (cost_of blk)) }
 
-        # identify loop counter
+
+        # identify loop_counter
         cnt_update_block = cfg.predecessors[head].detect{ |b| blocks.include?(b) }
         args = decl.declarations.inject([]) { |acc, d| acc << d.idents[0].name }
-        counter = (liveness.live[head] & liveness.live[cnt_update_block]) - args
+        counter = ((liveness.live[head] & liveness.live[cnt_update_block]) - args).first
 
-        # compute and insert cost invariant
+
+        # compute and insert leakage invariant
         head.prepend_children(:statements,
-          bpl("assert ($l == #{curr_lkg_var}+#{counter.first}*(#{body_cost}+#{cntr_cost}));"))
+          bpl("assert ($l == #{lkg_before_var}+#{counter}*(#{body_cost}+#{cntr_cost}));"))
 
       end
 
