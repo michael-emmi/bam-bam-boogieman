@@ -1,5 +1,3 @@
-
-
 module Bpl
   class Pruning < Pass
 
@@ -15,7 +13,6 @@ module Bpl
       program.declarations.each do |decl|
         next unless entrypoint_localization.entrypoints.include?(decl)
         reachable[decl] = Set.new(decl.names)
-        puts "#{decl.name} #{reachable}"
         work_list << decl
       end
 
@@ -43,7 +40,6 @@ module Bpl
       end
 
       program.declarations.each do |d|
-        puts reachable
         if reachable.include?(d)
           if d.instance_variable_defined?("@names")
             extras = d.names - reachable[d].to_a
@@ -56,9 +52,9 @@ module Bpl
             end
           end
         else
-          puts "PRUNING UNUSED DECLARATION"
+          info "PRUNING UNUSED DECLARATION"
           info
-          puts d.names.to_s.indent
+          info d.to_s.indent
           info
           d.remove
         end
