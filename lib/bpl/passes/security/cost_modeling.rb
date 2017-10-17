@@ -89,25 +89,28 @@ module Bpl
     def extract_control_blocks(head, blocks, cfg)
 
       # Find the last control block, i.e. the block that has a successor that is not in the loop.
-      control_blocks = []
+      last_control_block = nil
       blocks.each do |b|
         cfg.successors[b].each do |succ|
           next if blocks.include?(succ)
-          control_blocks.push(b)
+          # The last control block has to be unique.
+          raise StandardError if last_control_block
+          last_control_block = b
         end
       end
 
-      # This control block has to be unique.
-      raise StandardError unless control_blocks.size.equal? 1
-
       # The control block's succesor that is not in the loop is the unique exit block.
-      exit_block = cfg.successors[control_blocks[0]].detect{|b| !blocks.include?(b)}
+      exit_block = cfg.successors[last_control_block].select{|b| !blocks.include?(b)}
+      raise StandardError unless exit_block.size == 1
 
-      return control_blocks, exit_block if control_blocks[0] == head
+      # In the case of a simple control statement, the last control block is the head block
+      # and there are no other control blocks.
+      return [last_control_block], exit_block if last_control_block == head
 
       # If the loop has a complicated control statement, there will be multiple control
       # blocks. Identify them all the way up to the head block.
-      work_list = control_blocks.clone
+      work_list = [last_control_block]
+      control_blocks = [last_control_block]
       until work_list.empty?
         cfg.predecessors[work_list.shift].each do |pred|
           next if control_blocks.include?(pred)
@@ -131,11 +134,11 @@ module Bpl
       loop_identification.loops.each do |head, blocks|
 
         # Only deal with loops that are in the procedure we are processing.
-        block = decl.body.blocks.find do |b|
+        loop_is_in_decl = decl.body.blocks.find do |b|
           b.name == head.name && decl.name == head.parent.parent.name
         end
 
-        next unless block
+        next unless loop_is_in_decl
 
         # Create leakage_before_entering variable and insert right before the loop head.
         lkg_before_var = decl.body.fresh_var("$loop_l","i32")
@@ -145,7 +148,7 @@ module Bpl
         entry.statements.last.insert_before(lkg_before_asn)
 
 
-        # Identify control blocks, body blocks and compute their costs.
+        # Identify control-blocks, body-blocks and compute their costs.
         control_blocks, exit_block = extract_control_blocks(head, blocks, cfg)
         body_blocks = blocks - control_blocks
 
