@@ -13,10 +13,20 @@ module Bpl
       y.yield :full, f
     end
 
+    #This should always be used in place of decl.copy
+    #This will also update the symbol table
+    def clone_decl(old_decl, new_name)
+      rval = old_decl.copy
+      rval.replace_children(:name, new_name)
+      @decl_symbol_table[new_name] = rval
+      rval
+    end
+    
     def shadow(x) "#{x}.shadow" end
     def unshadow(x) "#{x}".sub(/[.]shadow\z/,'') end
     def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
-    def decl(v)
+    
+    def shadow_var_decl(v)
       v.class.new(names: v.names.map(&method(:shadow)), type: v.type)
     end
     def bpl_assert(x) bpl("assert #{x};") end
@@ -156,8 +166,10 @@ module Bpl
     end
 
     def add_shadow_variables!(proc_decl)
-      (proc_decl.parameters + proc_decl.returns).each {|d| d.insert_after(decl(d))}
-      proc_decl.body.locals.each {|d| d.insert_after(decl(d))} if proc_decl.body
+      (proc_decl.parameters + proc_decl.returns).each {
+        |d| d.insert_after(shadow_var_decl(d))}
+      proc_decl.body.locals.each {
+        |d| d.insert_after(shadow_var_decl(d))} if proc_decl.body
     end
 
     def self_composition_block(block)
@@ -413,11 +425,9 @@ module Bpl
 
     def shadow_decl(decl)
 
-      s_decl = decl.copy
-      s_decl.replace_children(:name, "#{decl.name}.shadow")
-
+      s_decl = clone_decl(decl, shadow(decl.name))      
+      
       # shadow global variables
-
       s_decl.body.blocks.each do |block|
         block.each do |expr|
           if expr.is_a?(Identifier) && expr.is_variable? && expr.is_global?
@@ -432,51 +442,58 @@ module Bpl
       s_decl
     end
 
-    def create_wrapper_block(decl)
+    def create_wrapper_block(original, shadowed)
       args = []
       asmt = []
-      decl.parameters.each {|d| args.push(d.names.flatten).flatten}
-      decl.returns.each {|d| asmt.push(d.names.flatten).flatten}
+      original.parameters.each {|d| args.push(d.names.flatten).flatten}
+      original.returns.each {|d| asmt.push(d.names.flatten).flatten}
       args=args.flatten
       asmt=asmt.flatten
-      c1 = CallStatement.new(procedure: decl.name,
+      shadowed_args = args.map(&method(:shadow))
+      shadowed_assgts =  asmt.map(&method(:shadow))
+
+      puts original.class
+      puts shadowed.class
+      
+      c1 = CallStatement.new(procedure: bpl(original.name),
                              arguments: args,
                              assignments: asmt)
-      c2 = CallStatement.new(procedure: "#{decl.name}.shadow",
-                             arguments: args.map(&method(:shadow)),
-                             assignments: asmt.map(&method(:shadow)))
+      c2 = CallStatement.new(procedure: bpl(shadowed.name),
+                             arguments: shadowed_args,
+                             assignments: shadowed_assgts)
       r = ReturnStatement.new()
       Block.new(names: [], statements: [c1,c2,r])
     end
 
-    def full_self_composition(decl)
-      if decl.body
+    def full_self_composition(original)
+      if original.body
 
-        shadow = shadow_decl(decl)
-        if decl.has_attribute?(:entrypoint)
-          
-          original = decl.copy
+        shadowed = shadow_decl(original)
+        puts "right before insert_after #{original.name} #{shadowed.name}"
+        original.insert_after(shadowed)
+
+        if original.has_attribute?(:entrypoint)
+          wrapper = clone_decl(original, "#{original.name}.wrapper")
+
+          original.remove_attribute(:entrypoint)
+          original.add_attribute(:inline, 1)
+          shadowed.remove_attribute(:entrypoint)
+          shadowed.add_attribute(:inline, 1)
+
+          #wrapper already has :entrypoint attribute from cloning
           
           # transform entry function to wrapper function that 
           # calls original and shadowed entry functions
-          wrapper_block = create_wrapper_block(decl)
-          add_shadow_variables!(decl)
-          decl.replace_children(:name, "#{decl.name}.wrapper")
-          decl.body.replace_children(:locals, [])
-          decl.body.replace_children(:blocks, wrapper_block)
+          wrapper_block = create_wrapper_block(original, shadowed)
+          add_shadow_variables!(wrapper)
+          wrapper.body.replace_children(:locals, [])
+          wrapper.body.replace_children(:blocks, wrapper_block)
           
-          add_assertions!(decl)
+          add_assertions!(wrapper)
           
-          decl.insert_after(original)
-          
-          # update attributes of original and shadowed entry functions
-          original.remove_attribute(:entrypoint)
-          original.add_attribute(:inline, 1)
-          shadow.remove_attribute(:entrypoint)
-          shadow.add_attribute(:inline, 1)
-          
+          original.insert_after(wrapper)          
         end
-        decl.insert_after(shadow)
+
       end
     end
 
@@ -517,12 +534,24 @@ module Bpl
         decl.insert_after(product_decl)
       end
     end
+
+    #build a symbol table that maps function name to decl
+    def build_symbol_table program
+      symbol_table = {}
+      program.each_child do |decl|
+        next unless decl.is_a?(ProcedureDeclaration)
+        next if exempt?(decl.name)
+        symbol_table[decl.name] = decl
+      end
+      symbol_table
+    end
     
     def run! program
 
+      @decl_symbol_table = build_symbol_table program
 
       # duplicate global variables
-      program.global_variables.each {|v| v.insert_after(decl(v))}
+      program.global_variables.each {|v| v.insert_after(shadow_var_decl(v))}
       program.prepend_children(:declarations, bpl("var $shadow_ok: bool;"))
 
       # duplicate parameters, returns, and local variables
