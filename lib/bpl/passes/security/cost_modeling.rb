@@ -73,18 +73,22 @@ module Bpl
     # Iterates over timing annotations of a block and sums them up.
     def cost_of block
       assumes = block.select{ |s| s.is_a?(AssumeStatement)}
-      assumes.inject(0) do |acc, stmt|
+      cost = assumes.inject(0) do |acc, stmt|
         if values = stmt.get_attribute(:'smack.InstTimingCost.Int64')
           acc += values.first.show.to_i
         end
         acc
       end
+
+      return cost
     end
 
 
-    # Given a loop, this function returns the loop's control blocks and exit block.
+    # Given a loop, this function returns a tuple containing the loop's control blocks
+    # and its (unique) exit block.
     def extract_control_blocks(head, blocks, cfg)
 
+      # Find the last control block, i.e. the block that has a successor that is not in the loop.
       control_blocks = []
       blocks.each do |b|
         cfg.successors[b].each do |succ|
@@ -93,12 +97,16 @@ module Bpl
         end
       end
 
+      # This control block has to be unique.
       raise StandardError unless control_blocks.size.equal? 1
 
+      # The control block's succesor that is not in the loop is the unique exit block.
       exit_block = cfg.successors[control_blocks[0]].detect{|b| !blocks.include?(b)}
 
       return control_blocks, exit_block if control_blocks[0] == head
 
+      # If the loop has a complicated control statement, there will be multiple control
+      # blocks. Identify them all the way up to the head block.
       work_list = control_blocks.clone
       until work_list.empty?
         cfg.predecessors[work_list.shift].each do |pred|
@@ -122,14 +130,14 @@ module Bpl
 
       loop_identification.loops.each do |head, blocks|
 
-        # only deal with loops that are in the procedure we are processing
+        # Only deal with loops that are in the procedure we are processing.
         block = decl.body.blocks.find do |b|
           b.name == head.name && decl.name == head.parent.parent.name
         end
 
         next unless block
 
-        # create leakage_before_entering variable and insert right before the loop head
+        # Create leakage_before_entering variable and insert right before the loop head.
         lkg_before_var = decl.body.fresh_var("$loop_l","i32")
         lkg_before_asn = AssignStatement.new lhs: lkg_before_var, rhs: bpl("$l")
 
@@ -137,23 +145,24 @@ module Bpl
         entry.statements.last.insert_before(lkg_before_asn)
 
 
-        # identify control-blocks, body-blocks and compute their costs
-        cntr, ex = extract_control_blocks(head, blocks, cfg)
-        body = blocks - cntr
+        # Identify control blocks, body blocks and compute their costs.
+        control_blocks, exit_block = extract_control_blocks(head, blocks, cfg)
+        body_blocks = blocks - control_blocks
 
-        cntr_cost = cntr.inject(0) { |acc, blk| (acc + (cost_of blk)) }
-        body_cost = body.inject(0) { |acc, blk| (acc + (cost_of blk)) }
+        control_cost = control_blocks.inject(0) { |acc, blk| (acc + (cost_of blk)) }
+        body_cost = body_blocks.inject(0) { |acc, blk| (acc + (cost_of blk)) }
 
 
-        # identify loop_counter
-        cnt_update_block = cfg.predecessors[head].detect{ |b| blocks.include?(b) }
+        # Identify the loop_counter variable as the intersection of live variables of the head
+        # block and its predecessor.
+        counter_update_block = cfg.predecessors[head].detect{ |b| blocks.include?(b) }
         args = decl.declarations.inject([]) { |acc, d| acc << d.idents[0].name }
-        counter = ((liveness.live[head] & liveness.live[cnt_update_block]) - args).first
+        counter = ((liveness.live[head] & liveness.live[counter_update_block]) - args).first
 
 
-        # compute and insert leakage invariant
+        # Compute and insert leakage invariant at the beginning of the head block.
         head.prepend_children(:statements,
-          bpl("assert ($l == #{lkg_before_var}+#{counter}*(#{body_cost}+#{cntr_cost}));"))
+          bpl("assert ($l == #{lkg_before_var}+#{counter}*(#{body_cost}+#{control_cost}));"))
 
       end
 
