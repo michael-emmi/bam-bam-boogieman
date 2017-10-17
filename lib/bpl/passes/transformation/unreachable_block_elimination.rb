@@ -2,6 +2,9 @@ module Bpl
 
   class UnreachableBlockElimination < Pass
 
+    # Algorithm to eliminate unreachable blocks from the book "Advanced
+    # Compiler Design Implementation" by Steven Muchnick (Fig 18.1 page 581).
+
     depends :cfg_construction
     switch "--unreachable-block-elimination", "Remove unreachable blocks."
 
