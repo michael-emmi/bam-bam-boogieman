@@ -148,7 +148,7 @@ module Bpl
         entry.statements.last.insert_before(lkg_before_asn)
 
 
-        # Identify control-blocks, body-blocks and compute their costs.
+        # Identify control blocks, body blocks and compute their costs.
         control_blocks, exit_block = extract_control_blocks(head, blocks, cfg)
         body_blocks = blocks - control_blocks
 
