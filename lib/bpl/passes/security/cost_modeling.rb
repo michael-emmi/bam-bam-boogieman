@@ -26,7 +26,6 @@ module Bpl
     end
 
     LEAKAGE_ANNOTATION_NAME =  "__VERIFIER_ASSUME_LEAKAGE"
-    CURRENT_LEAKAGE_NAME = "__VERIFIER_CURRENT_LEAKAGE"
 
     def exempt? decl
       EXEMPTIONS.match(decl) && true
