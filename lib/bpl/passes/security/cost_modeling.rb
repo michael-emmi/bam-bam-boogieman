@@ -47,7 +47,6 @@ module Bpl
       return false unless decl.body
       return (not (decl.body.select{|r| is_annotation_stmt?(r,annot_name)}.empty?))
     end
-    
 
     #the annotation should have one argument, and we just want whatever it is
     def get_annotation_value annotationStmt
@@ -67,6 +66,108 @@ module Bpl
           stmt.insert_after(bpl("$l := $add.i32($l, #{values.first});"))
         end
       end
+    end
+
+
+    # Iterates over timing annotations of a block and sums them up.
+    def cost_of block
+      assumes = block.select{ |s| s.is_a?(AssumeStatement)}
+      cost = assumes.inject(0) do |acc, stmt|
+        if values = stmt.get_attribute(:'smack.InstTimingCost.Int64')
+          acc += values.first.show.to_i
+        end
+        acc
+      end
+
+      return cost
+    end
+
+
+    # Given a loop, this function returns a tuple containing the loop's control blocks
+    # and its (unique) exit block.
+    def extract_control_blocks(head, blocks, cfg)
+
+      # Find the last control block, i.e. the block that has a successor that is not in the loop.
+      last_control_block = nil
+      blocks.each do |b|
+        cfg.successors[b].each do |succ|
+          next if blocks.include?(succ)
+          # The last control block has to be unique.
+          raise StandardError if last_control_block
+          last_control_block = b
+        end
+      end
+
+      # The control block's succesor that is not in the loop is the unique exit block.
+      exit_block = cfg.successors[last_control_block].select{|b| !blocks.include?(b)}
+      raise StandardError unless exit_block.size == 1
+
+      # In the case of a simple control statement, the last control block is the head block
+      # and there are no other control blocks.
+      return [last_control_block], exit_block if last_control_block == head
+
+      # If the loop has a complicated control statement, there will be multiple control
+      # blocks. Identify them all the way up to the head block.
+      work_list = [last_control_block]
+      control_blocks = [last_control_block]
+      until work_list.empty?
+        cfg.predecessors[work_list.shift].each do |pred|
+          next if control_blocks.include?(pred)
+          next if pred == head && (control_blocks.push(pred) || true)
+          control_blocks.push(pred)
+          work_list |= [pred]
+        end
+      end
+
+      return control_blocks, exit_block
+    end
+
+
+    # This function automatically computes and inserts leakage-related loop invariants.
+    # The invariants are of the form:
+    # leakage = leakage_before_entering + loop_counter * (loop_body_cost + control_block_cost)
+    def summarize_loops! decl
+
+      cfg = cfg_construction
+
+      loop_identification.loops.each do |head, blocks|
+
+        # Only deal with loops that are in the procedure we are processing.
+        loop_is_in_decl = decl.body.blocks.find do |b|
+          b.name == head.name && decl.name == head.parent.parent.name
+        end
+
+        next unless loop_is_in_decl
+
+        # Create leakage_before_entering variable and insert right before the loop head.
+        lkg_before_var = decl.body.fresh_var("$loop_l","i32")
+        lkg_before_asn = AssignStatement.new lhs: lkg_before_var, rhs: bpl("$l")
+
+        entry = cfg.predecessors[head].detect{ |b| !blocks.include?(b) }
+        entry.statements.last.insert_before(lkg_before_asn)
+
+
+        # Identify control blocks, body blocks and compute their costs.
+        control_blocks, exit_block = extract_control_blocks(head, blocks, cfg)
+        body_blocks = blocks - control_blocks
+
+        control_cost = control_blocks.inject(0) { |acc, blk| (acc + (cost_of blk)) }
+        body_cost = body_blocks.inject(0) { |acc, blk| (acc + (cost_of blk)) }
+
+
+        # Identify the loop_counter variable as the intersection of live variables of the head
+        # block and its predecessor.
+        counter_update_block = cfg.predecessors[head].detect{ |b| blocks.include?(b) }
+        args = decl.declarations.inject([]) { |acc, d| acc << d.idents[0].name }
+        counter = ((liveness.live[head] & liveness.live[counter_update_block]) - args).first
+
+
+        # Compute and insert leakage invariant at the beginning of the head block.
+        head.prepend_children(:statements,
+          bpl("assert ($l == #{lkg_before_var}+#{counter}*(#{body_cost}+#{control_cost}));"))
+
+      end
+
     end
 
     def redirect_to_stub! decl
@@ -98,6 +199,9 @@ module Bpl
         if decl.has_attribute?(:entrypoint)
           decl.body.blocks.first.statements.first.insert_before(bpl("$l := 0;"))
         end
+
+        summarize_loops! decl
+
         annotate_function_body! decl
 
       end
