@@ -12,15 +12,6 @@ module Bpl
     switch "--shadowing [FULL]", "Construct the shadow product program." do |y, f, s|
       y.yield :full, f
     end
-
-    #This should always be used in place of decl.copy
-    #This will also update the symbol table
-    def clone_decl(old_decl, new_name)
-      rval = old_decl.copy
-      rval.replace_children(:name, new_name)
-      @decl_symbol_table[new_name] = rval
-      rval
-    end
     
     def shadow(x) "#{x}.shadow" end
     def unshadow(x) "#{x}".sub(/[.]shadow\z/,'') end
@@ -431,8 +422,8 @@ module Bpl
     end
 
     def shadow_decl(decl)
-
-      s_decl = clone_decl(decl, shadow(decl.name))      
+      s_decl = decl.copy
+      s_decl.replace_children(:name, shadow(decl.name))      
       
       # shadow global variables
       s_decl.body.blocks.each do |block|
@@ -459,9 +450,6 @@ module Bpl
       shadowed_args = args.map(&method(:shadow))
       shadowed_assgts =  asmt.map(&method(:shadow))
 
-      puts original.class
-      puts shadowed.class
-      
       c1 = CallStatement.new(procedure: bpl(original.name),
                              arguments: args,
                              assignments: asmt)
@@ -476,12 +464,12 @@ module Bpl
       if original.body
 
         shadowed = shadow_decl(original)
-        puts "right before insert_after #{original.name} #{shadowed.name}"
         original.insert_after(shadowed)
 
         if original.has_attribute?(:entrypoint)
-          wrapper = clone_decl(original, "#{original.name}.wrapper")
-
+          wrapper = original.copy
+          wrapper.replace_children(:name, "#{original.name}.wrapper")
+          
           original.remove_attribute(:entrypoint)
           original.add_attribute(:inline, 1)
           shadowed.remove_attribute(:entrypoint)
@@ -523,7 +511,9 @@ module Bpl
         product_decl.body.blocks.each do |block|
 
           if ins = self_composition_block!(block)
-            block.insert_before(ins[:block])
+            #it is crutial that this be inserted after, because otherwise the entry block might become
+            #accidentally set to the shadow, which would be bad.
+            block.insert_after(ins[:block])
             equalities.merge(ins[:eqs])
 
           else
@@ -549,20 +539,8 @@ module Bpl
 
     end
 
-    #build a symbol table that maps function name to decl
-    def build_symbol_table program
-      symbol_table = {}
-      program.each_child do |decl|
-        next unless decl.is_a?(ProcedureDeclaration)
-        next if exempt?(decl.name)
-        symbol_table[decl.name] = decl
-      end
-      symbol_table
-    end
     
     def run! program
-
-      @decl_symbol_table = build_symbol_table program
 
       # duplicate global variables
       program.global_variables.each {|v| v.insert_after(shadow_var_decl(v))}
