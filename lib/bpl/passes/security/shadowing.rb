@@ -20,6 +20,15 @@ module Bpl
     def shadow_var_decl(v)
       v.class.new(names: v.names.map(&method(:shadow)), type: v.type)
     end
+
+    # Shadows the procedure identifier of a CallStatement.
+    # Using a String instead of a ProcedureIntefier object (i.e. by simply shadowing the name)
+    # breaks compatibility with any postprocessing of the ast.
+    def shadow_proc_call(expr, suffix="shadow")
+      procedure_id = ProcedureIdentifier.new(:name => "#{expr.procedure}.#{suffix}")
+      expr.procedure.replace_with(procedure_id)
+    end
+    
     def bpl_assert(x) bpl("assert #{x};") end
     def shadow_copy(node)
       shadow = node.copy
@@ -34,7 +43,7 @@ module Bpl
         when CallStatement
           next if exempt?(expr.procedure.name)
           next if magic?(expr.procedure.name)
-          expr.procedure.name = shadow(expr.procedure.name)
+          shadow_proc_call(expr)
         end
       end
       return shadow
@@ -260,7 +269,7 @@ module Bpl
               stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
             end
           else
-            stmt.procedure.replace_with(bpl("#{stmt.procedure}.cross_product"))
+            shadow_proc_call(stmt, "cross_product")
             stmt.arguments.each do |x|
               arguments.add(x)
               x.insert_after(shadow_copy(x))
@@ -433,29 +442,32 @@ module Bpl
           end
           if expr.is_a?(CallStatement)
             next if exempt?(expr.procedure.name)
-            expr.procedure.replace_with(bpl("#{expr.procedure}.shadow"))
+            shadow_proc_call(expr)
           end
         end
       end
       s_decl
     end
 
-    def create_wrapper_block(original, shadowed)
+    def create_wrapper_block(original, shadow)
       args = []
       asmt = []
       original.parameters.each {|d| args.push(d.names.flatten).flatten}
       original.returns.each {|d| asmt.push(d.names.flatten).flatten}
       args=args.flatten
       asmt=asmt.flatten
-      shadowed_args = args.map(&method(:shadow))
-      shadowed_assgts =  asmt.map(&method(:shadow))
+      shadow_args = args.map(&method(:shadow))
+      shadow_assgts =  asmt.map(&method(:shadow))
+      original_id = ProcedureIdentifier.new({:name =>original.name})
+      shadow_id = ProcedureIdentifier.new({:name => shadow.name})
+     
 
-      c1 = CallStatement.new(procedure: bpl(original.name),
+      c1 = CallStatement.new(procedure: original_id,
                              arguments: args,
                              assignments: asmt)
-      c2 = CallStatement.new(procedure: bpl(shadowed.name),
-                             arguments: shadowed_args,
-                             assignments: shadowed_assgts)
+      c2 = CallStatement.new(procedure: shadow_id,
+                             arguments: shadow_args,
+                             assignments: shadow_assgts)
       r = ReturnStatement.new()
       Block.new(names: [], statements: [c1,c2,r])
     end
@@ -463,8 +475,8 @@ module Bpl
     def full_self_composition(original)
       if original.body
 
-        shadowed = shadow_decl(original)
-        original.insert_after(shadowed)
+        shadow = shadow_decl(original)
+        original.insert_after(shadow)
 
         if original.has_attribute?(:entrypoint)
           wrapper = original.copy
@@ -472,14 +484,14 @@ module Bpl
           
           original.remove_attribute(:entrypoint)
           original.add_attribute(:inline, 1)
-          shadowed.remove_attribute(:entrypoint)
-          shadowed.add_attribute(:inline, 1)
+          shadow.remove_attribute(:entrypoint)
+          shadow.add_attribute(:inline, 1)
 
           #wrapper already has :entrypoint attribute from cloning
           
           # transform entry function to wrapper function that 
-          # calls original and shadowed entry functions
-          wrapper_block = create_wrapper_block(original, shadowed)
+          # calls original and shadow entry functions
+          wrapper_block = create_wrapper_block(original, shadow)
           add_shadow_variables!(wrapper)
           wrapper.body.replace_children(:locals, [])
           wrapper.body.replace_children(:blocks, wrapper_block)
@@ -493,14 +505,15 @@ module Bpl
     end
 
     def selective_self_composition(decl)
-      #we need to create three copies of each function, to be called depending on
-      #the conext:
-      # The cross_product copy, called from cross product context
-      # The origional and shadow copies, called from selective-self-composition context
+      # We need to create three copies of each function, to be called depending on
+      # the conext:
+      # 1. the cross_product copy, called from the cross-product context,
+      # 2. the original copy, called from the selective-self-composition context
+      # 3. the shadow copy, called from the selective-self-composition context.
 
-      #decl is the original - should not be touched by this function
 
-      
+
+      # decl is the original - should not be touched by this function      
       product_decl = decl.copy
       add_shadow_variables!(product_decl)
       
@@ -511,8 +524,8 @@ module Bpl
         product_decl.body.blocks.each do |block|
 
           if ins = self_composition_block!(block)
-            #it is crutial that this be inserted after, because otherwise the entry block might become
-            #accidentally set to the shadow, which would be bad.
+            # It is crutial that this be inserted after, because otherwise the entry block might become
+            # accidentally set to the shadow, which would be bad.
             block.insert_after(ins[:block])
             equalities.merge(ins[:eqs])
 
@@ -560,4 +573,3 @@ module Bpl
     end
   end
 end
-
