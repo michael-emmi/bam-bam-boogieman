@@ -43,7 +43,7 @@ module Bpl
         when CallStatement
           next if exempt?(expr.procedure.name)
           next if magic?(expr.procedure.name)
-          shadow_proc_call(expr)
+          shadow_proc_call!(expr)
         end
       end
       return shadow
@@ -269,7 +269,7 @@ module Bpl
               stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
             end
           else
-            shadow_proc_call(stmt, "cross_product")
+            shadow_proc_call!(stmt, "cross_product")
             stmt.arguments.each do |x|
               arguments.add(x)
               x.insert_after(shadow_copy(x))
@@ -442,7 +442,7 @@ module Bpl
           end
           if expr.is_a?(CallStatement)
             next if exempt?(expr.procedure.name)
-            shadow_proc_call(expr)
+            shadow_proc_call!(expr)
           end
         end
       end
