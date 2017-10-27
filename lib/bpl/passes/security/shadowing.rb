@@ -7,12 +7,22 @@ module Bpl
     depends :definition_localization, :liveness
     invalidates :all
 
-    option :full
-    
-    switch "--shadowing [FULL]", "Construct the shadow product program." do |y, f, s|
-      y.yield :full, f
+    option :argslist
+
+    def parse_args(args)
+      rval = Hash.new
+      args.split(",").each do |a|
+        left,right = a.split("=")
+        #symbols are clearer than strings in code
+        rval[left.to_sym] = right.to_sym 
+      end
+      return rval
     end
     
+    switch "--shadowing [arg1=val1,...,argk=valk]", "Construct the shadow product program." do |y, f, s|
+      y.yield :argslist, f
+    end
+
     def shadow(x) "#{x}.shadow" end
     def unshadow(x) "#{x}".sub(/[.]shadow\z/,'') end
     def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
@@ -54,6 +64,7 @@ module Bpl
         stmt.each do |expr|
           next unless expr.is_a?(FunctionApplication)
           next unless expr.function.is_a?(Identifier)
+          
           next unless expr.function.name =~ /\$(load|store)/
           y.yield expr.arguments[1]
         end
@@ -153,8 +164,9 @@ module Bpl
 
     TIMING_ANNOTATIONS = [
     ]
-    
 
+
+    
     def annotated_specifications(proc_decl)
       hash = ANNOTATIONS.map{|ax| [ax,[]]}.to_h
       proc_decl.specifications.each do |s|
@@ -162,10 +174,33 @@ module Bpl
       end
       hash
     end
+    
+    def add_assertion!(node, position, expr, type)
+      assertion =
+        case @args_hash[type]
+        when nil, :assert_never
+          nil
+        when :assert_now
+          assertion = bpl_assert(expr)
+        when :assert_shadow_ok
+          assertion = shadow_assert(expr)
+        else
+          raise "unexpected assertion time"
+        end
+      return unless assertion
+   
+               
+      if position == :before
+        node.insert_before(assertion)
+      elsif position == :after
+        node.insert_after(assertion)
+      else
+        raise "bad direction"
+      end
+    end
 
     def shadow_assert(expr)
-      bpl("assume true;")
-      #bpl("$shadow_ok := $shadow_ok && #{expr};")
+      bpl("$shadow_ok := $shadow_ok && #{expr};")
     end
 
     def cross_product(proc)
@@ -213,7 +248,7 @@ module Bpl
         next unless stmt.is_a?(AssumeStatement)
         next unless values = stmt.get_attribute(:branchcond)
         expr = bpl(unshadow values.first)
-        stmt.insert_after(shadow_assert(shadow_eq(expr)))
+        add_assertion!(stmt, :after, shadow_eq(expr), :self_comp_branch_assertion)
         equalities.add(expr)
       end
 
@@ -245,7 +280,7 @@ module Bpl
 
           # ensure the indicies to loads and stores are equal
           accesses(stmt).each do |idx|
-            stmt.insert_before(shadow_assert(shadow_eq(idx)))
+            add_assertion!(stmt, :before, shadow_eq(idx), :memory_assertion)
             equalities.add(idx)
           end
 
@@ -257,7 +292,8 @@ module Bpl
             stmt.arguments.each do |x|
               unless x.type.is_a?(MapType)
                 if x.any?{|id| id.is_a?(StorageIdentifier)}
-                  stmt.insert_before(shadow_assert(shadow_eq(x)))
+                  #DSN: This appears to be to ensure that malloc and free are called with the same args?
+                  add_assertion!(stmt, :before, shadow_eq(x), :magic_param_args_assertion)
                   equalities.add(x)
                 end
               end
@@ -298,8 +334,7 @@ module Bpl
               annotation.has_attribute?(:branchcond)
 
             if expr = annotation.get_attribute(:branchcond).first
-              stmt.insert_before(shadow_assert(shadow_eq(expr)))
-              stmt.insert_before(bpl_assert(shadow_eq(expr)))
+              add_assertion!(stmt, :before, shadow_eq(expr), :branchcond_assertion)
               equalities.add(expr)
             end
           end
@@ -328,7 +363,7 @@ module Bpl
         next unless ret.is_a?(ReturnStatement)
         annotations[:public_out].each do |annot|
           loads(annot).each do |e,f|
-            ret.insert_before(shadow_assert("#{e} == #{f}"))
+            add_assertion(ret, :before, "#{e} == #{f}", :public_out_assertion)
             equalities.add(e)
           end
         end
@@ -554,7 +589,7 @@ module Bpl
 
     
     def run! program
-
+      @args_hash = parse_args(argslist)
       # duplicate global variables
       program.global_variables.each {|v| v.insert_after(shadow_var_decl(v))}
       program.prepend_children(:declarations, bpl("var $shadow_ok: bool;"))
@@ -564,10 +599,12 @@ module Bpl
         next unless decl.is_a?(ProcedureDeclaration)
         next if exempt?(decl.name)
 
-        if full
+        if @args_hash[:self_comp_mode] == :full
           full_self_composition(decl)
-        else
+        elsif @args_hash[:self_comp_mode] == :selective
           selective_self_composition(decl)
+        else
+          raise "unknown self comp mode #{@args_hash[:self_comp_mode]}"
         end
       end
     end
