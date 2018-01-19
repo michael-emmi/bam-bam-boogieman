@@ -101,7 +101,8 @@ module Bpl
           redo!
         end
 
-      when readonly_variable?(elem)
+      when readonly_variable?(elem) && elem.parent && elem.parent.is_a?(Program)
+        # NOTE Boogie does not permit local constant declarations
         info "converting read-only variable to constant: #{elem}"
         elem.replace_with(bpl("const #{elem.names * ", "}: #{elem.type};"))
         invalidates :resolution
