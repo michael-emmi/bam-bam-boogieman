@@ -35,6 +35,8 @@ module Bpl
     # Using a String instead of a ProcedureIntefier object (i.e. by simply shadowing the name)
     # breaks compatibility with any postprocessing of the ast.
     def shadow_proc_call!(expr, suffix="shadow")
+      #TODO: is there a better way to right this?
+      return if("#{expr.procedure}" == "nondet")
       procedure_id = ProcedureIdentifier.new(:name => "#{expr.procedure}.#{suffix}")
       expr.procedure.replace_with(procedure_id)
     end
