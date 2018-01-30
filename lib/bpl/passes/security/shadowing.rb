@@ -14,11 +14,11 @@ module Bpl
       args.split(",").each do |a|
         left,right = a.split("=")
         #symbols are clearer than strings in code
-        rval[left.to_sym] = right.to_sym 
+        rval[left.to_sym] = right.to_sym
       end
       return rval
     end
-    
+
     switch "--shadowing [arg1=val1,...,argk=valk]", "Construct the shadow product program." do |y, f, s|
       y.yield :argslist, f
     end
@@ -26,7 +26,7 @@ module Bpl
     def shadow(x) "#{x}.shadow" end
     def unshadow(x) "#{x}".sub(/[.]shadow\z/,'') end
     def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
-    
+
     def shadow_var_decl(v)
       v.class.new(names: v.names.map(&method(:shadow)), type: v.type)
     end
@@ -38,7 +38,7 @@ module Bpl
       procedure_id = ProcedureIdentifier.new(:name => "#{expr.procedure}.#{suffix}")
       expr.procedure.replace_with(procedure_id)
     end
-    
+
     def bpl_assert(x) bpl("assert #{x};") end
     def shadow_copy(node)
       shadow = node.copy
@@ -64,7 +64,6 @@ module Bpl
         stmt.each do |expr|
           next unless expr.is_a?(FunctionApplication)
           next unless expr.function.is_a?(Identifier)
-          
           next unless expr.function.name =~ /\$(load|store)/
           y.yield expr.arguments[1]
         end
@@ -96,7 +95,7 @@ module Bpl
       end
       return dependencies
     end
-    
+
     def loads(annotation)
       load_expr, map_expr, addr_expr, inc_expr, len_expr = annotation
       Enumerator.new do |y|
@@ -120,7 +119,7 @@ module Bpl
         end
       end
     end
-    
+
     EXEMPTION_LIST = [
       '\$alloc',
       '\$free',
@@ -166,7 +165,7 @@ module Bpl
     ]
 
 
-    
+
     def annotated_specifications(proc_decl)
       hash = ANNOTATIONS.map{|ax| [ax,[]]}.to_h
       proc_decl.specifications.each do |s|
@@ -174,7 +173,7 @@ module Bpl
       end
       hash
     end
-    
+
     def add_assertion!(node, position, expr, type)
       assertion =
         case @args_hash[type]
@@ -188,8 +187,6 @@ module Bpl
           raise "unexpected assertion time"
         end
       return unless assertion
-   
-               
       if position == :before
         node.insert_before(assertion)
       elsif position == :after
@@ -213,13 +210,12 @@ module Bpl
       proc_decl.body.locals.each {
         |d| d.insert_after(shadow_var_decl(d))} if proc_decl.body
     end
-    
+
     def self_composition_block!(block)
       return nil unless block.statements.first.has_attribute?(:selfcomp)
       head, tail = block.statements.first.get_attribute(:selfcomp)
-      
       shadow_block = shadow_copy(block)
-      
+
       equalities = Set.new
 
       # replace returns and exits in the original block
@@ -457,7 +453,7 @@ module Bpl
             block.prepend_children(:statements,
               bpl("assert {:shadow_invariant} #{x} == #{shadow x};"))
           end
-          
+
           block.prepend_children(:statements,
             bpl("assert {:shadow_invariant} $shadow_ok;"))
 
@@ -467,8 +463,8 @@ module Bpl
 
     def shadow_decl(decl)
       s_decl = decl.copy
-      s_decl.replace_children(:name, shadow(decl.name))      
-      
+      s_decl.replace_children(:name, shadow(decl.name))
+
       # shadow global variables
       s_decl.body.blocks.each do |block|
         block.each do |expr|
@@ -495,7 +491,7 @@ module Bpl
       shadow_assgts =  asmt.map(&method(:shadow))
       original_id = ProcedureIdentifier.new({:name =>original.name})
       shadow_id = ProcedureIdentifier.new({:name => shadow.name})
-     
+
 
       c1 = CallStatement.new(procedure: original_id,
                              arguments: args,
@@ -507,33 +503,48 @@ module Bpl
       Block.new(names: [], statements: [c1,c2,r])
     end
 
+
+
+    def remove_call!(decl, proc_name)
+      decl.body.each do |stmt|
+        next unless stmt.is_a?(CallStatement)
+        stmt.remove if stmt.procedure.name.eql? proc_name
+      end
+    end
+
     def full_self_composition(original)
       if original.body
 
         shadow = shadow_decl(original)
         original.insert_after(shadow)
 
+
+
         if original.has_attribute?(:entrypoint)
           wrapper = original.copy
           wrapper.replace_children(:name, "#{original.name}.wrapper")
-          
+
           original.remove_attribute(:entrypoint)
           original.add_attribute(:inline, 1)
           shadow.remove_attribute(:entrypoint)
           shadow.add_attribute(:inline, 1)
 
           #wrapper already has :entrypoint attribute from cloning
-          
-          # transform entry function to wrapper function that 
+
+          # transform entry function to wrapper function that
           # calls original and shadow entry functions
           wrapper_block = create_wrapper_block(original, shadow)
           add_shadow_variables!(wrapper)
           wrapper.body.replace_children(:locals, [])
           wrapper.body.replace_children(:blocks, wrapper_block)
-          
+
           add_assertions!(wrapper)
-          
-          original.insert_after(wrapper)          
+          if @args_hash.has_key?(:verify_stub)
+            remove_call!(original, @args_hash[:verify_stub].to_s.concat("_stub"))
+            remove_call!(shadow, @args_hash[:verify_stub].to_s.concat(".shadow"))
+          end
+
+          original.insert_after(wrapper)
         end
 
       end
@@ -548,14 +559,14 @@ module Bpl
 
 
 
-      # decl is the original - should not be touched by this function      
+      # decl is the original - should not be touched by this function
       product_decl = decl.copy
       add_shadow_variables!(product_decl)
-      
+
       if product_decl.body
         equalities = Set.new
         arguments = Set.new
-        
+
         product_decl.body.blocks.each do |block|
 
           if ins = self_composition_block!(block)
@@ -576,18 +587,18 @@ module Bpl
       end
 
       product_decl.replace_children(:name, "#{decl.name}.cross_product")
-      
+
       if decl.has_attribute?(:entrypoint)
         decl.replace_with(product_decl)
       else
         decl.insert_after(product_decl)
-        #shadow is for the shadow calls 
+        #shadow is for the shadow calls
         decl.insert_after(shadow_decl(decl)) if decl.body
       end
 
     end
 
-    
+
     def run! program
       @args_hash = parse_args(argslist)
       # duplicate global variables

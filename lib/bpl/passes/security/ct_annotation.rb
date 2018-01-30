@@ -15,11 +15,15 @@ module Bpl
       :benign,
     ]
 
+    LOOP_ANNOTATIONS = [
+      :loop_var
+    ]
+
     FUNCTION_ANNOTATIONS = [
       :__VERIFIER_ASSERT_MAX_LEAKAGE,
       :__VERIFIER_TIMING_CONTRACT
     ]
-    
+
     def run! program
       cfg = cfg_construction
 
@@ -50,7 +54,7 @@ module Bpl
             )
             invalidates :resolution
             stmt.remove
-            
+
           elsif stmt.procedure.name =~ /#{FUNCTION_ANNOTATIONS * "|"}/
             var = stmt.arguments.first
             decl.append_children(:specifications,
@@ -69,6 +73,11 @@ module Bpl
               blk.prepend_children(:statements, bpl("assume true;"))
               blk.statements.first.add_attribute(:selfcomp, *block_list)
             end
+            stmt.remove
+
+          elsif stmt.procedure.name =~ /#{LOOP_ANNOTATIONS * "|"}/
+            var = stmt.arguments.first
+            stmt.insert_after((bpl("assume {:loop_var #{var}} true;")))
             stmt.remove
           end
 

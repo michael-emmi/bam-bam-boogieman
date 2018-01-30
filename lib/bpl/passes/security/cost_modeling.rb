@@ -25,7 +25,8 @@ module Bpl
       decl.specifications.each.any? { |s| s.has_attribute? STUB_ANNOTATION }
     end
 
-    LEAKAGE_ANNOTATION_NAME =  "__VERIFIER_ASSUME_LEAKAGE"
+    LEAKAGE_ANNOTATION_NAME = "__VERIFIER_ASSUME_LEAKAGE"
+    INV_VAR_ANNOTATION_NAME = "__VERIFIER_LOOP_VAR"
 
     def exempt? decl
       EXEMPTIONS.match(decl) && true
@@ -53,7 +54,7 @@ module Bpl
       raise "annotation should have one argument" unless annotationStmt.arguments.length == 1
       return annotationStmt.arguments.first.to_s
     end
-    
+
     def annotate_function_body! decl
       if (has_annotation?(decl, LEAKAGE_ANNOTATION_NAME)) then
         decl.body.select{ |s| is_annotation_stmt?(s, LEAKAGE_ANNOTATION_NAME)}.each do |s| 
@@ -123,12 +124,47 @@ module Bpl
     end
 
 
+    # Given a set of blocks, returns 'GotoStatement's of branches
+    def extract_branches blocks
+
+      branches = []
+      blocks.each do |block|
+        block.each do |stmt|
+          case stmt
+          when GotoStatement
+            next if stmt.identifiers.length < 2
+            unless stmt.identifiers.length == 2
+              fail "Unexpected goto statement: #{stmt}"
+            end
+
+            if annotation = stmt.previous_sibling
+              fail "Expected :branchcond annotation" unless
+                annotation.has_attribute?(:branchcond)
+            end
+
+            branches.push(stmt)
+          end
+        end
+      end
+      return branches
+    end
+
     # This function automatically computes and inserts leakage-related loop invariants.
     # The invariants are of the form:
     # leakage = leakage_before_entering + loop_counter * (loop_body_cost + control_block_cost)
     def summarize_loops! decl
 
       cfg = cfg_construction
+
+
+      # Identify loop-cost related annotations
+      loop_vars = []
+      if (has_annotation?(decl, INV_VAR_ANNOTATION_NAME)) then
+        decl.body.select{ |s| is_annotation_stmt?(s, INV_VAR_ANNOTATION_NAME)}.each do |s|
+          value = get_annotation_value s
+          loop_vars.push(value)
+        end
+      end
 
       loop_identification.loops.each do |head, blocks|
 
@@ -151,9 +187,25 @@ module Bpl
         control_blocks, exit_block = extract_control_blocks(head, blocks, cfg)
         body_blocks = blocks - control_blocks
 
-        control_cost = control_blocks.inject(0) { |acc, blk| (acc + (cost_of blk)) }
-        body_cost = body_blocks.inject(0) { |acc, blk| (acc + (cost_of blk)) }
+        # Identify non-nested branches, their consequent blocks and their alternative blocks.
+        # TODO: raise error/warning when we encounetr a non-nested branch.
 
+        gotos = extract_branches body_blocks
+
+        branches = {}
+        gotos.each do |goto|
+          consequent = goto.identifiers.first.declaration
+          alternative = goto.identifiers.last.declaration
+          branches[goto] = consequent, alternative
+        end
+
+        straight_line_blocks = body_blocks
+        branches.each_value do |cons, alt|
+          straight_line_blocks -= [cons, alt]
+        end
+
+        control_cost = control_blocks.inject(0) { |acc, blk| (acc + (cost_of blk)) }
+        straight_line_cost = straight_line_blocks.inject(0) { |acc, blk| (acc + (cost_of blk)) }
 
         # Identify the loop_counter variable as the intersection of live variables of the head
         # block and its predecessor.
@@ -161,10 +213,21 @@ module Bpl
         args = decl.declarations.inject([]) { |acc, d| acc << d.idents[0].name }
         counter = ((liveness.live[head] & liveness.live[counter_update_block]) - args).first
 
+        cons_inv = ""
+        branches.values.each_with_index do |(cons, alt), idx|
+          cons_cost = cost_of cons
+          #alt_cost = cost_of alt
+          cons_inv += "$sdiv.i32(#{loop_vars[idx]}+ #{counter} - 1,64)*#{cons_cost}"
+          #puts "(#{continuation} - (old+ #{counter} - 1)/64)*#{alt_cost}"
+        end
 
+        straight_line_inv = "(#{counter}#{' - 1' unless cons_inv.empty?})*(#{straight_line_cost}+#{control_cost})";
+
+        puts cons_inv
+        puts "assert ($l == #{lkg_before_var}+#{straight_line_inv}#{' + ' unless cons_inv.empty?}#{cons_inv});"
         # Compute and insert leakage invariant at the beginning of the head block.
         head.prepend_children(:statements,
-          bpl("assert ($l == #{lkg_before_var}+#{counter}*(#{body_cost}+#{control_cost}));"))
+          bpl("assert ($l == #{lkg_before_var}+#{straight_line_inv}#{' + ' unless cons_inv.empty?}#{cons_inv});"))
 
       end
 
