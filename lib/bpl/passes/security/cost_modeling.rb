@@ -26,6 +26,7 @@ module Bpl
     end
 
     LEAKAGE_ANNOTATION_NAME = "__VERIFIER_ASSUME_LEAKAGE"
+    ADD_LEAK_ANNOTATION_NAME = "__VERIFIER_ADD_LEAKAGE"
     INV_VAR_ANNOTATION_NAME = "__VERIFIER_LOOP_VAR"
 
     def exempt? decl
@@ -56,6 +57,8 @@ module Bpl
     end
 
     def annotate_function_body! decl
+
+        
       if (has_annotation?(decl, LEAKAGE_ANNOTATION_NAME)) then
         decl.body.select{ |s| is_annotation_stmt?(s, LEAKAGE_ANNOTATION_NAME)}.each do |s| 
           value = get_annotation_value s
@@ -68,7 +71,6 @@ module Bpl
         end
       end
     end
-
 
     # Iterates over timing annotations of a block and sums them up.
     def cost_of block
@@ -223,8 +225,7 @@ module Bpl
 
         straight_line_inv = "(#{counter}#{' - 1' unless cons_inv.empty?})*(#{straight_line_cost}+#{control_cost})";
 
-        puts cons_inv
-        puts "assert ($l == #{lkg_before_var}+#{straight_line_inv}#{' + ' unless cons_inv.empty?}#{cons_inv});"
+        #puts "assert ($l == #{lkg_before_var}+#{straight_line_inv}#{' + ' unless cons_inv.empty?}#{cons_inv});"
         # Compute and insert leakage invariant at the beginning of the head block.
         head.prepend_children(:statements,
           bpl("assert ($l == #{lkg_before_var}+#{straight_line_inv}#{' + ' unless cons_inv.empty?}#{cons_inv});"))
@@ -245,6 +246,17 @@ module Bpl
       decl.body.replace_children(:blocks, myblock)
     end
 
+
+    def insert_user_leakage! decl
+      if (has_annotation?(decl, ADD_LEAK_ANNOTATION_NAME)) then
+        decl.body.select{ |s| is_annotation_stmt?(s, ADD_LEAK_ANNOTATION_NAME)}.each do |s| 
+          value = get_annotation_value s
+          s.insert_after(bpl("assume {:smack.InstTimingCost.Int64 #{value}} true;"))
+          s.remove
+        end
+      end
+    end
+    
     def run! program
       # add cost global variable
       program.prepend_children(:declarations, bpl("var $l: int;"))
@@ -262,6 +274,8 @@ module Bpl
         if decl.has_attribute?(:entrypoint)
           decl.body.blocks.first.statements.first.insert_before(bpl("$l := 0;"))
         end
+
+        insert_user_leakage! decl
 
         summarize_loops! decl
 
