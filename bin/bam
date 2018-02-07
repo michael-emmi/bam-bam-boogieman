@@ -1,8 +1,0 @@
-#!/usr/bin/env ruby
-
-begin
-  require 'bam'
-rescue LoadError
-  require 'rubygems'
-  require 'bam'
-end
