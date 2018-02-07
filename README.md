@@ -1,3 +1,6 @@
+[![Gem Version](https://badge.fury.io/rb/bam-bam-boogieman.svg)](http://badge.fury.io/rb/bam-bam-boogieman)
+[![Build Status](https://travis-ci.org/michael-emmi/bam-bam-boogieman.svg?branch=master)](https://travis-ci.org/michael-emmi/bam-bam-boogieman)
+
 # BAM! BAM! Boogieman
 
 BAM! BAM! Boogieman is a Boogie AST Manipulator which implements various code
