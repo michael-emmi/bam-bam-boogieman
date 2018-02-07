@@ -5,14 +5,23 @@ module Bpl
     depends :cfg_construction, :conditional_identification
     switch "--ct-annotation", "Extract constant-time annotations."
 
-    ANNOTATIONS = [
+    VARIABLE_ANNOTATIONS = [
       :public_in,
       :public_out,
-      :declassified_out,
+      :declassified_out
     ]
 
     BLOCK_ANNOTATIONS = [
       :benign,
+    ]
+
+    LOOP_ANNOTATIONS = [
+      :loop_var
+    ]
+
+    FUNCTION_ANNOTATIONS = [
+      :__VERIFIER_ASSERT_MAX_LEAKAGE,
+      :__VERIFIER_TIMING_CONTRACT
     ]
 
     def run! program
@@ -26,7 +35,6 @@ module Bpl
 
         decl.body.each do |stmt|
           next unless stmt.is_a?(CallStatement)
-
           if stmt.procedure.name =~ /__SMACK_value/
             name = stmt.attributes.find{|a| a.key =~ /name/}
             kind = stmt.attributes.find{|a| a.key =~ /array|field/}
@@ -36,8 +44,7 @@ module Bpl
               kind: kind && kind.key,
               access: kind && kind.values
             }
-
-          elsif stmt.procedure.name =~ /#{ANNOTATIONS * "|"}/
+          elsif stmt.procedure.name =~ /#{VARIABLE_ANNOTATIONS * "|"}/
             var = stmt.arguments.first.name
             v = values[var]
             fail "Unknown value: #{var}" unless v
@@ -46,6 +53,15 @@ module Bpl
               bpl("requires {:#{stmt.procedure.name} #{access * ", "}} true;")
             )
             invalidates :resolution
+            stmt.remove
+
+          elsif stmt.procedure.name =~ /#{FUNCTION_ANNOTATIONS * "|"}/
+            var = stmt.arguments.first
+            decl.append_children(:specifications,
+              bpl("requires {:#{stmt.procedure.name} #{var}} true;")
+            )
+            invalidates :resolution
+            stmt.remove
 
           elsif stmt.procedure.name =~ /#{BLOCK_ANNOTATIONS * "|"}/
             head = cfg.predecessors[stmt.parent].first
@@ -57,6 +73,11 @@ module Bpl
               blk.prepend_children(:statements, bpl("assume true;"))
               blk.statements.first.add_attribute(:selfcomp, *block_list)
             end
+            stmt.remove
+
+          elsif stmt.procedure.name =~ /#{LOOP_ANNOTATIONS * "|"}/
+            var = stmt.arguments.first
+            stmt.insert_after((bpl("assume {:loop_var #{var}} true;")))
             stmt.remove
           end
 

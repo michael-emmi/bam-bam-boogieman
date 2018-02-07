@@ -2,30 +2,63 @@ module Bpl
   class Shadowing < Pass
 
     depends :normalization
-    depends :ct_annotation
+    depends :ct_annotation, :cfg_construction
     depends :resolution, :loop_identification
     depends :definition_localization, :liveness
     invalidates :all
-    switch "--shadowing", "Construct the shadow product program."
+
+    option :argslist
+
+    def parse_args(args)
+      rval = Hash.new
+      args.split(",").each do |a|
+        left,right = a.split("=")
+        #symbols are clearer than strings in code
+        rval[left.to_sym] = right.to_sym
+      end
+      return rval
+    end
+
+    switch "--shadowing [arg1=val1,...,argk=valk]", "Construct the shadow product program." do |y, f, s|
+      y.yield :argslist, f
+    end
 
     def shadow(x) "#{x}.shadow" end
     def unshadow(x) "#{x}".sub(/[.]shadow\z/,'') end
     def shadow_eq(x) "#{x} == #{shadow_copy(x)}" end
-    def decl(v)
+
+    def shadow_var_decl(v)
       v.class.new(names: v.names.map(&method(:shadow)), type: v.type)
     end
 
+    # Shadows the procedure identifier of a CallStatement.
+    # Using a String instead of a ProcedureIntefier object (i.e. by simply shadowing the name)
+    # breaks compatibility with any postprocessing of the ast.
+    def shadow_proc_call!(expr, suffix="shadow")
+      #TODO: is there a better way to right this?
+      return if("#{expr.procedure}" == "nondet")
+      procedure_id = ProcedureIdentifier.new(:name => "#{expr.procedure}.#{suffix}")
+      expr.procedure.replace_with(procedure_id)
+    end
+
+    def bpl_assert(x) bpl("assert #{x};") end
     def shadow_copy(node)
       shadow = node.copy
       shadow.each do |expr|
-        next unless expr.is_a?(StorageIdentifier)
-        next if expr.declaration &&
-                ( expr.declaration.is_a?(ConstantDeclaration) ||
-                  expr.declaration.parent.is_a?(QuantifiedExpression) )
-        # expr.replace_with(StorageIdentifier.new(name: shadow(expr)))
-        expr.name = shadow(expr)
+        case expr
+        when StorageIdentifier
+          next if expr.declaration &&
+                  ( expr.declaration.is_a?(ConstantDeclaration) ||
+                    expr.declaration.parent.is_a?(QuantifiedExpression) )
+          expr.name = shadow(expr)
+
+        when CallStatement
+          next if exempt?(expr.procedure.name)
+          next if magic?(expr.procedure.name)
+          shadow_proc_call!(expr)
+        end
       end
-      shadow
+      return shadow
     end
 
     def accesses(stmt)
@@ -95,7 +128,12 @@ module Bpl
       'boogie_si_',
       '__VERIFIER_',
       '__SMACK_(?!static_init)',
-      'llvm.dbg'
+      '__memcpy_chk',
+      'llvm.dbg',
+      'llvm.lifetime',
+      'llvm.objectsize',
+      'llvm.stacksave',
+      'llvm.stackrestore'
     ]
 
     MAGIC_LIST = [
@@ -117,18 +155,47 @@ module Bpl
       MAGICS.match(decl) && true
     end
 
+    #combines both VARIABLE_ANNOTATIONS and BLOCK_ANNOTATIONS from ct_annotation.rb
     ANNOTATIONS = [
       :public_in,
       :public_out,
-      :declassified_out
+      :declassified_out,
+      :__VERIFIER_ASSERT_MAX_LEAKAGE
     ]
+
+    TIMING_ANNOTATIONS = [
+    ]
+
+
 
     def annotated_specifications(proc_decl)
       hash = ANNOTATIONS.map{|ax| [ax,[]]}.to_h
       proc_decl.specifications.each do |s|
-        hash.keys.each {|ax| hash[ax] << s.get_attribute(ax) if s.has_attribute?(ax)}
+       hash.keys.each {|ax| hash[ax] << s.get_attribute(ax) if s.has_attribute?(ax)}
       end
       hash
+    end
+
+    def add_assertion!(node, position, expr, type)
+      assertion =
+        case @args_hash[type]
+        when nil, :assert_never
+          nil
+        when :assert_now
+          assertion = bpl_assert(expr)
+        when :assert_shadow_ok
+          assertion = shadow_assert(expr)
+        else
+          raise "unexpected assertion time"
+        end
+      return unless assertion
+      if position == :before
+        node.insert_before(assertion)
+      elsif position == :after
+        node.insert_after(assertion)
+      else
+        raise "bad direction"
+      end
     end
 
     def shadow_assert(expr)
@@ -140,14 +207,15 @@ module Bpl
     end
 
     def add_shadow_variables!(proc_decl)
-      (proc_decl.parameters + proc_decl.returns).each {|d| d.insert_after(decl(d))}
-      proc_decl.body.locals.each {|d| d.insert_after(decl(d))} if proc_decl.body
+      (proc_decl.parameters + proc_decl.returns).each {
+        |d| d.insert_after(shadow_var_decl(d))}
+      proc_decl.body.locals.each {
+        |d| d.insert_after(shadow_var_decl(d))} if proc_decl.body
     end
 
-    def self_composition_block(block)
+    def self_composition_block!(block)
       return nil unless block.statements.first.has_attribute?(:selfcomp)
       head, tail = block.statements.first.get_attribute(:selfcomp)
-
       shadow_block = shadow_copy(block)
 
       equalities = Set.new
@@ -178,7 +246,7 @@ module Bpl
         next unless stmt.is_a?(AssumeStatement)
         next unless values = stmt.get_attribute(:branchcond)
         expr = bpl(unshadow values.first)
-        stmt.insert_after(shadow_assert(shadow_eq(expr)))
+        add_assertion!(stmt, :after, shadow_eq(expr), :self_comp_branch_assertion)
         equalities.add(expr)
       end
 
@@ -210,7 +278,7 @@ module Bpl
 
           # ensure the indicies to loads and stores are equal
           accesses(stmt).each do |idx|
-            stmt.insert_before(shadow_assert(shadow_eq(idx)))
+            add_assertion!(stmt, :before, shadow_eq(idx), :memory_assertion)
             equalities.add(idx)
           end
 
@@ -222,7 +290,8 @@ module Bpl
             stmt.arguments.each do |x|
               unless x.type.is_a?(MapType)
                 if x.any?{|id| id.is_a?(StorageIdentifier)}
-                  stmt.insert_before(shadow_assert(shadow_eq(x)))
+                  #DSN: This appears to be to ensure that malloc and free are called with the same args?
+                  add_assertion!(stmt, :before, shadow_eq(x), :magic_param_args_assertion)
                   equalities.add(x)
                 end
               end
@@ -234,7 +303,7 @@ module Bpl
               stmt.insert_after(bpl("#{shadow(x)} := #{x};"))
             end
           else
-            stmt.procedure.replace_with(bpl("#{stmt.procedure}.cross_product"))
+            shadow_proc_call!(stmt, "cross_product")
             stmt.arguments.each do |x|
               arguments.add(x)
               x.insert_after(shadow_copy(x))
@@ -244,7 +313,7 @@ module Bpl
             end
           end
 
-        when HavocStatement
+        when HavocStatement          
           nxt = stmt.next_sibling
           if nxt and
              nxt.is_a?(AssumeStatement)
@@ -263,7 +332,7 @@ module Bpl
               annotation.has_attribute?(:branchcond)
 
             if expr = annotation.get_attribute(:branchcond).first
-              stmt.insert_before(shadow_assert(shadow_eq(expr)))
+              add_assertion!(stmt, :before, shadow_eq(expr), :branchcond_assertion)
               equalities.add(expr)
             end
           end
@@ -278,7 +347,7 @@ module Bpl
       equalities = Set.new
 
       annotations = annotated_specifications(proc_decl)
-
+      
       # Restrict to equality on public inputs
       annotations[:public_in].each do |annot|
         loads(annot).each do |e,f|
@@ -290,10 +359,9 @@ module Bpl
       # Restrict to equality on public / declassified outputs
       proc_decl.body.each do |ret|
         next unless ret.is_a?(ReturnStatement)
-
         annotations[:public_out].each do |annot|
           loads(annot).each do |e,f|
-            ret.insert_before(shadow_assert("#{e} == #{f}"))
+            add_assertion(ret, :before, "#{e} == #{f}", :public_out_assertion)
             equalities.add(e)
           end
         end
@@ -305,19 +373,39 @@ module Bpl
         end
       end
 
-      if proc_decl.has_attribute? :entrypoint
+      if proc_decl.has_attribute?(:entrypoint)
+        
+        if proc_decl.has_attribute?(:cost_modeling)
+          #this is ugly, but seems to be how to destructure the annotation here
+          if max_leakage = annotations[:__VERIFIER_ASSERT_MAX_LEAKAGE]&.first&.first
+            
+            proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.each do |r|
+              r.insert_before(bpl("assume $l >= $l.shadow;"))
+              r.insert_before(bpl("$__delta := $l - $l.shadow;"));
+              r.insert_before(bpl("assert $l <= ($l.shadow + #{max_leakage});"))
+            end
+          else
+            
+            proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.each do |r|
+              r.insert_before(bpl("$__delta := $l - $l.shadow;"))
+              r.insert_before(bpl("assert $l == $l.shadow;"))
+            end
+          end
+        else
+        
         proc_decl.body.blocks.first.statements.first.insert_before(
           bpl("$shadow_ok := true;"))
         proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.
           each{|r| r.insert_before(bpl("assert $shadow_ok;"))}
+        end
       end
-
       return equalities
     end
 
     def add_loop_invariants!(proc_decl, arguments, equalities)
-
+      #DSN TODO this might need to be changed for the timing example
       equality_dependencies = dependent_variables(proc_decl, equalities)
+
 
       pointer_argument_dependencies =
         dependent_variables(proc_decl,
@@ -339,37 +427,184 @@ module Bpl
         pointer_argument_dependencies
 
       loop_identification.loops.each do |head,_|
+
         block = proc_decl.body.blocks.find do |b|
           b.name == head.name && proc_decl.name == head.parent.parent.name
         end
 
         next unless block
 
-        value_argument_dependencies.each do |x|
-          next unless liveness.live[head].include?(x)
+        if proc_decl.has_attribute?(:cost_modeling)
           block.prepend_children(:statements,
-            bpl("assert {:unlikely_shadow_invariant #{x} == #{shadow x}} true;"))
-        end
-        pointer_argument_dependencies.each do |x|
-          next unless liveness.live[head].include?(x)
-          block.prepend_children(:statements,
-            bpl("assert {:likely_shadow_invariant} #{x} == #{shadow x};"))
-        end
-        equality_dependencies.each do |x|
-          next unless liveness.live[head].include?(x)
-          block.prepend_children(:statements,
-            bpl("assert {:shadow_invariant} #{x} == #{shadow x};"))
-        end
+             bpl("assert {:cost_invariant} ($l == $l.shadow);"))
 
-        block.prepend_children(:statements,
-          bpl("assert {:shadow_invariant} $shadow_ok;"))
+        else
+
+          value_argument_dependencies.each do |x|
+            next unless liveness.live[head].include?(x)
+            block.prepend_children(:statements,
+              bpl("assert {:unlikely_shadow_invariant #{x} == #{shadow x}} true;"))
+          end
+          pointer_argument_dependencies.each do |x|
+            next unless liveness.live[head].include?(x)
+            block.prepend_children(:statements,
+              bpl("assert {:likely_shadow_invariant} #{x} == #{shadow x};"))
+          end
+          equality_dependencies.each do |x|
+            next unless liveness.live[head].include?(x)
+            block.prepend_children(:statements,
+              bpl("assert {:shadow_invariant} #{x} == #{shadow x};"))
+          end
+
+          block.prepend_children(:statements,
+            bpl("assert {:shadow_invariant} $shadow_ok;"))
+
+        end
       end
     end
 
-    def run! program
+    def shadow_decl(decl)
+      s_decl = decl.copy
+      s_decl.replace_children(:name, shadow(decl.name))
 
+      # shadow global variables
+      s_decl.body.blocks.each do |block|
+        block.each do |expr|
+          if expr.is_a?(Identifier) && expr.is_variable? && expr.is_global?
+            expr.name = shadow(expr)
+          end
+          if expr.is_a?(CallStatement)
+            next if exempt?(expr.procedure.name)
+            shadow_proc_call!(expr)
+          end
+        end
+      end
+      s_decl
+    end
+
+    def create_wrapper_block(original, shadow)
+      args = []
+      asmt = []
+      original.parameters.each {|d| args.push(d.names.flatten).flatten}
+      original.returns.each {|d| asmt.push(d.names.flatten).flatten}
+      args=args.flatten
+      asmt=asmt.flatten
+      shadow_args = args.map(&method(:shadow))
+      shadow_assgts =  asmt.map(&method(:shadow))
+      original_id = ProcedureIdentifier.new({:name =>original.name})
+      shadow_id = ProcedureIdentifier.new({:name => shadow.name})
+
+
+      c1 = CallStatement.new(procedure: original_id,
+                             arguments: args,
+                             assignments: asmt)
+      c2 = CallStatement.new(procedure: shadow_id,
+                             arguments: shadow_args,
+                             assignments: shadow_assgts)
+      r = ReturnStatement.new()
+      Block.new(names: [], statements: [c1,c2,r])
+    end
+
+
+
+    def remove_call!(decl, proc_name)
+      decl.body.each do |stmt|
+        next unless stmt.is_a?(CallStatement)
+        stmt.remove if stmt.procedure.name.eql? proc_name
+      end
+    end
+
+    def full_self_composition(original)
+      if original.body
+
+        shadow = shadow_decl(original)
+        original.insert_after(shadow)
+
+
+
+        if original.has_attribute?(:entrypoint)
+          wrapper = original.copy
+          wrapper.replace_children(:name, "#{original.name}.wrapper")
+
+          original.remove_attribute(:entrypoint)
+          original.add_attribute(:inline, 1)
+          shadow.remove_attribute(:entrypoint)
+          shadow.add_attribute(:inline, 1)
+
+          #wrapper already has :entrypoint attribute from cloning
+
+          # transform entry function to wrapper function that
+          # calls original and shadow entry functions
+          wrapper_block = create_wrapper_block(original, shadow)
+          add_shadow_variables!(wrapper)
+          wrapper.body.replace_children(:locals, [])
+          wrapper.body.replace_children(:blocks, wrapper_block)
+
+          add_assertions!(wrapper)
+          if @args_hash.has_key?(:verify_stub)
+            remove_call!(original, @args_hash[:verify_stub].to_s.concat("_stub"))
+            remove_call!(shadow, @args_hash[:verify_stub].to_s.concat(".shadow"))
+          end
+
+          original.insert_after(wrapper)
+        end
+
+      end
+    end
+
+    def selective_self_composition(decl)
+      # We need to create three copies of each function, to be called depending on
+      # the conext:
+      # 1. the cross_product copy, called from the cross-product context,
+      # 2. the original copy, called from the selective-self-composition context
+      # 3. the shadow copy, called from the selective-self-composition context.
+
+
+
+      # decl is the original - should not be touched by this function
+      product_decl = decl.copy
+      add_shadow_variables!(product_decl)
+
+      if product_decl.body
+        equalities = Set.new
+        arguments = Set.new
+
+        product_decl.body.blocks.each do |block|
+
+          if ins = self_composition_block!(block)
+            # It is crutial that this be inserted after, because otherwise the entry block might become
+            # accidentally set to the shadow, which would be bad.
+            block.insert_after(ins[:block])
+            equalities.merge(ins[:eqs])
+
+          else
+            eqs, args = cross_product_block!(block)
+            equalities.merge(eqs)
+            arguments.merge(args)
+          end
+        end
+
+        equalities.merge( add_assertions!(product_decl) )
+        add_loop_invariants!(product_decl, arguments, equalities)
+      end
+
+      product_decl.replace_children(:name, "#{decl.name}.cross_product")
+
+      if decl.has_attribute?(:entrypoint)
+        decl.replace_with(product_decl)
+      else
+        decl.insert_after(product_decl)
+        #shadow is for the shadow calls
+        decl.insert_after(shadow_decl(decl)) if decl.body
+      end
+
+    end
+
+
+    def run! program
+      @args_hash = parse_args(argslist)
       # duplicate global variables
-      program.global_variables.each {|v| v.insert_after(decl(v))}
+      program.global_variables.each {|v| v.insert_after(shadow_var_decl(v))}
       program.prepend_children(:declarations, bpl("var $shadow_ok: bool;"))
 
       # duplicate parameters, returns, and local variables
@@ -377,43 +612,14 @@ module Bpl
         next unless decl.is_a?(ProcedureDeclaration)
         next if exempt?(decl.name)
 
-        product_decl = decl.copy
-        add_shadow_variables!(product_decl)
-
-        if product_decl.body
-          equalities = Set.new
-          arguments = Set.new
-          block_insertions = {}
-
-          product_decl.body.blocks.each do |block|
-
-            block.insert_before *(block_insertions[block.name] || [])
-
-            if ins = self_composition_block(block)
-              block_insertions[ins[:before]] ||= []
-              block_insertions[ins[:before]] << ins[:block]
-              equalities.merge(ins[:eqs])
-
-            else
-              eqs, args = cross_product_block!(block)
-              equalities.merge(eqs)
-              arguments.merge(args)
-            end
-          end
-
-          equalities.merge( add_assertions!(product_decl) )
-          add_loop_invariants!(product_decl, arguments, equalities)
-        end
-
-        product_decl.replace_children(:name, "#{decl.name}.cross_product")
-
-        if decl.has_attribute?(:entrypoint)
-          decl.replace_with(product_decl)
+        if @args_hash[:self_comp_mode] == :full
+          full_self_composition(decl)
+        elsif @args_hash[:self_comp_mode] == :selective
+          selective_self_composition(decl)
         else
-          decl.insert_after(product_decl)
+          raise "unknown self comp mode #{@args_hash[:self_comp_mode]}"
         end
       end
-
     end
   end
 end
