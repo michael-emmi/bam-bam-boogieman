@@ -1,5 +1,13 @@
 sudo: false
 language: ruby
 rvm:
-  - 2.3.1
+- 2.3.1
 before_install: gem install bundler -v 1.13.6
+deploy:
+  provider: rubygems
+  api_key:
+    secure: Zn7H/v+fKBLkEirxxLiWv5d6WmtpUl3BAzSzxf3l6W6nUxtF+sa5xaN6nizc7rJh77qy/7QJYCFHNfnBohaH9KPy0s54/uReX12pCT4jyYkmwLxndXPh3u/ElChDpOLGL0vkUwQxxwxPjwvQmxH2PFhuDV37G6Jr7foDHcuIZMrDQOsvG2xXSZnk2gvFSxW6QfgSHzDMghIIBUztI2CPJF6/h6U4eqj62EtUTW2nTN/0N03nm7UockYf0DRf30W8az9D6dNhGw6BXT73C/iTPHqXVRTCTbHnHx/VahMI+mqOp9eM7TzlacYbkjXwe3QjQcwgBmRZyhVPB1rTtI7/7AzU0MuuHJ6hmO/iQQVMGasxKg1frWmdeeltryoNFKZYFaja1F1EoRbZotd/lEK1UoHujfs0rETFyTr+FhHpqIEzkpe0N6DnLo5v5yjaLK9/+H/x8r670+DVxA70uk4B66TIlKX2yEUTyYY6mMw1TYmfQyDRNQpTiln6jY52HrWSxzHA+sNczUGOO3c3lnCH9OU2gCaYyquJWUyWp9ZIkcXb9TRH97vAlUybRGkmM7lREZETS1O/mMwQqkD98p8uo8GRmhIanSEy8QKZJTKd1t3aupl2CR8+TaATHcgbwjLuZ8wnL2mv2NWW01gOftMYSlEklRFNyZoT0mTJHbTaq3Q=
+  gem: bam-bam-boogieman
+  on:
+    tags: true
+    repo: michael-emmi/bam-bam-boogieman
