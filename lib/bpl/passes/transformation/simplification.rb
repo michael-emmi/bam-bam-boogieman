@@ -128,6 +128,7 @@ module Bpl
         pred = cfg.predecessors[elem].first
         pred.statements.last.replace_with(elem.statements.last) if pred
         elem.remove
+        invalidates :resolution
         invalidates :cfg_construction
         redo!
 
