@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    bam-bam-boogieman (1.0.5)
+    bam-bam-boogieman (1.0.6)
       colorize
 
 GEM
