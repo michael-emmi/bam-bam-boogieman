@@ -1,5 +1,9 @@
 module Bpl
   class Shadowing < Pass
+    DEFAULT_ASSERT = :assert_shadow_ok
+    DEFAULT_MODE = :selective
+    DEFAULT_ASSERT_POINTS = [:branchcond_assertion, :memory_assertion, :public_out_assertion]
+    DEFAULT_ARGS = "self_comp_mode=#{DEFAULT_MODE},#{DEFAULT_ASSERT_POINTS.map{|p| "#{p}=#{DEFAULT_ASSERT}"} * ","}"
 
     depends :normalization
     depends :ct_annotation, :cfg_construction
@@ -20,7 +24,7 @@ module Bpl
     end
 
     switch "--shadowing [arg1=val1,...,argk=valk]", "Construct the shadow product program." do |y, f, s|
-      y.yield :argslist, f
+      y.yield :argslist, f || DEFAULT_ARGS
     end
 
     def shadow(x) "#{x}.shadow" end
@@ -313,7 +317,7 @@ module Bpl
             end
           end
 
-        when HavocStatement          
+        when HavocStatement
           nxt = stmt.next_sibling
           if nxt and
              nxt.is_a?(AssumeStatement)
@@ -347,7 +351,7 @@ module Bpl
       equalities = Set.new
 
       annotations = annotated_specifications(proc_decl)
-      
+
       # Restrict to equality on public inputs
       annotations[:public_in].each do |annot|
         loads(annot).each do |e,f|
@@ -374,25 +378,25 @@ module Bpl
       end
 
       if proc_decl.has_attribute?(:entrypoint)
-        
+
         if proc_decl.has_attribute?(:cost_modeling)
           #this is ugly, but seems to be how to destructure the annotation here
           if max_leakage = annotations[:__VERIFIER_ASSERT_MAX_LEAKAGE]&.first&.first
-            
+
             proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.each do |r|
               r.insert_before(bpl("assume $l >= $l.shadow;"))
               r.insert_before(bpl("$__delta := $l - $l.shadow;"));
               r.insert_before(bpl("assert $l <= ($l.shadow + #{max_leakage});"))
             end
           else
-            
+
             proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.each do |r|
               r.insert_before(bpl("$__delta := $l - $l.shadow;"))
               r.insert_before(bpl("assert $l == $l.shadow;"))
             end
           end
         else
-        
+
         proc_decl.body.blocks.first.statements.first.insert_before(
           bpl("$shadow_ok := true;"))
         proc_decl.body.select{|r| r.is_a?(ReturnStatement)}.
