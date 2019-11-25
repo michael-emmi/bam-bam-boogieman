@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    bam-bam-boogieman (1.0.7)
+    bam-bam-boogieman (1.0.9)
       colorize
 
 GEM
@@ -29,9 +29,12 @@ PLATFORMS
 
 DEPENDENCIES
   bam-bam-boogieman!
-  bundler (~> 1.16)
+  bundler (~> 2.0)
   rake (~> 10.0)
   rspec (~> 3.0)
 
+RUBY VERSION
+   ruby 2.3.7p456
+
 BUNDLED WITH
-   1.16.1
+   2.0.2
