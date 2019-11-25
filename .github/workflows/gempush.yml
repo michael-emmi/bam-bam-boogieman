@@ -19,20 +19,6 @@ jobs:
       uses: actions/setup-ruby@v1
       with:
         version: 2.6.x
-    
-    - name: Bump version number
-      run: |
-        gem install bundler
-        gem install bump
-        git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git checkout master
-        bump patch --tag
-        git push
-        git push --tags
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Publish to RubyGems
       run: |
