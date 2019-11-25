@@ -19,6 +19,16 @@ jobs:
       uses: actions/setup-ruby@v1
       with:
         version: 2.6.x
+    
+    - name: Bump version number
+      run: |
+        gem install bundler
+        gem install bump
+        bump patch --tag
+        git push
+        git push --tags
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Publish to RubyGems
       run: |
