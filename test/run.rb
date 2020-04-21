@@ -5,6 +5,10 @@ require 'colorize'
 require 'tempfile'
 require 'open3'
 
+def bam_exe
+  File.join(__dir__, "..", "exe", "bam")
+end
+
 def get_arguments
   args = {}
   OptionParser.new do |opts|
@@ -48,13 +52,13 @@ begin
       flags = File.read(command_flags).split if File.exist?(command_flags)
 
       print "#{source} "
-      stdin, out, err, thd = Open3.popen3("bam", source, *flags, "-o", actual_result)
+      stdin, out, err, thd = Open3.popen3(bam_exe, source, *flags, "-o", actual_result)
       stdin.close
 
       if thd.value != 0
         puts "PROBLEM:", out.read, err.read
       end
-      diff = `diff -w -B #{expected_result} #{actual_result}`
+      diff = `diff -w -B #{actual_result} #{expected_result}`
       if diff.empty?
         puts "OK".green
       else

@@ -3,4 +3,8 @@ require "rspec/core/rake_task"
 
 RSpec::Core::RakeTask.new(:spec)
 
-task :default => :spec
+task :test do
+    ruby "./test/run.rb"
+end
+
+task :default => [:spec, :test]
