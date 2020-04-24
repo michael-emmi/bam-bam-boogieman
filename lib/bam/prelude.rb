@@ -125,6 +125,10 @@ module Kernel
     BoogieLanguage.new.parse_expr(str)
   end
 
+  def bpl_program(str)
+    BoogieLanguage.new.parse(str)
+  end
+
   def bpl_type(str)
     BoogieLanguage.new.parse_type(str)
   end
