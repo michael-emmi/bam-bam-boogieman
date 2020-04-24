@@ -1,3 +1,5 @@
+require 'bpl/pass'
+
 module Bpl
   class AtomicAnnotation < Pass
 
