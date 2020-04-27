@@ -1,3 +1,4 @@
+# typed: false
 class String
   def to_range
     case self

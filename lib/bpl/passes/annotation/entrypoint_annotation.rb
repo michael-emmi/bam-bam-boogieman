@@ -1,3 +1,4 @@
+# typed: true
 module Bpl
   class EntrypointAnnotation < Pass
 

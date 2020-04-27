@@ -1,3 +1,4 @@
+# typed: false
 require 'bpl/parser.tab'
 
 describe Bpl do

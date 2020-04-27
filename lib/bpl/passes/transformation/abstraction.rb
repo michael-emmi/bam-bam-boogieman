@@ -1,3 +1,4 @@
+# typed: false
 module Bpl
   module AST
     class Node

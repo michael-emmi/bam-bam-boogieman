@@ -1,3 +1,4 @@
+# typed: true
 module Bpl
   module AST
     module Binding

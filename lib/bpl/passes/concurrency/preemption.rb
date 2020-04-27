@@ -1,3 +1,4 @@
+# typed: false
 module Bpl
   class Preemption < Pass
     DEFAULT_PREEMPTION_ANNOTATION = :yield

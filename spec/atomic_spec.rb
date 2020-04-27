@@ -1,3 +1,4 @@
+# typed: false
 require 'bpl/parser.tab'
 require 'bpl/passes/concurrency/atomic_annotation'
 

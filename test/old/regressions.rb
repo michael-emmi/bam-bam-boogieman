@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# typed: false
 
 require 'optparse'
 require_relative '../lib/bam/version'

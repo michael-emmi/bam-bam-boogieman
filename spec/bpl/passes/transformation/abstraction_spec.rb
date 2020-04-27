@@ -1,3 +1,4 @@
+# typed: false
 require "bpl/passes/transformation/abstraction.rb"
 
 module Bpl

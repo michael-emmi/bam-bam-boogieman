@@ -1,3 +1,4 @@
+# typed: true
 require_relative 'model_parser.tab'
 
 module Z3

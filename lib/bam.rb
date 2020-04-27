@@ -1,3 +1,4 @@
+# typed: false
 require "bam-bam-boogieman/version"
 
 require 'set'

@@ -1,3 +1,4 @@
+# typed: false
 module Bpl
   class ModifiesCorrection < Pass
 

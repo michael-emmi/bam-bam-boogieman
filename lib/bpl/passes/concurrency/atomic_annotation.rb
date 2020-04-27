@@ -1,3 +1,4 @@
+# typed: true
 require 'bpl/pass'
 
 module Bpl

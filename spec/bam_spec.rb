@@ -1,3 +1,4 @@
+# typed: false
 require "bam"
 
 describe BAM do

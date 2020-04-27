@@ -1,3 +1,4 @@
+# typed: true
 module BAM
 
   def self.process_source_file(src)

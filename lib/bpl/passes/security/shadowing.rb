@@ -1,3 +1,4 @@
+# typed: false
 module Bpl
   class Shadowing < Pass
     DEFAULT_ASSERT = :assert_shadow_ok

@@ -1,3 +1,4 @@
+# typed: false
 require_relative 'node'
 require_relative 'type'
 
