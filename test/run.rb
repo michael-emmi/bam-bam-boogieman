@@ -38,6 +38,7 @@ end
 
 begin
   args = get_arguments
+  counts = { :success => 0, :failure => 0 }
 
   puts "bam REGRESSION TESTS".bold unless args[:quiet]
 
@@ -60,19 +61,26 @@ begin
         puts "PROBLEM:", out.read, err.read
       end
       diff = `diff -w -B #{actual_result} #{expected_result}`
-      if diff.empty?
+
+      if $? == 0 && diff.empty?
         puts "OK".green
+        counts[:success] += 1
       else
         puts "FAIL".red
         puts diff unless args[:quiet]
+        counts[:failure] += 1
       end
       out.close
       err.close
     end
   end
 
+  puts "#{counts[:success]} tests succeeded, #{counts[:failure]} tests failed."
+  exit(counts[:failure] == 0)
+
 rescue Interrupt
   puts "tests interrupted"
+  exit(false)
 
 ensure
 

@@ -1,8 +1,9 @@
-# typed: false
+# typed: true
 require "bam-bam-boogieman/version"
 
 require 'set'
 require 'optparse'
+require 'sorbet-runtime'
 require_relative 'bam/prelude'
 require_relative 'bam/frontend'
 require_relative 'bpl/parser.tab'
@@ -54,7 +55,7 @@ module BAM
         end
 
         opts.on("--version", "Show version") do
-          puts "#{File.basename $0} version #{BAM::VERSION || "??"}"
+          puts "#{File.basename $0} version #{BAM::VERSION}"
           exit
         end
 
@@ -138,8 +139,9 @@ module BAM
       cache = Hash.new
       programs = []
 
-      if !STDIN.tty? && code = !STDIN.read.empty?
-        programs.push(BoogieLanguage.new.parse(code))
+      if !STDIN.tty?
+        code = T.must(STDIN.read)
+        programs.push(BoogieLanguage.new.parse(code)) unless code.empty?
       end
 
       until @stages.empty? do
