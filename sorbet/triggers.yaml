@@ -1,0 +1,9 @@
+# triggers.yaml
+
+ruby_extra_args:
+  # These options are forwarded to Ruby
+  - '--disable-gems' # This option speeds up Ruby boot time. Use it if you don't need gems
+triggers:
+  children: sorbet/plugins/children.rb
+  depends: sorbet/plugins/depends.rb
+  option: sorbet/plugins/option.rb
