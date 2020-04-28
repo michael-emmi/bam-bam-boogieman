@@ -59,9 +59,9 @@ module Bpl
 
     def annotate_function_body! decl
 
-        
+
       if (has_annotation?(decl, LEAKAGE_ANNOTATION_NAME)) then
-        decl.body.select{ |s| is_annotation_stmt?(s, LEAKAGE_ANNOTATION_NAME)}.each do |s| 
+        decl.body.select{ |s| is_annotation_stmt?(s, LEAKAGE_ANNOTATION_NAME)}.each do |s|
           value = get_annotation_value s
           s.insert_after(bpl("$l := $add.i32($l, #{value});"))
         end
@@ -179,7 +179,7 @@ module Bpl
         next unless loop_is_in_decl
 
         # Create leakage_before_entering variable and insert right before the loop head.
-        lkg_before_var = decl.body.fresh_var("$loop_l","i32")
+        lkg_before_var = decl.body.fresh_var("i32", prefix: "$loop_l")
         lkg_before_asn = AssignStatement.new lhs: lkg_before_var, rhs: bpl("$l")
 
         entry = cfg.predecessors[head].detect{ |b| !blocks.include?(b) }
@@ -250,14 +250,14 @@ module Bpl
 
     def insert_user_leakage! decl
       if (has_annotation?(decl, ADD_LEAK_ANNOTATION_NAME)) then
-        decl.body.select{ |s| is_annotation_stmt?(s, ADD_LEAK_ANNOTATION_NAME)}.each do |s| 
+        decl.body.select{ |s| is_annotation_stmt?(s, ADD_LEAK_ANNOTATION_NAME)}.each do |s|
           value = get_annotation_value s
           s.insert_after(bpl("assume {:smack.InstTimingCost.Int64 #{value}} true;"))
           s.remove
         end
       end
     end
-    
+
     def run! program
       # add cost global variable
       program.prepend_children(:declarations, bpl("var $l: int;"))

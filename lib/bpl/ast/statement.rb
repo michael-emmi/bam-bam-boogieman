@@ -142,7 +142,7 @@ module Bpl
         Printing.braces((locals + blocks).map{|b| yield b} * "\n")
       end
 
-      def fresh_var(prefix,type,taken=[])
+      def fresh_var(type, prefix, taken: [])
         taken += @locals.map{|d| d.names}.flatten
         name = fresh_from(prefix || "$var", taken)
         append_children(:locals, bpl("var #{name}: #{type};"))

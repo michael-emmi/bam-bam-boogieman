@@ -17,7 +17,7 @@ module Bpl
         each_child.select{|d| d.is_a?(VariableDeclaration)}
       end
 
-      def fresh_var(prefix,type)
+      def fresh_var(type, prefix: prefix)
         taken = global_variables.map{|d| d.names}.flatten
         name = prefix unless taken.include?(prefix)
         name ||= (0..Float::INFINITY).each do |i|
