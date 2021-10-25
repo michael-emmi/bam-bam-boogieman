@@ -131,6 +131,7 @@ module Bpl
       '\$alloc',
       '\$free',
       'boogie_si_',
+      'corral_atomic_',
       '__VERIFIER_',
       '__SMACK_(?!static_init)',
       '__memcpy_chk',
