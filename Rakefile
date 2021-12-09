@@ -11,4 +11,4 @@ task :test do
     ruby "./test/run.rb"
 end
 
-task :default => [:typecheck, :spec, :test]
+task :default => [:spec, :test]
