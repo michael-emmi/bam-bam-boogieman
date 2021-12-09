@@ -1,4 +1,2 @@
 --dir
 .
---dsl-plugins
-sorbet/triggers.yaml
