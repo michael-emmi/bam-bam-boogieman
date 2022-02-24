@@ -161,6 +161,14 @@ module Bpl
       MAGICS.match(decl) && true
     end
 
+    def insertvalue? stmt
+      expr = stmt.expression
+      return expr.is_a?(BinaryExpression) &&
+              expr.lhs.is_a?(FunctionApplication) &&
+                /\$extractvalue/.match(expr.lhs.function.declaration.name)
+    end
+
+
     #combines both VARIABLE_ANNOTATIONS and BLOCK_ANNOTATIONS from ct_annotation.rb
     ANNOTATIONS = [
       :public_in,
@@ -277,6 +285,10 @@ module Bpl
           # XXX this is an ugly hack to deal with memory intrinsic
           # XXX functions which are implemented with assume statemnts
           if magic?(proc_decl.name)
+            stmt.insert_after(shadow_copy(stmt))
+          end
+
+          if insertvalue?(stmt)
             stmt.insert_after(shadow_copy(stmt))
           end
 
